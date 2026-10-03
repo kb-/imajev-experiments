@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "samples": [
+    {
+      "id": "example-neat-x",
+      "participant": "example-person",
+      "split": "pilot",
+      "label": "neat X",
+      "valid_x": true,
+      "cell": "A1",
+      "strokes": [
+        {"points": [[0.06, 0.06], [0.25, 0.25]]},
+        {"points": [[0.25, 0.06], [0.06, 0.25]]}
+      ]
+    },
+    {
+      "id": "example-blank",
+      "participant": "example-person",
+      "split": "heldout",
+      "label": "blank",
+      "valid_x": false,
+      "cell": null,
+      "strokes": []
+    }
+  ]
+}

@@ -218,3 +218,11 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Local game recordings and inference assets
+sessions/
+.inference/
+inference/.venv/
+
+# Local pointer diagnostics
+logs/

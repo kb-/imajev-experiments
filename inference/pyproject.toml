@@ -1,0 +1,8 @@
+[project]
+name = "imajev-local-service"
+version = "0.1.0"
+requires-python = ">=3.11,<3.15"
+dependencies = ["imajev[serve,torch]"]
+
+[tool.uv.sources]
+imajev = { git = "https://github.com/mohit67890/imajev", rev = "ccf586d43d2a580319b6535c893668904d909eb9" }

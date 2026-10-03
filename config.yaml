@@ -1,0 +1,18 @@
+game:
+  default: tic_tac_toe
+  human_symbol: X
+imajev:
+  endpoint: http://127.0.0.1:8765/v1/systemone
+  expected_model: imajev-2b
+  request_timeout_seconds: 30
+  startup_timeout_seconds: 180
+opponent:
+  tactical_guard: true
+recognition:
+  min_effective_probability: 0.85
+canvas:
+  observation_size_pixels: 768
+diagnostics:
+  enabled: false
+  save_sessions: false
+  directory: sessions

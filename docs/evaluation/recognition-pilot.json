@@ -1,0 +1,836 @@
+{
+  "version": 1,
+  "date": "2026-10-03",
+  "model": "imajev-2b",
+  "prompt_version": "tic-tac-toe-v2",
+  "threshold": 0.85,
+  "sample_type": "Synthetic pilot; B2 cross reconstructed from the supplied screenshot, translated to other cells and accompanied by synthetic invalid cases. Not the original captured stroke data or a held-out human corpus.",
+  "request": {
+    "state": {
+      "image_content": "Hand-drawn symbol in a labelled tic-tac-toe grid.",
+      "coordinates": "Columns A, B, C from left to right; rows 1, 2, 3 from top to bottom."
+    },
+    "questions": {
+      "symbol": {
+        "type": "choice",
+        "instructions": "Identify the handwritten mark only, ignoring grid and printed labels.",
+        "criteria": {
+          "X": "A handwritten letter X (two crossing diagonal strokes).",
+          "O": "A handwritten letter O (a closed loop).",
+          "invalid": "Blank, scribble or multiple marks."
+        }
+      },
+      "cell": {
+        "type": "choice",
+        "instructions": "Which cell contains the handwritten mark? Use invalid for blank ink, multiple marks, or a mark spanning cells.",
+        "criteria": {
+          "A1": "Top left cell: column A, row 1",
+          "B1": "Top centre cell: column B, row 1",
+          "C1": "Top right cell: column C, row 1",
+          "A2": "Middle left cell: column A, row 2",
+          "B2": "Middle centre cell: column B, row 2",
+          "C2": "Middle right cell: column C, row 2",
+          "A3": "Bottom left cell: column A, row 3",
+          "B3": "Bottom centre cell: column B, row 3",
+          "C3": "Bottom right cell: column C, row 3",
+          "invalid": "Blank image, mark crosses grid boundaries, or more than one mark"
+        }
+      }
+    }
+  },
+  "baseline_answers": {
+    "symbol": {
+      "type": "choice",
+      "choice": "X",
+      "probabilities": {
+        "X": 0.5848950701075551,
+        "O": 0.02638808637889446,
+        "invalid": 0.38871684351355035
+      },
+      "confidence": 0.364599442444455,
+      "unknown_probability": 0.0337708028263316,
+      "abstained": false,
+      "calibration_version": "imajev-2b-1.0"
+    },
+    "cell": {
+      "type": "choice",
+      "choice": "B2",
+      "probabilities": {
+        "A1": 0.00438989435290379,
+        "B1": 0.009103398296224922,
+        "C1": 0.0048081705753814895,
+        "A2": 0.006904428266760661,
+        "B2": 0.9028500345995312,
+        "C2": 0.006338975563347412,
+        "A3": 0.005953654472399974,
+        "B3": 0.007184998872654647,
+        "C3": 0.005279028975966663,
+        "invalid": 0.047187416024829294
+      },
+      "confidence": 0.8810579477934827,
+      "unknown_probability": 0.012328431411644554,
+      "abstained": false,
+      "calibration_version": "imajev-2b-1.0"
+    }
+  },
+  "results": [
+    {
+      "label": "X-A1",
+      "expected": "place_A1",
+      "accepted": "place_A1",
+      "passed": true,
+      "rejection": null,
+      "answers": {
+        "symbol": {
+          "type": "choice",
+          "choice": "X",
+          "probabilities": {
+            "X": 0.9795603431341049,
+            "O": 0.005775147235947384,
+            "invalid": 0.014664509629947782
+          },
+          "confidence": 0.9600589627784156,
+          "unknown_probability": 0.009575120179107744,
+          "abstained": false,
+          "calibration_version": "imajev-2b-1.0"
+        },
+        "cell": {
+          "type": "choice",
+          "choice": "A1",
+          "probabilities": {
+            "A1": 0.9383137457953968,
+            "B1": 0.010050522812112652,
+            "C1": 0.006241675484665462,
+            "A2": 0.005913496527022603,
+            "B2": 0.004738100959334498,
+            "C2": 0.0036379404623910743,
+            "A3": 0.005149808009850947,
+            "B3": 0.004237532430629575,
+            "C3": 0.004136151404989455,
+            "invalid": 0.017581026113606815
+          },
+          "confidence": 0.9206993532320307,
+          "unknown_probability": 0.011552152085232307,
+          "abstained": false,
+          "calibration_version": "imajev-2b-1.0"
+        }
+      }
+    },
+    {
+      "label": "X-B1",
+      "expected": "place_B1",
+      "accepted": "place_B1",
+      "passed": true,
+      "rejection": null,
+      "answers": {
+        "symbol": {
+          "type": "choice",
+          "choice": "X",
+          "probabilities": {
+            "X": 0.9632552254458849,
+            "O": 0.008325436747355721,
+            "invalid": 0.02841933780675937
+          },
+          "confidence": 0.932304322876429,
+          "unknown_probability": 0.013312248655902692,
+          "abstained": false,
+          "calibration_version": "imajev-2b-1.0"
+        },
+        "cell": {
+          "type": "choice",
+          "choice": "B1",
+          "probabilities": {
+            "A1": 0.003503681516410854,
+            "B1": 0.9427569366281264,
+            "C1": 0.006695996534928247,
+            "A2": 0.0035952568964826995,
+            "B2": 0.0065439883464723705,
+            "C2": 0.0031578809589113375,
+            "A3": 0.003693610713327726,
+            "B3": 0.005063658165669424,
+            "C3": 0.0031966971183190994,
+            "invalid": 0.021792293121351797
+          },
+          "confidence": 0.9252068200576445,
+          "unknown_probability": 0.011949825790268492,
+          "abstained": false,
+          "calibration_version": "imajev-2b-1.0"
+        }
+      }
+    },
+    {
+      "label": "X-C1",
+      "expected": "place_C1",
+      "accepted": "place_C1",
+      "passed": true,
+      "rejection": null,
+      "answers": {
+        "symbol": {
+          "type": "choice",
+          "choice": "X",
+          "probabilities": {
+            "X": 0.9812204833871349,
+            "O": 0.004931706484714839,
+            "invalid": 0.01384781012815022
+          },
+          "confidence": 0.9644478164034861,
+          "unknown_probability": 0.007596908069152824,
+          "abstained": false,
+          "calibration_version": "imajev-2b-1.0"
+        },
+        "cell": {
+          "type": "choice",
+          "choice": "C1",
+          "probabilities": {
+            "A1": 0.00226981371882961,
+            "B1": 0.002168551746499772,
+            "C1": 0.974189034672354,
+            "A2": 0.0015982724207316498,
+            "B2": 0.001938500522193605,
+            "C2": 0.0022900956751067195,
+            "A3": 0.0017940659272467998,
+            "B3": 0.0018309177360691777,
+            "C3": 0.0023990746071483092,
+            "invalid": 0.009521672973820366
+          },
+          "confidence": 0.9664959220783101,
+          "unknown_probability": 0.004967695349213039,
+          "abstained": false,
+          "calibration_version": "imajev-2b-1.0"
+        }
+      }
+    },
+    {
+      "label": "X-A2",
+      "expected": "place_A2",
+      "accepted": "place_A2",
+      "passed": true,
+      "rejection": null,
+      "answers": {
+        "symbol": {
+          "type": "choice",
+          "choice": "X",
+          "probabilities": {
+            "X": 0.9764592767419702,
+            "O": 0.005815022570923679,
+            "invalid": 0.01772570068710611
+          },
+          "confidence": 0.9565692103886761,
+          "unknown_probability": 0.008416915128882298,
+          "abstained": false,
+          "calibration_version": "imajev-2b-1.0"
+        },
+        "cell": {
+          "type": "choice",
+          "choice": "A2",
+          "probabilities": {
+            "A1": 0.004502762899903059,
+            "B1": 0.004221783919504125,
+            "C1": 0.0031351502173505123,
+            "A2": 0.9492375641256621,
+            "B2": 0.007723987775628104,
+            "C2": 0.0043031181428889575,
+            "A3": 0.005447493833213433,
+            "B3": 0.0035444442584492207,
+            "C3": 0.0034500934436581155,
+            "invalid": 0.014433601383742419
+          },
+          "confidence": 0.9338893670950874,
+          "unknown_probability": 0.010288209223385898,
+          "abstained": false,
+          "calibration_version": "imajev-2b-1.0"
+        }
+      }
+    },
+    {
+      "label": "X-B2",
+      "expected": "place_B2",
+      "accepted": "place_B2",
+      "passed": true,
+      "rejection": null,
+      "answers": {
+        "symbol": {
+          "type": "choice",
+          "choice": "X",
+          "probabilities": {
+            "X": 0.9723990329555124,
+            "O": 0.006610959279337264,
+            "invalid": 0.02099000776515036
+          },
+          "confidence": 0.9480629772610955,
+          "unknown_probability": 0.010990598909629019,
+          "abstained": false,
+          "calibration_version": "imajev-2b-1.0"
+        },
+        "cell": {
+          "type": "choice",
+          "choice": "B2",
+          "probabilities": {
+            "A1": 0.0019706292353577435,
+            "B1": 0.003944802143877645,
+            "C1": 0.0022059131406335967,
+            "A2": 0.004073922712205173,
+            "B2": 0.965812797987704,
+            "C2": 0.0036281959192626047,
+            "A3": 0.0026529762554359944,
+            "B3": 0.00354449892072919,
+            "C3": 0.0023474245820152917,
+            "invalid": 0.009818839102778754
+          },
+          "confidence": 0.9563213013595985,
+          "unknown_probability": 0.005917707356571221,
+          "abstained": false,
+          "calibration_version": "imajev-2b-1.0"
+        }
+      }
+    },
+    {
+      "label": "X-C2",
+      "expected": "place_C2",
+      "accepted": "place_C2",
+      "passed": true,
+      "rejection": null,
+      "answers": {
+        "symbol": {
+          "type": "choice",
+          "choice": "X",
+          "probabilities": {
+            "X": 0.9616647256627123,
+            "O": 0.008353174229038357,
+            "invalid": 0.029982100108249206
+          },
+          "confidence": 0.9289348602850772,
+          "unknown_probability": 0.01438967650357523,
+          "abstained": false,
+          "calibration_version": "imajev-2b-1.0"
+        },
+        "cell": {
+          "type": "choice",
+          "choice": "C2",
+          "probabilities": {
+            "A1": 0.0015585326484177766,
+            "B1": 0.001957707882940988,
+            "C1": 0.0024691058238523853,
+            "A2": 0.0029269004842876417,
+            "B2": 0.0035739848014835177,
+            "C2": 0.9724800387887911,
+            "A3": 0.0021136465719118467,
+            "B3": 0.002170689180078172,
+            "C3": 0.003452081532371497,
+            "invalid": 0.007297312285865138
+          },
+          "confidence": 0.9648359717600393,
+          "unknown_probability": 0.004730955461727038,
+          "abstained": false,
+          "calibration_version": "imajev-2b-1.0"
+        }
+      }
+    },
+    {
+      "label": "X-A3",
+      "expected": "place_A3",
+      "accepted": "place_A3",
+      "passed": true,
+      "rejection": null,
+      "answers": {
+        "symbol": {
+          "type": "choice",
+          "choice": "X",
+          "probabilities": {
+            "X": 0.9770160251080834,
+            "O": 0.006135436489895705,
+            "invalid": 0.01684853840202091
+          },
+          "confidence": 0.9547405093969126,
+          "unknown_probability": 0.011168575658999877,
+          "abstained": false,
+          "calibration_version": "imajev-2b-1.0"
+        },
+        "cell": {
+          "type": "choice",
+          "choice": "A3",
+          "probabilities": {
+            "A1": 0.003424464866672263,
+            "B1": 0.003289210689370727,
+            "C1": 0.0031336260677603082,
+            "A2": 0.0044635679928019326,
+            "B2": 0.004211936991499062,
+            "C2": 0.0030823404331358976,
+            "A3": 0.9563195374073025,
+            "B3": 0.004990198134107898,
+            "C3": 0.004302170931118593,
+            "invalid": 0.01278294648623081
+          },
+          "confidence": 0.944189570539693,
+          "unknown_probability": 0.007647757216199013,
+          "abstained": false,
+          "calibration_version": "imajev-2b-1.0"
+        }
+      }
+    },
+    {
+      "label": "X-B3",
+      "expected": "place_B3",
+      "accepted": "place_B3",
+      "passed": true,
+      "rejection": null,
+      "answers": {
+        "symbol": {
+          "type": "choice",
+          "choice": "X",
+          "probabilities": {
+            "X": 0.9670164991325185,
+            "O": 0.007654180294200595,
+            "invalid": 0.025329320573280887
+          },
+          "confidence": 0.9369848039308996,
+          "unknown_probability": 0.014244705134099634,
+          "abstained": false,
+          "calibration_version": "imajev-2b-1.0"
+        },
+        "cell": {
+          "type": "choice",
+          "choice": "B3",
+          "probabilities": {
+            "A1": 0.00222402209428823,
+            "B1": 0.0030048410180607433,
+            "C1": 0.0020879229638900683,
+            "A2": 0.0023569158276137607,
+            "B2": 0.003966431651513456,
+            "C2": 0.0023542813646982297,
+            "A3": 0.0038952067565573593,
+            "B3": 0.9659878642017877,
+            "C3": 0.006161192889387556,
+            "invalid": 0.00796132123220288
+          },
+          "confidence": 0.9572737247099531,
+          "unknown_probability": 0.005128838574341851,
+          "abstained": false,
+          "calibration_version": "imajev-2b-1.0"
+        }
+      }
+    },
+    {
+      "label": "X-C3",
+      "expected": "place_C3",
+      "accepted": "place_C3",
+      "passed": true,
+      "rejection": null,
+      "answers": {
+        "symbol": {
+          "type": "choice",
+          "choice": "X",
+          "probabilities": {
+            "X": 0.9811760048505532,
+            "O": 0.004822214160094604,
+            "invalid": 0.014001780989352227
+          },
+          "confidence": 0.9640988183846242,
+          "unknown_probability": 0.007887911914636166,
+          "abstained": false,
+          "calibration_version": "imajev-2b-1.0"
+        },
+        "cell": {
+          "type": "choice",
+          "choice": "C3",
+          "probabilities": {
+            "A1": 0.0016624420793633445,
+            "B1": 0.002059342615652885,
+            "C1": 0.0023307569449059445,
+            "A2": 0.0019740947832945304,
+            "B2": 0.0025872660427126984,
+            "C2": 0.0029521184698871362,
+            "A3": 0.003228427882529597,
+            "B3": 0.004589936259759111,
+            "C3": 0.9717360653779282,
+            "invalid": 0.006879549543966531
+          },
+          "confidence": 0.9648799463233758,
+          "unknown_probability": 0.003836153876965381,
+          "abstained": false,
+          "calibration_version": "imajev-2b-1.0"
+        }
+      }
+    },
+    {
+      "label": "small-X",
+      "expected": "place_B2",
+      "accepted": "place_B2",
+      "passed": true,
+      "rejection": null,
+      "answers": {
+        "symbol": {
+          "type": "choice",
+          "choice": "X",
+          "probabilities": {
+            "X": 0.9679505630728196,
+            "O": 0.008100121101720715,
+            "invalid": 0.023949315825459654
+          },
+          "confidence": 0.9374160387581013,
+          "unknown_probability": 0.015242580011139893,
+          "abstained": false,
+          "calibration_version": "imajev-2b-1.0"
+        },
+        "cell": {
+          "type": "choice",
+          "choice": "B2",
+          "probabilities": {
+            "A1": 0.0020822896762158396,
+            "B1": 0.0036344562840143787,
+            "C1": 0.0022601493796875457,
+            "A2": 0.005104731742286115,
+            "B2": 0.965273983027695,
+            "C2": 0.004043295930935566,
+            "A3": 0.002771838154751284,
+            "B3": 0.0036317440195836534,
+            "C3": 0.0024854440162030925,
+            "invalid": 0.008712067768627494
+          },
+          "confidence": 0.9559467068345979,
+          "unknown_probability": 0.0056883102613745065,
+          "abstained": false,
+          "calibration_version": "imajev-2b-1.0"
+        }
+      }
+    },
+    {
+      "label": "O-A1",
+      "expected": null,
+      "accepted": null,
+      "passed": true,
+      "rejection": "I could not identify one X confidently: O scored 79.0%; 85% is required. Undo a stroke or clear and redraw.",
+      "answers": {
+        "symbol": {
+          "type": "choice",
+          "choice": "O",
+          "probabilities": {
+            "X": 0.037252980642476126,
+            "O": 0.9073747442449502,
+            "invalid": 0.05537227511257361
+          },
+          "confidence": 0.7493785937090603,
+          "unknown_probability": 0.12970437386042008,
+          "abstained": false,
+          "calibration_version": "imajev-2b-1.0"
+        },
+        "cell": {
+          "type": "choice",
+          "choice": "A1",
+          "probabilities": {
+            "A1": 0.9130444896803969,
+            "B1": 0.01167903424568318,
+            "C1": 0.00878753261936376,
+            "A2": 0.008512995516228663,
+            "B2": 0.009417119690361063,
+            "C2": 0.006728482455204224,
+            "A3": 0.007640061800826665,
+            "B3": 0.00730659355447655,
+            "C3": 0.007080623512582386,
+            "invalid": 0.019803066924876597
+          },
+          "confidence": 0.8832359818577374,
+          "unknown_probability": 0.022301493016158188,
+          "abstained": false,
+          "calibration_version": "imajev-2b-1.0"
+        }
+      }
+    },
+    {
+      "label": "O-B2",
+      "expected": null,
+      "accepted": null,
+      "passed": true,
+      "rejection": "You are playing X. Draw a cross instead of a circle.",
+      "answers": {
+        "symbol": {
+          "type": "choice",
+          "choice": "O",
+          "probabilities": {
+            "X": 0.025499234333297705,
+            "O": 0.9383713898818152,
+            "invalid": 0.03612937578488699
+          },
+          "confidence": 0.831940258236797,
+          "unknown_probability": 0.08331908576384087,
+          "abstained": false,
+          "calibration_version": "imajev-2b-1.0"
+        },
+        "cell": {
+          "type": "choice",
+          "choice": "B2",
+          "probabilities": {
+            "A1": 0.0030006632641266357,
+            "B1": 0.005064999769663142,
+            "C1": 0.003071755865167152,
+            "A2": 0.005595850664351067,
+            "B2": 0.9588360006713817,
+            "C2": 0.004936543170516155,
+            "A3": 0.003475363914047438,
+            "B3": 0.0039988132557844,
+            "C3": 0.0032753351674689314,
+            "invalid": 0.008744674257493373
+          },
+          "confidence": 0.9449933444826027,
+          "unknown_probability": 0.009713135721509083,
+          "abstained": false,
+          "calibration_version": "imajev-2b-1.0"
+        }
+      }
+    },
+    {
+      "label": "O-C3",
+      "expected": null,
+      "accepted": null,
+      "passed": true,
+      "rejection": "I could not identify one X confidently: O scored 77.7%; 85% is required. Undo a stroke or clear and redraw.",
+      "answers": {
+        "symbol": {
+          "type": "choice",
+          "choice": "O",
+          "probabilities": {
+            "X": 0.0400855801488859,
+            "O": 0.9048007877922761,
+            "invalid": 0.05511363205883804
+          },
+          "confidence": 0.7358436171343269,
+          "unknown_probability": 0.14157419185429895,
+          "abstained": false,
+          "calibration_version": "imajev-2b-1.0"
+        },
+        "cell": {
+          "type": "choice",
+          "choice": "C3",
+          "probabilities": {
+            "A1": 0.0040610099086567444,
+            "B1": 0.0052452845539141205,
+            "C1": 0.005140949658175004,
+            "A2": 0.005277520699632315,
+            "B2": 0.007032001688083623,
+            "C2": 0.007005604543074002,
+            "A3": 0.006929374999627392,
+            "B3": 0.009196418200890583,
+            "C3": 0.9376639244116838,
+            "invalid": 0.012447911336262406
+          },
+          "confidence": 0.9156449847914248,
+          "unknown_probability": 0.0162158566264407,
+          "abstained": false,
+          "calibration_version": "imajev-2b-1.0"
+        }
+      }
+    },
+    {
+      "label": "blank",
+      "expected": null,
+      "accepted": null,
+      "passed": true,
+      "rejection": "Imajev abstained on the symbol. Undo a stroke or clear and redraw.",
+      "answers": {
+        "symbol": {
+          "type": "choice",
+          "choice": "invalid",
+          "probabilities": {
+            "X": 0.21852508385665162,
+            "O": 0.1250945946088766,
+            "invalid": 0.6563803215344718
+          },
+          "confidence": 0.10563119399134736,
+          "unknown_probability": 0.7820106716166456,
+          "abstained": true,
+          "calibration_version": "imajev-2b-1.0"
+        },
+        "cell": {
+          "type": "choice",
+          "choice": "invalid",
+          "probabilities": {
+            "A1": 0.060568074965489375,
+            "B1": 0.07311630737477516,
+            "C1": 0.049537307401766824,
+            "A2": 0.05865189195388425,
+            "B2": 0.126143063550795,
+            "C2": 0.054332624050226,
+            "A3": 0.05364682161688427,
+            "B3": 0.07220765037401679,
+            "C3": 0.057558311317071974,
+            "invalid": 0.3942379473950903
+          },
+          "confidence": 0.14533205009499583,
+          "unknown_probability": 0.5554657506162348,
+          "abstained": true,
+          "calibration_version": "imajev-2b-1.0"
+        }
+      }
+    },
+    {
+      "label": "single-diagonal",
+      "expected": null,
+      "accepted": null,
+      "passed": true,
+      "rejection": "Imajev abstained on the symbol. Undo a stroke or clear and redraw.",
+      "answers": {
+        "symbol": {
+          "type": "choice",
+          "choice": "X",
+          "probabilities": {
+            "X": 0.6667047757592249,
+            "O": 0.07382110212615008,
+            "invalid": 0.259474122114625
+          },
+          "confidence": 0.2613751771758826,
+          "unknown_probability": 0.47730940344120554,
+          "abstained": true,
+          "calibration_version": "imajev-2b-1.0"
+        },
+        "cell": {
+          "type": "choice",
+          "choice": "B2",
+          "probabilities": {
+            "A1": 0.003503185809315389,
+            "B1": 0.006219591925451114,
+            "C1": 0.00366407933820428,
+            "A2": 0.006729082297768819,
+            "B2": 0.9467861902737432,
+            "C2": 0.006765686036757456,
+            "A3": 0.004604998046716236,
+            "B3": 0.005131828215054329,
+            "C3": 0.0041728959347004406,
+            "invalid": 0.0124224621222887
+          },
+          "confidence": 0.9306803930003205,
+          "unknown_probability": 0.010833710656628923,
+          "abstained": false,
+          "calibration_version": "imajev-2b-1.0"
+        }
+      }
+    },
+    {
+      "label": "scribble",
+      "expected": null,
+      "accepted": null,
+      "passed": true,
+      "rejection": "I could not identify one X confidently: X scored 36.3%; 85% is required. Undo a stroke or clear and redraw.",
+      "answers": {
+        "symbol": {
+          "type": "choice",
+          "choice": "X",
+          "probabilities": {
+            "X": 0.43707268790757925,
+            "O": 0.14963606085898803,
+            "invalid": 0.41329125123343274
+          },
+          "confidence": 0.12915702734567483,
+          "unknown_probability": 0.16999016187736438,
+          "abstained": false,
+          "calibration_version": "imajev-2b-1.0"
+        },
+        "cell": {
+          "type": "choice",
+          "choice": "B2",
+          "probabilities": {
+            "A1": 0.005053555502235048,
+            "B1": 0.01055900247029832,
+            "C1": 0.005445997072454134,
+            "A2": 0.00677971078775019,
+            "B2": 0.9137110495402821,
+            "C2": 0.008371599259911272,
+            "A3": 0.007707639134365122,
+            "B3": 0.0159760246916202,
+            "C3": 0.007334836340554787,
+            "invalid": 0.019060585200528796
+          },
+          "confidence": 0.8890485242703432,
+          "unknown_probability": 0.016673458845911406,
+          "abstained": false,
+          "calibration_version": "imajev-2b-1.0"
+        }
+      }
+    },
+    {
+      "label": "double-X",
+      "expected": null,
+      "accepted": null,
+      "passed": true,
+      "rejection": "I could not identify one cell confidently: C3 scored 65.1%; 85% is required. Keep one X inside a single cell.",
+      "answers": {
+        "symbol": {
+          "type": "choice",
+          "choice": "X",
+          "probabilities": {
+            "X": 0.9493047892410663,
+            "O": 0.011930556388375486,
+            "invalid": 0.038764654370558156
+          },
+          "confidence": 0.9070931907660817,
+          "unknown_probability": 0.018251920532763293,
+          "abstained": false,
+          "calibration_version": "imajev-2b-1.0"
+        },
+        "cell": {
+          "type": "choice",
+          "choice": "C3",
+          "probabilities": {
+            "A1": 0.17728272205227386,
+            "B1": 0.015483785111565672,
+            "C1": 0.01358606932421416,
+            "A2": 0.013034183678960703,
+            "B2": 0.014972142781437174,
+            "C2": 0.011163719150624151,
+            "A3": 0.019943355719253385,
+            "B3": 0.015959621943778923,
+            "C3": 0.6672860298664033,
+            "invalid": 0.05128837037148866
+          },
+          "confidence": 0.6148273905569779,
+          "unknown_probability": 0.02457557145979155,
+          "abstained": false,
+          "calibration_version": "imajev-2b-1.0"
+        }
+      }
+    },
+    {
+      "label": "boundary-X",
+      "expected": null,
+      "accepted": null,
+      "passed": true,
+      "rejection": "Your ink spans cells. Keep one X inside a single cell.",
+      "answers": {
+        "symbol": {
+          "type": "choice",
+          "choice": "X",
+          "probabilities": {
+            "X": 0.9439790022113312,
+            "O": 0.010542250340331008,
+            "invalid": 0.045478747448337756
+          },
+          "confidence": 0.901254153158994,
+          "unknown_probability": 0.01606425341561165,
+          "abstained": false,
+          "calibration_version": "imajev-2b-1.0"
+        },
+        "cell": {
+          "type": "choice",
+          "choice": "B2",
+          "probabilities": {
+            "A1": 0.00338969998772374,
+            "B1": 0.0057099122826281485,
+            "C1": 0.0034872853744491524,
+            "A2": 0.019765020425517633,
+            "B2": 0.9308809159145586,
+            "C2": 0.005512875865243416,
+            "A3": 0.004651713453429993,
+            "B3": 0.004726960666115078,
+            "C3": 0.0037200578575841054,
+            "invalid": 0.018155558172750174
+          },
+          "confidence": 0.9143230102455376,
+          "unknown_probability": 0.00961654858179028,
+          "abstained": false,
+          "calibration_version": "imajev-2b-1.0"
+        }
+      }
+    }
+  ],
+  "correct_decisions": 18,
+  "sample_count": 18
+}

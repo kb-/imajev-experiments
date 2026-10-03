@@ -4,18 +4,69 @@ A Python/PyQt6 desktop tic-tac-toe game. Draw an X with multiple mouse strokes, 
 
 See the [implementation guide](docs/implementation.md) for architecture, turn flow, model prompting, retries, persistence, and explanatory Mermaid diagrams.
 
-## Run
+## Run the complete app
 
-Install [uv](https://docs.astral.sh/uv/), then from this directory:
+The app needs **two running processes**: the local model service and the desktop GUI. `uv run imajev-game` starts only the GUI; it does not start or install the model service. Run all commands below from this repository's root directory.
+
+### First-time setup (online)
+
+Install Git, Bash, and [uv](https://docs.astral.sh/uv/). The default Imajev-4B NF4 service needs an NVIDIA GPU with working CUDA access. On Windows, run the service commands inside WSL2; check that `nvidia-smi` works there. The GUI needs a desktop display: native Linux, WSLg, or a separate Windows checkout.
+
+Prepare the GUI environment and the model service:
 
 ```sh
 uv sync --locked
-uv run imajev-game
+bash scripts/setup_inference.sh
 ```
 
-Works on Windows and Linux with a desktop display. No model or Torch is loaded in the GUI environment. Configure the loopback service and expected model in `config.yaml`; use `uv run imajev-game --config /path/to/config.yaml` for another file. The app waits for the service and performs an image warm-up before enabling drawing. Missing service, timeout, malformed responses and model mismatches remain visible and offer Retry. There is no automatic substitute opponent or symbol detector.
+The second command installs the separate inference environment, including bitsandbytes, downloads the pinned 4B model and Imajev adapter, and records the asset manifest. Allow several GB of disk space and let setup finish before launching. Downloads happen during this setup, not during gameplay. If you use a native Windows GUI, run `uv sync --locked` in that Windows checkout and run the inference setup in the WSL checkout.
 
-The service must run separately. See [local deployment](docs/deployment.md) for the pinned upstream setup and offline asset checks. The default profile is `imajev-4b-nf4`, which dynamically quantizes the pinned Qwen3.5-4B base on CUDA while keeping the official Imajev-4B adapter/readout. Use `config.2b.yaml` and the explicit 2B scripts for the legacy profile. On Windows, run the GUI on Windows and the inference environment in WSL2. Model downloads happen during setup, never from the app.
+### Every time you play
+
+**Terminal 1 — start the model service and leave it running:**
+
+```sh
+bash scripts/launch_inference.sh
+```
+
+This verifies the prepared assets and starts the default NF4 service offline at `http://127.0.0.1:8765`. Start only one service on this port. You do not also need to run `launch_inference_4b_nf4.sh`: the standard launcher already delegates to it.
+
+**Terminal 2 — start the GUI:**
+
+```sh
+uv run --locked imajev-game
+```
+
+For mouse logging, inline Diagnostics, and automatic session recordings, use this instead:
+
+```sh
+uv run --locked imajev-game --debug-input
+```
+
+To keep the opening suggestion disabled during debugging:
+
+```sh
+uv run --locked imajev-game --config config.no-opening.yaml --debug-input
+```
+
+The GUI may show **Warming up** while the service loads and its first image request runs. Drawing becomes available when the panel shows **Ready**. If the service is already running, start only the GUI. Closing the GUI leaves the service running; press Ctrl+C in Terminal 1 when you want to stop it.
+
+After first-time setup, you can add `--offline` to the GUI command (`uv run --locked --offline imajev-game`) to prevent uv from using the network. The GUI environment must already be installed for this to work.
+
+### Check startup or recover
+
+From the environment running the GUI, check the service:
+
+```sh
+curl --fail http://127.0.0.1:8765/v1/models
+curl --fail http://127.0.0.1:8765/v1/status
+```
+
+The models response must report `loaded: true`, `backend: torch`, and `model: imajev-4b-nf4`. Status reports whether it is busy. Native Windows PowerShell equivalents are in the [deployment guide](docs/deployment.md#gui-setup-linux-or-windows).
+
+If the GUI shows **Needs attention**, read the message, fix the service issue, and click Retry. Missing assets or a missing bitsandbytes installation require rerunning `bash scripts/setup_inference.sh` while online. Use the supplied launcher rather than a bare upstream server command: it configures NF4 loading, the trained readout, calibration, offline mode, and safe retry handling. The inference launcher uses its prepared environment without syncing it; manually syncing that environment can remove the separately installed bitsandbytes dependency.
+
+The GUI and inference environments are separate; no model or Torch is loaded in the GUI environment. The default `config.yaml` and `config.no-opening.yaml` expect NF4. For the legacy 2B profile, use its matching configuration and explicit scripts documented in [local deployment](docs/deployment.md#optional-imajev-2b-profile). Configure another loopback service using `uv run --locked imajev-game --config /path/to/config.yaml`. Missing service, timeout, malformed responses, and model mismatches remain visible and offer Retry.
 
 ## Controls and records
 

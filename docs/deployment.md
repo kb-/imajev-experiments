@@ -2,6 +2,8 @@
 
 The GUI and inference environments are separate. The supplied launcher uses the [upstream PyTorch image server](https://github.com/mohit67890/imajev/tree/ccf586d43d2a580319b6535c893668904d909eb9). It adds a local busy gate and provenance endpoint; NF4 base-model loading is supplied by the local wrapper; prompts, adapter, calibration, and HTTP inference handling use the pinned upstream implementation.
 
+For the complete first-time setup and everyday two-terminal startup sequence, see [Run the complete app](../README.md#run-the-complete-app). This guide supplies deployment details and alternate profiles. The standard setup and launch scripts select NF4; `uv run imajev-game` launches only the GUI.
+
 Pinned assets:
 
 | Asset | Revision |
@@ -49,7 +51,7 @@ bash scripts/launch_inference_2b.sh
 uv run imajev-game --config config.2b.yaml
 ```
 
-These scripts use `.inference/runtime-manifest.json`, the pinned 2B base and adapter, and the original calibration. Both profiles bind to port 8765; run one inference service at a time and use the matching GUI configuration.
+Run setup once while online, then keep the launcher running in one terminal and start the GUI in another. These scripts use `.inference/runtime-manifest.json`, the pinned 2B base and adapter, and the original calibration. Both profiles bind to port 8765; run one inference service at a time and use the matching GUI configuration.
 
 ## GUI setup (Linux or Windows)
 

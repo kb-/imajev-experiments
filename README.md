@@ -58,3 +58,13 @@ Use `--original-prompt` to compare the exact recorded request. Exported sessions
 `opponent.tactical_guard: true` is enabled in `config.yaml`. Imajev receives the board, legal moves, win condition and any immediate O win or X threat. The app records its proposed move. If it overlooks an immediate O win or the one cell needed to block an X win next turn, the rules engine commits that tactical move and labels the correction on the board and in Diagnostics. This is a one-turn rule, not a minimax opponent; Imajev still chooses moves without such a tactic and can miss longer-term threats or forks.
 
 Set `opponent.tactical_guard: false` to measure the model's unassisted play. Restart the app after changing the setting. `scripts/evaluate.py opponent` evaluates raw model choices; add `--with-tactical-guard` to measure the assisted gameplay policy. The records distinguish `model_proposed_action` from `accepted_action` and give the correction reason.
+
+## Resume a paused game
+
+```sh
+uv run imajev-game --debug-input --resume sessions/<session-id>/session.json
+```
+
+The app validates and loads the saved board and strokes into a new session, preserving the original record. If it was Imajev's turn, the app reconnects and continues that turn. Retry after an abstention now sends a changed question; it never commits an abstained answer. The first O move includes specific opening guidance: center after an X corner or edge, or a corner after an X center. The same move was checked with the tic-tac-toe oracle for all nine X openings. If a later model request still abstains, the board remains intact and Retry remains available.
+
+To test the model without an opening suggestion, run `uv run --locked imajev-game --config config.no-opening.yaml --debug-input`. This removes the suggested opening from the first O request and retries while keeping the tactical guard on. The window title marks this mode, and saved session records include `opening_suggestion: false`.

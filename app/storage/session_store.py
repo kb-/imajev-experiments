@@ -33,4 +33,5 @@ def session_record(session_id, game, state, pending, events, config):
     return {'version': 1, 'session_id': session_id, 'updated_at': datetime.now(timezone.utc).isoformat(),
             'upstream_commit': UPSTREAM_COMMIT, 'adapter_version': ADAPTER_VERSION,
             'expected_model': config.expected_model, 'recognition_threshold': config.threshold, 'tactical_guard': config.tactical_guard,
+            'opening_suggestion': config.opening_suggestion,
             'state': game.encode_state(state), 'pending_ink': [asdict(s) for s in pending], 'events': events}

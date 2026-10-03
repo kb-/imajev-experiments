@@ -4,7 +4,7 @@ from app.core.contracts import Action, Outcome, Reply, Scene, Stroke
 
 CELLS = tuple(f'{col}{row}' for row in range(1, 4) for col in 'ABC')
 WINNING_LINES = ((0, 1, 2), (3, 4, 5), (6, 7, 8), (0, 3, 6), (1, 4, 7), (2, 5, 8), (0, 4, 8), (2, 4, 6))
-PROMPT_VERSION = 'tic-tac-toe-v3'
+PROMPT_VERSION = 'tic-tac-toe-v4'
 
 
 @dataclass(frozen=True)
@@ -54,6 +54,7 @@ class TicTacToe:
     human_player = 'X'
     computer_player = 'O'
     instruction = 'Draw an X in one empty cell.'
+    supports_opening_suggestion = True
 
     def initial_state(self) -> State:
         return State()
@@ -170,26 +171,69 @@ class TicTacToe:
             return proposed, None
         return priorities[0], reason
 
-    def decision_request(self, state: State, actions: tuple[Action, ...]) -> dict:
+    def decision_request(self, state: State, actions: tuple[Action, ...], opening_suggestion: bool = True) -> dict:
         priorities, reason = self.tactical_priorities(state)
         x_state = replace(state, next_player='X')
         x_threats = tuple(a.id for a in actions if self.outcome(self.apply_action(x_state, a.id)).winner == 'X')
         o_wins = tuple(a.id for a in actions if self.outcome(self.apply_action(state, a.id)).winner == 'O')
         instruction = 'Choose the best legal action for O. The symbolic board is authoritative. Win immediately if possible; otherwise block any immediate X win; otherwise seek the strongest move.'
+        opening = None
+        if opening_suggestion and state.revision == 1 and state.board.count('X') == 1 and state.board.count('O') == 0:
+            x_cell = CELLS[state.board.index('X')]
+            if x_cell == 'B2':
+                opening = 'place_A1'
+                instruction = 'Choose place_A1. X opened in center B2; O should take corner A1 to avoid a forced loss. Return place_A1 as the legal action ID.'
+            else:
+                opening = 'place_B2'
+                instruction = f'Choose place_B2. X opened at {x_cell}; O should take the center cell B2 to avoid a forced loss. Return place_B2 as the legal action ID.'
         if len(priorities) == 1:
             cell = priorities[0].removeprefix('place_')
             instruction = f'Choose {priorities[0]}. This is the required {reason} at {cell}. Return that exact legal action ID.'
         return {'state': {'game': self.id, 'board': dict(zip(CELLS, state.board)), 'current_player': state.next_player,
                           'coordinates': 'Columns A to C left to right; rows 1 to 3 top to bottom',
                           'rules': 'Players alternate. Three matching marks in a row, column or diagonal wins. O plays now. First win if possible; otherwise block X winning on its next move.',
-                          'immediate_O_win_actions': list(o_wins), 'immediate_X_win_actions_if_unblocked': list(x_threats)},
+                          'immediate_O_win_actions': list(o_wins), 'immediate_X_win_actions_if_unblocked': list(x_threats),
+                          'opening_advice': opening},
                 'questions': {'move': {'type': 'choice', 'instructions': instruction,
                                        'criteria': {a.id: a.description for a in actions}}}}
 
+    def retry_decision_request(self, state: State, actions: tuple[Action, ...], attempt: int, opening_suggestion: bool = True) -> dict:
+        request = self.decision_request(state, actions, opening_suggestion)
+        opening = request['state']['opening_advice']
+        priorities, _ = self.tactical_priorities(state)
+        if len(priorities) == 1:
+            candidate = priorities[0]
+        elif opening:
+            candidate = opening
+        elif not opening_suggestion and state.revision == 1:
+            request['state']['retry_attempt'] = attempt
+            request['questions']['move']['instructions'] = (
+                'Choose one legal move for O from the listed actions. The previous answer abstained; '
+                'evaluate the board and return your chosen action ID.' if attempt % 2 else
+                'It is O’s first turn. Select one of the legal action IDs to make a move, based on the board and rules.')
+            return request
+        else:
+            # A fresh concrete question prevents a deterministic repeat of an abstention.
+            candidate = next((a.id for a in actions if a.id == 'place_B2'), None)
+            if candidate is None:
+                candidate = actions[(attempt - 1) % len(actions)].id
+        request['state']['retry_attempt'] = attempt
+        if attempt % 2:
+            request['questions']['move']['instructions'] = (
+                f'Choose {candidate}. The previous request did not produce a move. '
+                f'{candidate} is legal; decide now whether to play it. Return that exact action ID.')
+        else:
+            request['questions']['move']['instructions'] = (
+                f'Play O at {candidate.removeprefix("place_")}. This is legal and advances the game. '
+                f'Return {candidate} as your choice instead of abstaining.')
+        return request
+
     def decode_decision(self, state: State, reply: Reply) -> str:
         answer = reply.answers['move']
-        if answer.abstained or answer.choice not in {a.id for a in self.legal_actions(state)}:
-            raise ValueError('Imajev did not select a legal move. Retry the computer turn.')
+        if answer.abstained:
+            raise ValueError('Imajev abstained while choosing O. Retry will ask a different question.')
+        if answer.choice not in {a.id for a in self.legal_actions(state)}:
+            raise ValueError('Imajev selected an invalid move. Retry the computer turn.')
         return answer.choice
 
     def encode_state(self, state: State) -> dict:

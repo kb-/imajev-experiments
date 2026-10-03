@@ -1,4 +1,5 @@
 from dataclasses import asdict
+from pathlib import Path
 import uuid
 import logging
 import json
@@ -28,6 +29,8 @@ class SessionController(QObject):
         self.active = None
         self.job = None
         self.retry_purpose = None
+        self.decision_attempt = 0
+        self.source_session_id = None
         self.last_move = 'No moves yet'
         self.events = []
         self.diagnostics = ''
@@ -45,10 +48,37 @@ class SessionController(QObject):
         self.pending: tuple[Stroke, ...] = ()
         self.events = []
         self.retry_purpose = None
+        self.decision_attempt = 0
+        self.source_session_id = None
         self.last_move = 'No moves yet'
         self.diagnostics = ''
         self.phase = 'loading' if self.busy or not self.ready else 'human'
         self.message = 'Waiting for the current local request…' if self.busy else (self.game.instruction if self.ready else 'Connecting to the local image service…')
+        self._publish()
+
+    def restore(self, path: Path):
+        record = json.loads(path.read_text(encoding='utf-8'))
+        if record.get('version') != 1 or record.get('state', {}).get('game') != self.game.id:
+            raise ValueError('This session record does not match the selected game.')
+        self.state = self.game.decode_state(record['state'])
+        self.pending = tuple(Stroke(tuple(tuple(point) for point in stroke['points']), stroke['width'], stroke['color'])
+                             for stroke in record.get('pending_ink', []))
+        self.events = [dict(event) for event in record.get('events', [])]
+        for event in self.events:
+            if event.get('image'):
+                event['image'] = str((path.parent / event['image']).resolve())
+        self.source_session_id = record.get('session_id')
+        for event in reversed(self.events):
+            action = event.get('accepted_action')
+            if action:
+                description = next((item['description'] for item in event.get('offered_actions', []) if item['id'] == action), action)
+                self.last_move = f"{event.get('player', '')} · {description}"
+                break
+        self.decision_attempt = sum(event.get('ticket', {}).get('purpose') == 'decision'
+                                    and event.get('ticket', {}).get('state_revision') == self.game.revision(self.state)
+                                    and bool(event.get('rejection')) for event in self.events)
+        self.phase = 'loading'
+        self.message = 'Restoring saved game and warming up Imajev…'
         self._publish()
 
     def start(self):
@@ -80,6 +110,8 @@ class SessionController(QObject):
 
     def retry(self):
         if self.phase == 'error' and not self.busy and self.retry_purpose:
+            if self.retry_purpose == 'decision':
+                self.decision_attempt += 1
             self._launch(self.retry_purpose)
 
     def _launch(self, purpose):
@@ -101,7 +133,10 @@ class SessionController(QObject):
         drawing = self.pending
         state = self.state
         render_purpose = 'decision' if purpose == 'decision' else 'recognition'
-        request = self.game.decision_request(state, actions) if purpose == 'decision' else self.game.recognition_request(state, drawing)
+        decision_options = {'opening_suggestion': self.config.opening_suggestion} if getattr(self.game, 'supports_opening_suggestion', False) else {}
+        request = self.game.decision_request(state, actions, **decision_options) if purpose == 'decision' else self.game.recognition_request(state, drawing)
+        if purpose == 'decision' and self.decision_attempt and hasattr(self.game, 'retry_decision_request'):
+            request = self.game.retry_decision_request(state, actions, self.decision_attempt, **decision_options)
         png = observation_png(self.game.render(state, drawing, render_purpose), self.config.observation_size)
         self.phase = {'recognition': 'recognising', 'decision': 'computer', 'startup': 'loading'}[purpose]
         self.message = {'recognition': 'Reading your move…', 'decision': 'Imajev is choosing…', 'startup': 'Connecting and warming up Imajev…'}[purpose]
@@ -109,7 +144,8 @@ class SessionController(QObject):
         logger.info('inference started purpose=%s request=%s revision=%s', purpose, ticket.request_id, ticket.state_revision)
         event = {'ticket': asdict(ticket), 'request': request, 'state': self.game.encode_state(state),
                  'drawing': [asdict(s) for s in drawing], 'prompt_version': getattr(self.game, 'prompt_version', '1'),
-                 'player': self.game.current_player(state), 'offered_actions': [asdict(a) for a in actions]}
+                 'player': self.game.current_player(state), 'offered_actions': [asdict(a) for a in actions],
+                 'decision_attempt': self.decision_attempt if purpose == 'decision' else None}
         try:
             event['image'] = self.store.image(ticket, png)
         except OSError as exc:
@@ -156,8 +192,11 @@ class SessionController(QObject):
             return
         if ticket.purpose == 'startup':
             self.ready = True
-            self.phase, self.message = 'human', self.game.instruction
-            self._publish()
+            if self.game.current_player(self.state) == self.game.computer_player or self.game.outcome(self.state).kind != 'ongoing':
+                self._after_move()
+            else:
+                self.phase, self.message = 'human', self.game.instruction
+                self._publish()
             return
         try:
             if ticket.purpose == 'recognition':
@@ -175,6 +214,7 @@ class SessionController(QObject):
                         self.diagnostics += f'\nTactical rule: {correction}; Imajev proposed {proposed}, committed {action}.'
                         logger.warning('tactical correction reason=%s proposed=%s committed=%s', correction, proposed, action)
                 self.state = self.game.apply_action(self.state, action)
+                self.decision_attempt = 0
             event['accepted_action'] = action
             description = next(a["description"] for a in event["offered_actions"] if a["id"] == action)
             self.last_move = f'{event["player"]} · {description}'
@@ -210,7 +250,10 @@ class SessionController(QObject):
         self._publish()
 
     def record(self):
-        return session_record(self.session_id, self.game, self.state, self.pending, self.events, self.config)
+        record = session_record(self.session_id, self.game, self.state, self.pending, self.events, self.config)
+        if self.source_session_id:
+            record['source_session_id'] = self.source_session_id
+        return record
 
     def _publish(self):
         try:

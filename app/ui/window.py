@@ -2,8 +2,8 @@ import base64
 import json
 from pathlib import Path
 from PyQt6.QtCore import Qt, QTimer
-from PyQt6.QtWidgets import (QComboBox, QFileDialog, QFrame, QHBoxLayout, QLabel, QMainWindow,
-                            QMessageBox, QPushButton, QTextEdit, QVBoxLayout, QWidget)
+from PyQt6.QtWidgets import (QComboBox, QFileDialog, QFrame, QHBoxLayout, QLabel, QLayout,
+                            QMainWindow, QMessageBox, QPushButton, QScrollArea, QTextEdit, QVBoxLayout, QWidget)
 from app.core.registry import GAMES
 from app.ui.canvas import Canvas
 from app.core.contracts import Stroke
@@ -17,6 +17,7 @@ QLabel#phase { font-size: 22px; font-weight: 600; }
 QLabel#muted { color: #77847c; font-size: 12px; }
 QFrame#panel { background: #fafbf7; border: 1px solid #dce1d7; border-radius: 16px; }
 QFrame#panel QLabel { background: transparent; }
+QFrame#panel QScrollArea, QFrame#panel QScrollArea QWidget { background: #fafbf7; border: 0; }
 QPushButton { background: #fafbf7; border: 1px solid #d1d8cc; border-radius: 8px; padding: 11px 17px; }
 QPushButton:hover { background: #e4eade; }
 QPushButton:disabled { color: #a7b0a6; background: #ecefe8; }
@@ -26,6 +27,43 @@ QPushButton#primary:disabled { background: #a3b6ac; }
 QComboBox { background: #fafbf7; border: 1px solid #d1d8cc; padding: 8px 14px; border-radius: 8px; }
 QTextEdit { background: #fafbf7; border: 1px solid #d1d8cc; border-radius: 8px; font-family: monospace; font-size: 11px; }
 '''
+
+
+def format_question_history(events):
+    """Show the exact question instructions sent to the model, newest first."""
+    entries = []
+    for event in reversed(events):
+        request = event.get('request')
+        if not request:
+            continue
+        purpose = event['ticket']['purpose']
+        attempt = event.get('decision_attempt')
+        heading = purpose.title() + (f' · retry {attempt}' if purpose == 'decision' and attempt else '')
+        lines = [heading]
+        for name, question in request.get('questions', {}).items():
+            lines.append(f'{name}: {question.get("instructions", "")}')
+            choices = question.get('criteria', {})
+            if choices:
+                lines.append('Choices: ' + ', '.join(choices))
+        if event.get('rejection'):
+            lines.append('Result: ' + event['rejection'])
+        elif event.get('error'):
+            lines.append('Result: ' + str(event['error']))
+        elif event.get('accepted_action'):
+            proposed = event.get('model_proposed_action')
+            result = f'Result: {event["accepted_action"]}'
+            if proposed and proposed != event['accepted_action']:
+                result += f' (model proposed {proposed})'
+            lines.append(result)
+        elif event.get('reply'):
+            answers = event['reply'].get('answers', {})
+            lines.append('Result: ' + ', '.join(
+                f'{name}={answer.get("choice")}{" (abstained)" if answer.get("abstained") else ""}'
+                for name, answer in answers.items()))
+        else:
+            lines.append('Result: waiting for model')
+        entries.append('\n'.join(lines))
+    return '\n\n'.join(entries) if entries else 'No model questions yet.'
 
 
 class Window(QMainWindow):
@@ -65,9 +103,19 @@ class Window(QMainWindow):
         panel = QFrame()
         panel.setObjectName('panel')
         panel.setFixedWidth(260)
-        side = QVBoxLayout(panel)
-        side.setContentsMargins(22, 24, 22, 24)
-        side.setSpacing(16)
+        panel_layout = QVBoxLayout(panel)
+        panel_layout.setContentsMargins(0, 0, 0, 0)
+        self.panel_scroll = QScrollArea(panel)
+        self.panel_scroll.setWidgetResizable(True)
+        self.panel_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self.panel_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        panel_layout.addWidget(self.panel_scroll)
+        side_content = QWidget()
+        side = QVBoxLayout(side_content)
+        side.setSizeConstraint(QLayout.SizeConstraint.SetMinimumSize)
+        side.setContentsMargins(22, 18, 22, 18)
+        side.setSpacing(10)
+        self.panel_scroll.setWidget(side_content)
         side.addWidget(self.label('TIC-TAC-TOE / 01', 'eyebrow'))
         self.phase_label = self.label('Your turn', 'phase')
         side.addWidget(self.phase_label)
@@ -116,7 +164,8 @@ class Window(QMainWindow):
         layout.addWidget(self.input_hint)
         self.diag = QTextEdit()
         self.diag.setReadOnly(True)
-        self.diag.setMaximumHeight(130)
+        self.diag.setMinimumHeight(160)
+        self.diag.setMaximumHeight(240)
         self.diag.setVisible(controller.config.diagnostics)
         layout.addWidget(self.diag)
         footer = QHBoxLayout()
@@ -157,9 +206,12 @@ class Window(QMainWindow):
                   'computer': 'Imajev’s turn', 'over': 'Game complete', 'error': 'Needs attention'}
         self.phase_label.setText(phases[c.phase])
         self.message.setText(c.message)
+        self.message.setMinimumHeight(self.message.sizeHint().height())
         self.last.setText(c.last_move)
+        self.last.setMinimumHeight(self.last.sizeHint().height())
         status = 'Working' if c.busy else ('Attention needed' if c.phase == 'error' else ('Ready' if c.ready else 'Connecting'))
         self.model.setText(f'{c.config.expected_model} · {status}')
+        self.model.setMinimumHeight(self.model.sizeHint().height())
         self.retry_button.setVisible(c.phase == 'error')
         self.retry_button.setEnabled(not c.busy)
         self.undo_button.setEnabled(c.editable and bool(c.pending))
@@ -174,7 +226,8 @@ class Window(QMainWindow):
         else:
             self.input_hint.setText('Drawing is paused. ' + c.message)
         log_info = f'\nMouse diagnostics: {c.log_path}' if getattr(c, 'log_path', None) else ''
-        self.diag.setPlainText(c.diagnostics + ('\n' + c.storage_error if c.storage_error else '') + log_info)
+        summary = c.diagnostics + ('\n' + c.storage_error if c.storage_error else '') + log_info
+        self.diag.setPlainText(summary + '\n\nQUESTIONS ASKED (NEWEST FIRST)\n' + format_question_history(c.events))
 
     def export(self):
         c = self.controller

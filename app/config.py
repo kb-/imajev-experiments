@@ -9,6 +9,7 @@ import yaml
 class Config:
     game: str = 'tic_tac_toe'
     tactical_guard: bool = True
+    opening_suggestion: bool = True
     endpoint: str = 'http://127.0.0.1:8765/v1/systemone'
     expected_model: str = 'imajev-2b'
     request_timeout: float = 30
@@ -34,7 +35,7 @@ def load_config(path: Path) -> Config:
     if g.get('human_symbol', 'X') != 'X':
         raise ValueError('Tic-tac-toe currently supports human X only.')
     config = Config(
-        game=g.get('default', 'tic_tac_toe'), tactical_guard=o.get('tactical_guard', True), endpoint=i.get('endpoint', Config.endpoint),
+        game=g.get('default', 'tic_tac_toe'), tactical_guard=o.get('tactical_guard', True), opening_suggestion=o.get('opening_suggestion', True), endpoint=i.get('endpoint', Config.endpoint),
         expected_model=i.get('expected_model', 'imajev-2b'),
         request_timeout=float(i.get('request_timeout_seconds', 30)),
         startup_timeout=float(i.get('startup_timeout_seconds', 180)),
@@ -49,6 +50,6 @@ def load_config(path: Path) -> Config:
         raise ValueError('Timeouts must be positive finite seconds.')
     if not math.isfinite(config.threshold) or not 0 <= config.threshold <= 1 or not 128 <= config.observation_size <= 2048:
         raise ValueError('Invalid recognition threshold or observation size.')
-    if not isinstance(config.expected_model, str) or not config.expected_model or not all(isinstance(v, bool) for v in (config.diagnostics, config.save_sessions, config.tactical_guard)):
+    if not isinstance(config.expected_model, str) or not config.expected_model or not all(isinstance(v, bool) for v in (config.diagnostics, config.save_sessions, config.tactical_guard, config.opening_suggestion)):
         raise ValueError('Invalid model or diagnostics settings.')
     return config

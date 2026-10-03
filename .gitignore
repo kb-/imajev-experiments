@@ -226,3 +226,4 @@ inference/.venv/
 
 # Local pointer diagnostics
 logs/
+learning/

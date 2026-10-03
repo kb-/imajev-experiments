@@ -6,7 +6,7 @@ See the [implementation guide](docs/implementation.md) for architecture, turn fl
 
 ## Run the complete app
 
-The app needs **two running processes**: the local model service and the desktop GUI. `uv run imajev-game` starts only the GUI; it does not start or install the model service. Run all commands below from this repository's root directory.
+`uv run imajev-game` starts the GUI and an app-owned local model service. It checks the pinned assets and warms up the model in the background; install the model once before launching. Run all commands below from this repository's root directory.
 
 ### First-time setup (online)
 
@@ -23,15 +23,7 @@ The second command installs the separate inference environment, including bitsan
 
 ### Every time you play
 
-**Terminal 1 — start the model service and leave it running:**
-
-```sh
-bash scripts/launch_inference.sh
-```
-
-This verifies the prepared assets and starts the default NF4 service offline at `http://127.0.0.1:8765`. Start only one service on this port. You do not also need to run `launch_inference_4b_nf4.sh`: the standard launcher already delegates to it.
-
-**Terminal 2 — start the GUI:**
+Start the complete app:
 
 ```sh
 uv run --locked imajev-game
@@ -49,7 +41,7 @@ To keep the opening suggestion disabled during debugging:
 uv run --locked imajev-game --config config.no-opening.yaml --debug-input
 ```
 
-The GUI may show **Warming up** while the service loads and its first image request runs. Drawing becomes available when the panel shows **Ready**. If the service is already running, start only the GUI. Closing the GUI leaves the service running; press Ctrl+C in Terminal 1 when you want to stop it.
+The GUI may show **Warming up** while the service loads and its first image request runs. Drawing becomes available when the panel shows **Ready**. Closing the GUI shuts down its own service. An occupied port is reported without attaching to or stopping the listener. To use a separately started service, launch with `--external-inference`; closing that GUI leaves the external service running.
 
 After first-time setup, you can add `--offline` to the GUI command (`uv run --locked --offline imajev-game`) to prevent uv from using the network. The GUI environment must already be installed for this to work.
 
@@ -73,7 +65,7 @@ The GUI and inference environments are separate; no model or Torch is loaded in 
 - Draw inside the square board; mouse release ends a stroke. Submit explicitly ends your turn.
 - Undo removes one whole pending stroke; Clear removes all pending ink.
 - The first game starts with you. Each click on New game alternates the starter between you (X) and Imajev (O); the right panel identifies who started.
-- New game stays available during inference. The previous job must finish before another request starts; old replies cannot change the new board.
+- New game stays available during ordinary inference. It is disabled during coaching and until a coaching failure is resolved. The previous job must finish before another request starts; old replies cannot change the new board.
 - Expand Diagnostics for model scores and timing. Recognition scores include the unknown probability; opponent scores represent preference.
 - Export session saves versioned JSON with full strokes, canonical state, requests and responses. With `diagnostics.save_sessions: true`, JSON and observation PNGs are written under `sessions/`. All records stay local.
 
@@ -87,7 +79,7 @@ uv run python scripts/evaluate.py --help
 
 Tests use an explicit fake only in the test suite; normal gameplay always requires Imajev. The exhaustive engine test enumerates all reachable boards. Lifecycle tests exercise reset, stale responses, double submission and recovery. A tiny second game tests the generic controller contract.
 
-Real handwriting accuracy, offline GPU play and RTX 3070 memory/latency have **not** been established in this environment. See [acceptance status](docs/evaluation/STATUS.md). Do not interpret unit tests as model or hardware validation.
+Real handwriting accuracy and playing-strength improvement have **not** been established. Shared NF4 strategy learning and subsequent real model decisions were exercised on the RTX 3070; see [learning acceptance](docs/evaluation/learning.md) for latency, sampled memory, and scope. See [acceptance status](docs/evaluation/STATUS.md). Do not interpret unit tests as model or hardware validation.
 
 ## Debug mouse input
 
@@ -97,7 +89,7 @@ uv run imajev-game --debug-input
 
 This writes mouse press/move/release coordinates, buttons, stroke completion and ignored-click reasons to the terminal and `logs/input-debug.log` (rotating, local files). `--log-file /path/to/game.log` changes the location. With `--debug-input`, the Diagnostics panel also opens and full session JSON/observation PNGs are saved under `sessions/` for recognition replay. Detailed pointer logging is opt-in; normal launches log model lifecycle and rejected drawing presses to the terminal. Restart the app to enable the flag.
 
-Drawing is disabled until local model startup and image warm-up succeed. The hint below the board and its tooltip explain why input is locked. If no ink appears and the panel shows Warming up or Needs attention, start the local service using `scripts/launch_inference.sh` after completing the setup in `docs/deployment.md`, then Retry.
+Drawing is disabled until local model startup and image warm-up succeed. The hint below the board and its tooltip explain why input is locked. If no ink appears and the panel shows Warming up or Needs attention, complete setup in `docs/deployment.md`, fix the reported error, then Retry. Managed service logs are in `logs/managed-service.log`.
 
 To replay a saved recognition failure against the current prompt:
 
@@ -111,7 +103,7 @@ Use `--original-prompt` to compare the exact recorded request. Exported sessions
 
 `opponent.tactical_guard: true` is enabled in `config.yaml`. Imajev receives the board, legal moves, win condition and any immediate O win or X threat. The app records its proposed move. If it overlooks an immediate O win or the one cell needed to block an X win next turn, the rules engine commits that tactical move and labels the correction on the board and in Diagnostics. This is a one-turn rule, not a minimax opponent; Imajev still chooses moves without such a tactic and can miss longer-term threats or forks.
 
-Set `opponent.tactical_guard: false` to measure the model's unassisted play. Restart the app after changing the setting. `scripts/evaluate.py opponent` evaluates raw model choices; add `--with-tactical-guard` to measure the assisted gameplay policy. The records distinguish `model_proposed_action` from `accepted_action` and give the correction reason.
+Set `opponent.tactical_guard: false` to disable committed tactical corrections. Ordinary prompts still contain tactical advice; learning mode removes all built-in strategic assistance. Restart the app after changing the setting. `scripts/evaluate.py opponent` evaluates raw model choices; add `--with-tactical-guard` to measure the assisted gameplay policy. The records distinguish `model_proposed_action` from `accepted_action` and give the correction reason.
 
 ## Resume a paused game
 
@@ -122,3 +114,36 @@ uv run imajev-game --debug-input --resume sessions/<session-id>/session.json
 The app validates and loads the saved board and strokes into a new session, preserving the original record. If it was Imajev's turn, the app reconnects and continues that turn. Retry after an abstention now sends a changed question; it never commits an abstained answer. The first O move includes specific opening guidance: center after an X corner or edge, or a corner after an X center. The same move was checked with the tic-tac-toe oracle for all nine X openings. If a later model request still abstains, the board remains intact and Retry remains available.
 
 To test the model without an opening suggestion, run `uv run --locked imajev-game --config config.no-opening.yaml --debug-input`. This removes the suggested opening from the first O request and retries while keeping the tactical guard on. The window title marks this mode, and saved session records include `opening_suggestion: false`.
+
+## Learning mode
+
+```sh
+uv run imajev-game --learning
+```
+
+The Learning mode checkbox applies to the next game. Each game retains its original mode, strategy text, and revision, including after resume. Learning uses retained prompt context; model weights do not change. Learning prompts retain board state, rules, legal actions and drawing validation, but omit opening hints, tactical recommendations and corrections. Retries rephrase the question without selecting a move.
+
+A completed loss or draw automatically starts coaching while the final board remains visible. Wins are recorded without coaching; abandoned games and rejected moves do not trigger updates. Compact summaries, resumable sessions, atomic coaching attempts and strategy revisions are saved in `learning/`, independently of debug logging. Ordinary sessions are excluded. Successful updates apply to subsequent games. Inline Diagnostics shows the strategy, coaching input, included game IDs, response, duration and errors. Retry coaching or Continue with previous strategy resolves a failed update; Continue checks readiness before enabling New game.
+
+Configuration defaults:
+
+```yaml
+learning:
+  enabled: false
+  coach_backend: shared
+  directory: learning
+```
+
+Shared coaching reuses the loaded base model with the PEFT adapter temporarily disabled under the inference lock. It uses greedy generation, disabled thinking, a 3,072-token input budget and at most 512 output tokens. Empty or truncated output keeps the previous revision; failures never silently select another backend.
+
+For optional Ollama coaching, install Ollama and explicitly run `ollama pull <model>` during setup, then configure:
+
+```yaml
+learning:
+  enabled: true
+  coach_backend: ollama
+  ollama_url: http://127.0.0.1:11434
+  model: <installed-model-name>
+```
+
+Ollama requires managed Imajev. The app stops its own Imajev process, requests coaching with `keep_alive: 0`, confirms Ollama has unloaded, and reloads and warms Imajev before gameplay resumes. Unrelated loaded models are reported, never stopped. Gameplay never downloads models.

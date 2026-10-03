@@ -2,6 +2,8 @@
 
 A Python/PyQt6 desktop tic-tac-toe game. Draw an X with multiple mouse strokes, submit it to your local Imajev image service, and let the model choose O. The deterministic rules engine validates every action. Immediate O wins and single-cell blocks are enforced by the visible tactical guard, while Imajev proposes each computer move and chooses ordinary moves. Accepted handwriting stays on the board; ambiguity stays editable.
 
+See the [implementation guide](docs/implementation.md) for architecture, turn flow, model prompting, retries, persistence, and explanatory Mermaid diagrams.
+
 ## Run
 
 Install [uv](https://docs.astral.sh/uv/), then from this directory:

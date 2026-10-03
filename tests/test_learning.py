@@ -227,7 +227,7 @@ def test_unconfirmed_unload_blocks_restart():
         manager.start()
 
 
-def test_strategy_injected_initial_and_retry(qapp, tmp_path):
+def test_strategy_injected_initial_and_retry(qapp, tmp_path, monkeypatch):
     from app.core.contracts import ChoiceAnswer, Reply
     from tests.test_session import wait_for
     class Client:
@@ -237,6 +237,11 @@ def test_strategy_injected_initial_and_retry(qapp, tmp_path):
             probabilities = {k: float(k == choice) for k in request['questions']['move']['criteria']}
             return Reply(Config.expected_model, {'move': ChoiceAnswer(choice, probabilities, 0, len(requests) == 1)}, {})
     requests = []
+    coaching_requests = []
+    def coach(client, request):
+        coaching_requests.append(request)
+        return {'strategy': 'coached lesson'}
+    monkeypatch.setattr('app.core.session.shared_coach', coach)
     c = controller(qapp, tmp_path)
     c.client = Client()
     c.ready = True
@@ -244,11 +249,17 @@ def test_strategy_injected_initial_and_retry(qapp, tmp_path):
     c.state = c.game.initial_state_for_player('O')
     c._after_move()
     wait_for(qapp, lambda: not c.busy)
-    assert c.phase == 'error'
-    c.retry()
-    wait_for(qapp, lambda: not c.busy)
+    assert c.phase == 'human'
+    assert len(coaching_requests) == 1
+    assert coaching_requests[0]['trigger']['type'] == 'decision_abstention'
+    assert coaching_requests[0]['statistics'] == {}
+    assert coaching_requests[0]['games'][0]['outcome'] == 'ongoing'
     assert len(requests) == 2
-    assert all(r['state']['strategy'] == 'persistent lesson' for r in requests)
+    assert requests[0]['state']['strategy'] == 'persistent lesson'
+    assert requests[1]['state']['strategy'] == 'coached lesson'
+    assert c.initial_strategy_revision == 0 and c.strategy_revision == 1
+    assert c.strategy_updates[0]['state_revision'] == 0
+    assert [e['strategy_revision'] for e in c.events if e.get('ticket', {}).get('purpose') == 'decision'] == [0, 1]
     assert requests[0]['questions']['move']['instructions'] != requests[1]['questions']['move']['instructions']
     assert not any(e.get('tactical_correction') for e in c.events)
 
@@ -323,3 +334,115 @@ def test_rejected_move_does_not_coach(qapp, tmp_path):
     c._completed(ticket, Reply(Config.expected_model, {}, {}), None, .1)
     assert c.phase == 'human' and c.state.revision == 0
     assert c.events[-1]['rejection'] == 'invalid ink'
+
+
+class AbstainingClient:
+    def __init__(self, always=True):
+        self.requests = []
+        self.always = always
+    def decide(self, request, image):
+        from app.core.contracts import ChoiceAnswer, Reply
+        self.requests.append(request)
+        choice = next(iter(request['questions']['move']['criteria']))
+        probabilities = {k: float(k == choice) for k in request['questions']['move']['criteria']}
+        abstained = self.always or len(self.requests) == 1
+        return Reply(Config.expected_model, {'move': ChoiceAnswer(choice, probabilities, .8, abstained)},
+                     {'answers': {'move': {'choice': choice, 'abstained': abstained}}})
+    def warmup(self, request, image):
+        from app.core.contracts import Reply
+        return Reply(Config.expected_model, {}, {})
+
+
+def test_repeated_abstention_coaches_then_pauses(qapp, tmp_path, monkeypatch):
+    from test_session import wait_for
+    calls = []
+    def coach(client, request):
+        calls.append(request)
+        return {'strategy': 'lesson ' + str(len(calls))}
+    monkeypatch.setattr('app.core.session.shared_coach', coach)
+    c = controller(qapp, tmp_path)
+    c.client = AbstainingClient()
+    c.ready = True
+    c.state = c.game.initial_state_for_player('O')
+    c._after_move()
+    wait_for(qapp, lambda: not c.busy)
+    assert len(calls) == len(c.client.requests) == 2
+    assert c.phase == 'error' and not c.coaching_failed
+    assert c.state.revision == 0 and c.strategy_revision == 2
+    assert 'Retry' in c.message
+    # Two abstention updates don't mark terminal coaching as completed.
+    assert not c.learning_store.updated(c.session_id)
+    assert len(c.record()['learning']['updates']) == 2
+
+
+def test_abstention_coaching_failure_retry_keeps_position(qapp, tmp_path, monkeypatch):
+    from test_session import wait_for
+    calls = []
+    def coach(client, request):
+        calls.append(request)
+        if len(calls) == 1:
+            raise RuntimeError('coach unavailable')
+        return {'strategy': 'recovery lesson'}
+    monkeypatch.setattr('app.core.session.shared_coach', coach)
+    c = controller(qapp, tmp_path)
+    c.client = AbstainingClient(always=False)
+    c.ready = True
+    c.state = c.game.initial_state_for_player('O')
+    c._after_move()
+    wait_for(qapp, lambda: not c.busy)
+    assert c.coaching_failed and c.state.revision == 0
+    trigger_id = c.coach_trigger['update_id']
+    c.retry()
+    wait_for(qapp, lambda: not c.busy)
+    assert not c.coaching_failed and c.state.revision == 1
+    assert calls[0]['trigger']['update_id'] == calls[1]['trigger']['update_id'] == trigger_id
+    assert c.strategy_revision == 1
+
+
+def test_continue_after_abstention_coach_failure(qapp, tmp_path, monkeypatch):
+    from test_session import wait_for
+    monkeypatch.setattr('app.core.session.shared_coach', lambda *args: (_ for _ in ()).throw(RuntimeError('offline')))
+    c = controller(qapp, tmp_path)
+    c.client = AbstainingClient(always=False)
+    c.ready = True
+    c.state = c.game.initial_state_for_player('O')
+    c._after_move()
+    wait_for(qapp, lambda: not c.busy)
+    c.continue_learning()
+    wait_for(qapp, lambda: not c.busy)
+    assert c.phase == 'human' and c.state.revision == 1
+    assert c.strategy_revision == 0 and c.client.requests[-1]['state']['strategy'] == ''
+
+
+def test_abstention_dedup_and_terminal_update_are_independent(qapp, tmp_path):
+    c = controller(qapp, tmp_path)
+    c._publish()
+    trigger = {'type': 'decision_abstention', 'update_id': 'request-id'}
+    request = c.learning_store.request(c.session_id, trigger=trigger)
+    c.learning_store.commit(c.session_id, request, {'strategy': 'opening'})
+    c.learning_store.commit(c.session_id, request, {'strategy': 'duplicate'})
+    assert c.learning_store.ledger()['revision'] == 1
+    assert not c.learning_store.updated(c.session_id)
+    play(c, ['A1', 'A2', 'B1', 'B2', 'C1'])
+    c._publish()
+    request = c.learning_store.request(c.session_id)
+    c.learning_store.commit(c.session_id, request, {'strategy': 'after loss'})
+    assert c.learning_store.updated(c.session_id)
+    assert c.learning_store.ledger()['revision'] == 2
+
+
+def test_midgame_strategy_resume(qapp, tmp_path, monkeypatch):
+    from test_session import wait_for
+    monkeypatch.setattr('app.core.session.shared_coach', lambda *args: {'strategy': 'opening lesson'})
+    c = controller(qapp, tmp_path)
+    c.client = AbstainingClient(always=False)
+    c.ready = True
+    c.state = c.game.initial_state_for_player('O')
+    c._after_move()
+    wait_for(qapp, lambda: not c.busy)
+    restored = controller(qapp, tmp_path)
+    restored.restore(tmp_path / 'sessions' / c.session_id / 'session.json')
+    assert restored.session_id == c.session_id
+    assert restored.strategy == 'opening lesson' and restored.strategy_revision == 1
+    assert restored.initial_strategy == '' and restored.initial_strategy_revision == 0
+    assert restored.strategy_updates == c.strategy_updates

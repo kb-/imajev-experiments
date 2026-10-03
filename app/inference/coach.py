@@ -4,7 +4,7 @@ import httpx
 
 
 def coach_messages(request):
-    return [{'role': 'system', 'content': 'You coach O in tic-tac-toe. Revise the previous strategy using accepted moves and outcomes, retaining useful older lessons. Return only a concise actionable strategy, in at most 120 words, using six short numbered rules. No analysis or thinking.'},
+    return [{'role': 'system', 'content': 'You coach O in tic-tac-toe. Revise the previous strategy using accepted moves and outcomes, retaining useful older lessons. If a decision_abstention trigger is present, provide a strategy to make a confident legal choice in that position, including an opening plan for an empty board. O is the computer; X is its opponent. Return only a concise actionable strategy, in at most 120 words, using six short numbered rules. No analysis or thinking.'},
             {'role': 'user', 'content': json.dumps(request, ensure_ascii=False)}]
 
 

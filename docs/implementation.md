@@ -70,7 +70,7 @@ A2 B2 C2
 A3 B3 C3
 ```
 
-`State` also stores the next player, accepted move history, and a revision number. `apply_action()` accepts only actions returned by `legal_actions()`, creates a new state, switches the player, and increments the revision. Legal action IDs look like `place_B2`. Completed games have no legal actions. The rules engine checks all three rows, three columns, and two diagonals for a win, then checks for a full-board draw.
+`State` also stores the next player, accepted move history, a revision number, and the starting player. The first game starts with the human X. Each click on New game alternates the starter within the current app run; Imajev remains O and may start a game. The right panel identifies who started. Old records without a starting player default to X. Resuming a game preserves its starter and makes the next new game start with the other player. `apply_action()` accepts only actions returned by `legal_actions()`, creates a new state, switches the player, and increments the revision. Legal action IDs look like `place_B2`. Completed games have no legal actions. The rules engine checks all three rows, three columns, and two diagonals for a win, then checks for a full-board draw.
 
 Accepted X moves retain the original strokes in their history entry. O moves are rendered as circles at cell centers. Replay states without handwritten X strokes use symbolic crosses for display; this rendering does not classify a live drawing.
 
@@ -143,7 +143,7 @@ There are three distinct forms of assistance:
 
 | Mechanism | Behavior |
 |---|---|
-| Opening suggestion | On O's first turn, recommends A1 after X opens at B2; otherwise recommends B2. Enabled by default. |
+| Opening suggestion | When O starts, recommends B2. When X starts, recommends A1 after X opens at B2; otherwise recommends B2. Enabled by default. |
 | Tactical prompt | Explicitly requests the required move when there is exactly one immediate O win or unique X block. This remains in the prompt even if the commit-time guard is disabled. |
 | Tactical guard | After a non-abstained legal proposal, commits an immediate O win or unique X block if the model missed it. Enabled by default. |
 
@@ -236,5 +236,7 @@ The test suite covers reachable-board rules, recognition/protocol checks, tactic
 ## Adding another game
 
 Implement the `Game` protocol in `app/core/contracts.py` and register the implementation in `app/core/registry.py`. The controller expects the game to supply states, legal actions, outcomes, scenes, model requests, answer validation, and state serialization. Optional capabilities such as `retry_decision_request`, `tactical_choice`, and `supports_opening_suggestion` are discovered separately.
+
+Games can optionally implement `initial_state_for_player(player)` to support alternating starters. The UI requests alternation with `new_game(alternate_starter=True)`; direct controller resets default to the human starter.
 
 The controller is tested with a small second game, but the current window still contains tic-tac-toe-specific labels and instructions. Adding a production game also requires adapting those UI elements and providing its own rule, rendering, protocol, and lifecycle coverage.

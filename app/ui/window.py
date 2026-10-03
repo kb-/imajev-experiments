@@ -123,6 +123,8 @@ class Window(QMainWindow):
         self.message.setWordWrap(True)
         side.addWidget(self.message)
         side.addWidget(self.label('YOU   X     /     IMAJEV   O', 'muted'))
+        self.starter_label = self.label('', 'muted')
+        side.addWidget(self.starter_label)
         side.addStretch()
         side.addWidget(self.label('LAST ACCEPTED MOVE', 'eyebrow'))
         self.last = QLabel()
@@ -192,7 +194,7 @@ class Window(QMainWindow):
     def new_game(self):
         self.canvas.current = []
         self.controller.game = GAMES[self.selector.currentData()]
-        self.controller.new_game()
+        self.controller.new_game(alternate_starter=True)
         if not self.controller.ready and not self.controller.busy:
             self.controller.start()
 
@@ -205,6 +207,8 @@ class Window(QMainWindow):
         phases = {'loading': 'Warming up', 'human': 'Your turn', 'recognising': 'Reading your ink',
                   'computer': 'Imajev’s turn', 'over': 'Game complete', 'error': 'Needs attention'}
         self.phase_label.setText(phases[c.phase])
+        starter = getattr(c.state, 'starting_player', None)
+        self.starter_label.setText('You started · X' if starter == c.game.human_player else 'Imajev started · O' if starter == c.game.computer_player else '')
         self.message.setText(c.message)
         self.message.setMinimumHeight(self.message.sizeHint().height())
         self.last.setText(c.last_move)

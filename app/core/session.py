@@ -35,16 +35,23 @@ class SessionController(QObject):
         self.events = []
         self.diagnostics = ''
         self.storage_error = ''
+        self.starting_players = {}
         self.new_game()
 
     @property
     def editable(self):
         return self.phase == 'human' and not self.busy
 
-    def new_game(self):
+    def new_game(self, alternate_starter=False):
         self.active = None  # Invalidates every old response, even when worker cannot cancel GPU work.
         self.session_id = str(uuid.uuid4())
-        self.state = self.game.initial_state()
+        if hasattr(self.game, 'initial_state_for_player'):
+            previous = self.starting_players.get(self.game.id, self.game.computer_player)
+            starter = (self.game.computer_player if previous == self.game.human_player else self.game.human_player) if alternate_starter else self.game.human_player
+            self.starting_players[self.game.id] = starter
+            self.state = self.game.initial_state_for_player(starter)
+        else:
+            self.state = self.game.initial_state()
         self.pending: tuple[Stroke, ...] = ()
         self.events = []
         self.retry_purpose = None
@@ -55,12 +62,16 @@ class SessionController(QObject):
         self.phase = 'loading' if self.busy or not self.ready else 'human'
         self.message = 'Waiting for the current local request…' if self.busy else (self.game.instruction if self.ready else 'Connecting to the local image service…')
         self._publish()
+        if self.ready and not self.busy:
+            self._after_move()
 
     def restore(self, path: Path):
         record = json.loads(path.read_text(encoding='utf-8'))
         if record.get('version') != 1 or record.get('state', {}).get('game') != self.game.id:
             raise ValueError('This session record does not match the selected game.')
         self.state = self.game.decode_state(record['state'])
+        if hasattr(self.state, 'starting_player'):
+            self.starting_players[self.game.id] = self.state.starting_player
         self.pending = tuple(Stroke(tuple(tuple(point) for point in stroke['points']), stroke['width'], stroke['color'])
                              for stroke in record.get('pending_ink', []))
         self.events = [dict(event) for event in record.get('events', [])]
@@ -170,8 +181,7 @@ class SessionController(QObject):
             # New game cannot start another request until this worker finishes.
             if self.phase == 'loading':
                 if self.ready:
-                    self.phase, self.message = 'human', self.game.instruction
-                    self._publish()
+                    self._after_move()
                 else:
                     self.start()
             return

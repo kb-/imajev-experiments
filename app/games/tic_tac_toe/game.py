@@ -4,7 +4,7 @@ from app.core.contracts import Action, Outcome, Reply, Scene, Stroke
 
 CELLS = tuple(f'{col}{row}' for row in range(1, 4) for col in 'ABC')
 WINNING_LINES = ((0, 1, 2), (3, 4, 5), (6, 7, 8), (0, 3, 6), (1, 4, 7), (2, 5, 8), (0, 4, 8), (2, 4, 6))
-PROMPT_VERSION = 'tic-tac-toe-v4'
+PROMPT_VERSION = 'tic-tac-toe-v5'
 
 
 @dataclass(frozen=True)
@@ -20,6 +20,7 @@ class State:
     next_player: str = 'X'
     history: tuple[Move, ...] = ()
     revision: int = 0
+    starting_player: str = 'X'
 
 
 def center(index: int) -> tuple[float, float]:
@@ -59,6 +60,11 @@ class TicTacToe:
     def initial_state(self) -> State:
         return State()
 
+    def initial_state_for_player(self, player: str) -> State:
+        if player not in ('X', 'O'):
+            raise ValueError('Starting player must be X or O.')
+        return State(next_player=player, starting_player=player)
+
     def current_player(self, state: State) -> str:
         return state.next_player
 
@@ -83,7 +89,7 @@ class TicTacToe:
         board = list(state.board)
         board[index] = state.next_player
         return State(tuple(board), 'O' if state.next_player == 'X' else 'X',
-                     state.history + (Move(action, state.next_player, drawing),), state.revision + 1)
+                     state.history + (Move(action, state.next_player, drawing),), state.revision + 1, state.starting_player)
 
     def render(self, state: State, drawing: tuple[Stroke, ...], purpose: str) -> Scene:
         strokes: list[Stroke] = []
@@ -178,6 +184,9 @@ class TicTacToe:
         o_wins = tuple(a.id for a in actions if self.outcome(self.apply_action(state, a.id)).winner == 'O')
         instruction = 'Choose the best legal action for O. The symbolic board is authoritative. Win immediately if possible; otherwise block any immediate X win; otherwise seek the strongest move.'
         opening = None
+        if opening_suggestion and state.revision == 0 and state.next_player == 'O':
+            opening = 'place_B2'
+            instruction = 'Choose place_B2. O starts this game; take center B2 as the opening move. Return place_B2 as the legal action ID.'
         if opening_suggestion and state.revision == 1 and state.board.count('X') == 1 and state.board.count('O') == 0:
             x_cell = CELLS[state.board.index('X')]
             if x_cell == 'B2':
@@ -190,8 +199,9 @@ class TicTacToe:
             cell = priorities[0].removeprefix('place_')
             instruction = f'Choose {priorities[0]}. This is the required {reason} at {cell}. Return that exact legal action ID.'
         return {'state': {'game': self.id, 'board': dict(zip(CELLS, state.board)), 'current_player': state.next_player,
+                          'starting_player': state.starting_player,
                           'coordinates': 'Columns A to C left to right; rows 1 to 3 top to bottom',
-                          'rules': 'Players alternate. Three matching marks in a row, column or diagonal wins. O plays now. First win if possible; otherwise block X winning on its next move.',
+                          'rules': f'{state.starting_player} starts this game. Players alternate. Three matching marks in a row, column or diagonal wins. O plays now. First win if possible; otherwise block X winning on its next move.',
                           'immediate_O_win_actions': list(o_wins), 'immediate_X_win_actions_if_unblocked': list(x_threats),
                           'opening_advice': opening},
                 'questions': {'move': {'type': 'choice', 'instructions': instruction,
@@ -205,7 +215,7 @@ class TicTacToe:
             candidate = priorities[0]
         elif opening:
             candidate = opening
-        elif not opening_suggestion and state.revision == 1:
+        elif not opening_suggestion and state.board.count('O') == 0:
             request['state']['retry_attempt'] = attempt
             request['questions']['move']['instructions'] = (
                 'Choose one legal move for O from the listed actions. The previous answer abstained; '
@@ -242,7 +252,7 @@ class TicTacToe:
     def decode_state(self, record: dict) -> State:
         if record.get('version') != 1 or record.get('game') != self.id:
             raise ValueError('Unsupported game record.')
-        state = State()
+        state = self.initial_state_for_player(record.get('starting_player', 'X'))
         try:
             for item in record['history']:
                 if item['player'] != state.next_player:

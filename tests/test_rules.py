@@ -13,7 +13,8 @@ def test_eight_winning_lines(line):
     assert game.outcome(State(board=tuple(board))).winner == 'X'
 
 
-def test_reachable_states():
+@pytest.mark.parametrize('starter', ('X', 'O'))
+def test_reachable_states(starter):
     seen = set()
     def visit(state):
         key = state.board
@@ -21,9 +22,11 @@ def test_reachable_states():
             return
         seen.add(key)
         xs, os = key.count('X'), key.count('O')
-        assert xs in (os, os+1)
+        first, second = (xs, os) if starter == 'X' else (os, xs)
+        assert first in (second, second + 1)
+        assert state.starting_player == starter
         assert state.revision == xs + os == len(state.history)
-        assert state.next_player == ('X' if xs == os else 'O')
+        assert state.next_player == (starter if first == second else ('O' if starter == 'X' else 'X'))
         assert game.decode_state(game.encode_state(state)) == state
         result = game.outcome(state)
         actions = game.legal_actions(state)
@@ -37,7 +40,7 @@ def test_reachable_states():
                 after = game.apply_action(state, action.id)
                 assert state.board == key  # Immutable original.
                 visit(after)
-    visit(State())
+    visit(game.initial_state_for_player(starter))
     assert len(seen) == 5478
 
 

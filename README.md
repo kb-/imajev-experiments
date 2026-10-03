@@ -21,6 +21,7 @@ The service must run separately. See [local deployment](docs/deployment.md) for 
 
 - Draw inside the square board; mouse release ends a stroke. Submit explicitly ends your turn.
 - Undo removes one whole pending stroke; Clear removes all pending ink.
+- The first game starts with you. Each click on New game alternates the starter between you (X) and Imajev (O); the right panel identifies who started.
 - New game stays available during inference. The previous job must finish before another request starts; old replies cannot change the new board.
 - Expand Diagnostics for model scores and timing. Recognition scores include the unknown probability; opponent scores represent preference.
 - Export session saves versioned JSON with full strokes, canonical state, requests and responses. With `diagnostics.save_sessions: true`, JSON and observation PNGs are written under `sessions/`. All records stay local.

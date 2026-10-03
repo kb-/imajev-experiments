@@ -11,9 +11,9 @@ class Config:
     tactical_guard: bool = True
     opening_suggestion: bool = True
     endpoint: str = 'http://127.0.0.1:8765/v1/systemone'
-    expected_model: str = 'imajev-2b'
-    request_timeout: float = 30
-    startup_timeout: float = 180
+    expected_model: str = 'imajev-4b-nf4'
+    request_timeout: float = 45
+    startup_timeout: float = 300
     threshold: float = .85
     observation_size: int = 768
     diagnostics: bool = False
@@ -36,9 +36,9 @@ def load_config(path: Path) -> Config:
         raise ValueError('Tic-tac-toe currently supports human X only.')
     config = Config(
         game=g.get('default', 'tic_tac_toe'), tactical_guard=o.get('tactical_guard', True), opening_suggestion=o.get('opening_suggestion', True), endpoint=i.get('endpoint', Config.endpoint),
-        expected_model=i.get('expected_model', 'imajev-2b'),
-        request_timeout=float(i.get('request_timeout_seconds', 30)),
-        startup_timeout=float(i.get('startup_timeout_seconds', 180)),
+        expected_model=i.get('expected_model', Config.expected_model),
+        request_timeout=float(i.get('request_timeout_seconds', Config.request_timeout)),
+        startup_timeout=float(i.get('startup_timeout_seconds', Config.startup_timeout)),
         threshold=float(r.get('min_effective_probability', .85)),
         observation_size=int(c.get('observation_size_pixels', 768)),
         diagnostics=d.get('enabled', False), save_sessions=d.get('save_sessions', False),

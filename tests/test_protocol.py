@@ -88,7 +88,7 @@ def test_multipart_transport(monkeypatch):
         return httpx.Response(200, json=answer(request, {'symbol': 'X', 'cell': 'A1'}))
     transport = httpx.MockTransport(handle)
     monkeypatch.setattr(httpx, 'Client', lambda **kw: real_client(transport=transport, **kw))
-    assert ImajevClient(Config()).decide(request, b'png').answers['cell'].choice == 'A1'
+    assert ImajevClient(Config(expected_model='imajev-2b')).decide(request, b'png').answers['cell'].choice == 'A1'
 
 
 def test_busy_service_never_receives_retry_image(monkeypatch):
@@ -151,7 +151,7 @@ def test_warmup_uses_image_and_validates_ready_model(monkeypatch):
         assert b'filename="board.png"' in req.content
         return httpx.Response(200, json=answer(request, {'symbol': 'invalid', 'cell': 'invalid'}, abstained=True))
     monkeypatch.setattr(httpx, 'Client', lambda **kw: real_client(transport=httpx.MockTransport(handle), **kw))
-    reply = ImajevClient(Config()).warmup(request, b'png')
+    reply = ImajevClient(Config(expected_model='imajev-2b')).warmup(request, b'png')
     assert reply.answers['symbol'].abstained
     assert reply.raw['service']['runtime_id'] == 'test'
     assert calls == ['/v1/models', '/v1/status', '/v1/systemone']

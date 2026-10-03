@@ -15,7 +15,7 @@ uv run imajev-game
 
 Works on Windows and Linux with a desktop display. No model or Torch is loaded in the GUI environment. Configure the loopback service and expected model in `config.yaml`; use `uv run imajev-game --config /path/to/config.yaml` for another file. The app waits for the service and performs an image warm-up before enabling drawing. Missing service, timeout, malformed responses and model mismatches remain visible and offer Retry. There is no automatic substitute opponent or symbol detector.
 
-The service must run separately. See [local deployment](docs/deployment.md) for the pinned upstream setup and offline asset checks. On Windows, run the GUI on Windows and the inference environment in WSL2. Model downloads happen during setup, never from the app.
+The service must run separately. See [local deployment](docs/deployment.md) for the pinned upstream setup and offline asset checks. The default profile is `imajev-4b-nf4`, which dynamically quantizes the pinned Qwen3.5-4B base on CUDA while keeping the official Imajev-4B adapter/readout. Use `config.2b.yaml` and the explicit 2B scripts for the legacy profile. On Windows, run the GUI on Windows and the inference environment in WSL2. Model downloads happen during setup, never from the app.
 
 ## Controls and records
 

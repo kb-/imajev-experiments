@@ -3,9 +3,9 @@ game:
   human_symbol: X
 imajev:
   endpoint: http://127.0.0.1:8765/v1/systemone
-  expected_model: imajev-2b
-  request_timeout_seconds: 30
-  startup_timeout_seconds: 180
+  expected_model: imajev-4b-nf4
+  request_timeout_seconds: 45
+  startup_timeout_seconds: 300
 opponent:
   tactical_guard: true
   opening_suggestion: false

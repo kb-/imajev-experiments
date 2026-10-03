@@ -17,7 +17,7 @@ The initial implementation environment had no running model service and blocked 
 
 ## Run the pilot
 
-1. Follow `docs/deployment.md` to prepare the supported 2B PyTorch image service on the RTX 3070.
+1. Follow `docs/deployment.md` to prepare the default 4B NF4 image service on the RTX 3070 (or explicitly select the legacy 2B profile).
 2. Run `uv run python scripts/evaluate.py --output contract.json contract`. This sends recognition and decision PNGs and validates typed answers against the installation.
 3. Gather at least 200 labelled drawings from multiple people, including neat/messy X/O, small/uneven marks, blank, scribble, multiple symbols and cell crossings. Store strokes in the schema shown in `corpus.example.json`. Record `participant`, `split`, `valid_x`, and `cell` for each sample. Keep `pilot` and `heldout` sets separate; do not tune against heldout answers. The example corpus is illustrative, not evaluation evidence.
 4. Run `uv run python scripts/evaluate.py --output handwriting.json recognition corpus.json --split heldout`. Report accepted-move precision, correct valid-X coverage and invalid false acceptance separately. Review the proposed ≥99% precision and ≥90% clear-X coverage goals. A report with insufficient samples/participants/splits is explicitly flagged.
@@ -46,3 +46,7 @@ The guard was checked over all 2,097 reachable ongoing O-turn boards and their 7
 ## Repeated abstention debug, 3 October 2026
 
 A saved game with X at A1 showed four identical O requests and four identical abstentions. The top conditional move was A3 at 17.3%, but the unknown option had more raw mass than A3, so Imajev abstained. The UI message incorrectly called A3 illegal. The updated opening question explicitly asks O to choose the center B2. The local model returned B2 without abstaining at 93.3% on the saved board; revised retry questions returned B2 at 88.1% and 81.4%. The error message now distinguishes abstention from an invalid ID, and Retry changes the request. Session restore permits continuing the exact paused board in a new window. These measurements apply to this board and do not establish abstention rates across other positions.
+
+## Default model update, 3 October 2026
+
+The user reports successful operation of Imajev-4B NF4 and requested its promotion to the default. The default GUI configuration and standard setup/launch scripts now select this profile. The earlier recognition pilot and debug measurements above remain 2B results; no equivalent NF4 accuracy, calibration, or hardware benchmark is claimed. The explicit 2B configuration and launch scripts remain available.

@@ -6,7 +6,7 @@ For installation and controls, see the [README](../README.md). For the separate 
 
 ## Architecture and ownership
 
-The app has two processes: a lightweight desktop GUI and a local inference service. The GUI uses PyQt6, PyYAML, and httpx. It does not load Torch or model weights. The inference environment loads the pinned Imajev-2B bundle and receives requests over loopback HTTP.
+The app has two processes: a lightweight desktop GUI and a local inference service. The GUI uses PyQt6, PyYAML, and httpx. It does not load Torch or model weights. The inference environment loads the pinned Imajev-4B adapter/readout with the Qwen3.5-4B base quantized to NF4 and receives requests over loopback HTTP.
 
 The controller owns the active session. The game module owns the rules and canonical board. The model identifies handwriting and proposes a legal O action. A model answer changes the board only after protocol validation and game validation succeed.
 
@@ -218,9 +218,9 @@ uv run --locked imajev-game --resume sessions/SESSION_ID/session.json --debug-in
 | `game.default` | `tic_tac_toe` | Registered game |
 | `opponent.tactical_guard` | `true` | Commit-time immediate-win/block correction |
 | `opponent.opening_suggestion` | `true` | Guidance on the first O move and its retries |
-| `imajev.expected_model` | `imajev-2b` | Required response model ID |
-| `imajev.request_timeout_seconds` | `30` | Inference request timeout |
-| `imajev.startup_timeout_seconds` | `180` | Readiness and image warm-up budget |
+| `imajev.expected_model` | `imajev-4b-nf4` | Required response model ID |
+| `imajev.request_timeout_seconds` | `45` | Inference request timeout |
+| `imajev.startup_timeout_seconds` | `300` | Readiness and image warm-up budget |
 | `recognition.min_effective_probability` | `0.85` | Required symbol and cell scores |
 | `canvas.observation_size_pixels` | `768` | Square observation resolution |
 | `diagnostics.enabled` | `false` | Initially expand inline Diagnostics |

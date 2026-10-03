@@ -14,10 +14,10 @@ class DevelopmentFake:
         return self.decide(request, png)
     def decide(self, request, png):
         choices = {'symbol': 'invalid', 'cell': 'invalid'} if 'symbol' in request['questions'] else {'move': next(iter(request['questions']['move']['criteria']))}
-        raw = {'model': 'imajev-2b', 'answers': {name: {
+        raw = {'model': Config.expected_model, 'answers': {name: {
             'type': 'choice', 'choice': choices[name], 'probabilities': {key: float(key == choices[name]) for key in question['criteria']},
             'unknown_probability': 0, 'abstained': False} for name, question in request['questions'].items()}}
-        return parse_reply(raw, request, 'imajev-2b')
+        return parse_reply(raw, request, Config.expected_model)
 
 
 def main():

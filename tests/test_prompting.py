@@ -224,3 +224,17 @@ def test_adoption_requires_all_safety_and_latency_gates():
         if row['arm'] == 'C':
             row['seconds'] = 5
     assert not adoption_gate(trial, 'C', games)['checks']['latency_within_2x']
+
+
+def test_default_dataset_input_is_tracked_and_reproduces_historical_sample():
+    from scripts.evaluate_prompting import DEFAULT_PREVIOUS, SEED, digest, json_bytes
+
+    previous = json.loads(DEFAULT_PREVIOUS.read_text())
+    assert len(previous['positions']) == 21
+    assert all(set(row) == {'id', 'state'} for row in previous['positions'])
+    dataset = prepare_dataset(DEFAULT_PREVIOUS, SEED)
+    assert len(dataset['diagnostic']) == 86 and len(dataset['holdout']) == 256
+    assert GAME.decode_state(dataset['diagnostic'][0]['state']) == GAME.decode_state(previous['positions'][0]['state'])
+    assert any(turn['drawing'] for row in previous['positions'] for turn in row['state']['history'])
+    # Freeze every sampled board, stroke and option-order case from the completed trial.
+    assert digest(json_bytes(dataset)) == '7baa51ddd6e408ca4e9262218ec3b0866193fb8de572d44b1eb6c29f82323ab2'

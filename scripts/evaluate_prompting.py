@@ -35,6 +35,7 @@ from scripts.evaluate import oracle, timings
 GAME = TicTacToe()
 ROOT = Path(__file__).resolve().parents[1]
 SEED = 20261004
+DEFAULT_PREVIOUS = ROOT / 'data/evaluation/prompting-strategy-positions.json'
 ORDER = ('place_B2', 'place_A1', 'place_C1', 'place_A3', 'place_C3',
          'place_B1', 'place_A2', 'place_C2', 'place_B3')
 
@@ -453,7 +454,7 @@ def render_report(summary, dataset, output):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', type=Path, default=ROOT / 'logs/prompting-strategy-experiment')
-    parser.add_argument('--previous', type=Path, default=ROOT / 'logs/decomposition-experiment/results.json')
+    parser.add_argument('--previous', type=Path, default=DEFAULT_PREVIOUS)
     parser.add_argument('--seed', type=int, default=SEED)
     parser.add_argument('--resume', action='store_true')
     parser.add_argument('--prepare-only', action='store_true')

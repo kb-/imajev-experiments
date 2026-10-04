@@ -113,7 +113,7 @@ def opponent(client, config, limit, tactical_guard=False):
             if len(actions) == 1:
                 selected = actions[0].id
             else:
-                reply = client.decide(game.decision_request(state, actions), observation_png(game.render(state, (), 'decision'), config.observation_size))
+                reply = client.decide(game.decision_request(state, actions, opening_suggestion=config.opening_suggestion, prompt_variant=config.prompt_variant), observation_png(game.render(state, (), 'decision'), config.observation_size))
                 selected = game.decode_decision(state, reply)
             proposed = selected
             if tactical_guard:
@@ -128,7 +128,7 @@ def opponent(client, config, limit, tactical_guard=False):
                         'error': error, 'reply': dict(reply.raw) if reply else None})
         print(f'{len(results)}: {selected or error}', flush=True)
     completed = [r for r in results if not r['error']]
-    return {'mode': 'opponent', 'tactical_guard': tactical_guard, 'states': len(results), 'failed_or_abstained': len(results)-len(completed),
+    return {'mode': 'opponent', 'prompt_variant': config.prompt_variant, 'opening_suggestion': config.opening_suggestion, 'tactical_guard': tactical_guard, 'states': len(results), 'failed_or_abstained': len(results)-len(completed),
             'tactical_corrections': sum(bool(r['tactical_correction']) for r in completed),
             'raw_optimal_action_agreement': sum(r['model_proposed'] in r['optimal'] for r in completed)/len(completed) if completed else None,
             'optimal_action_agreement': sum(r['agreement'] for r in completed)/len(completed) if completed else None,
@@ -150,7 +150,7 @@ def main():
     choose.add_argument('--limit', type=int, default=0, help='0 evaluates every reachable ongoing O-turn state')
     choose.add_argument('--with-tactical-guard', action='store_true', help='Measure the assisted gameplay policy as well as raw model choices')
     args = parser.parse_args()
-    app = QApplication([])
+    app = QApplication.instance() or QApplication([])
     config = load_config(args.config)
     client = ImajevClient(config)
     started = time.monotonic()
@@ -162,9 +162,9 @@ def main():
             report = opponent(client, config, args.limit, args.with_tactical_guard)
         else:
             state = game.apply_action(State(), 'place_A1')
-            reply = client.decide(game.decision_request(state, game.legal_actions(state)), observation_png(game.render(state, (), 'decision'), config.observation_size))
+            reply = client.decide(game.decision_request(state, game.legal_actions(state), opening_suggestion=config.opening_suggestion, prompt_variant=config.prompt_variant), observation_png(game.render(state, (), 'decision'), config.observation_size))
             game.apply_action(state, game.decode_decision(state, reply))
-            report = {'mode': 'contract', 'passed': True, 'recognition_reply': dict(warmup.raw), 'decision_reply': dict(reply.raw)}
+            report = {'mode': 'contract', 'prompt_variant': config.prompt_variant, 'opening_suggestion': config.opening_suggestion, 'passed': True, 'recognition_reply': dict(warmup.raw), 'decision_reply': dict(reply.raw)}
     except (InferenceError, ValueError, OSError, KeyError, TypeError) as exc:
         parser.exit(1, f'Evaluation failed: {exc}\n')
     report.update(model=config.expected_model, threshold=config.threshold, total_seconds=time.monotonic()-started,

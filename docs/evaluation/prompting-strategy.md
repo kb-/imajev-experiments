@@ -87,8 +87,11 @@ uv run --offline python -m scripts.evaluate_prompting --resume
 
 Alternatively, omit both flags for a fresh complete trial. Use `--output` for a new
 artifact directory; existing artifacts are never silently overwritten. The default
-source is `logs/decomposition-experiment/results.json`; `--previous` selects another
-compatible prior-position file.
+source is the checked-in `data/evaluation/prompting-strategy-positions.json`, containing
+the 21 historical positions and their drawing strokes, without model replies or
+prior scores. `--previous` selects another compatible file with a `positions` list
+of objects containing `id` and an encoded game `state`. Dataset preparation therefore
+needs no prior local experiment logs.
 
 The harness owns its offline service and stops only that child process on completion
 or failure. An occupied port is reported without attaching to its owner. Resume

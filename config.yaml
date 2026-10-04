@@ -16,3 +16,7 @@ diagnostics:
   enabled: false
   save_sessions: false
   directory: sessions
+learning:
+  enabled: false
+  coach_backend: shared
+  directory: learning

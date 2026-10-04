@@ -7,6 +7,12 @@ import yaml
 
 @dataclass(frozen=True)
 class Config:
+    learning_enabled: bool = False
+    coach_backend: str = 'shared'
+    ollama_url: str = 'http://127.0.0.1:11434'
+    coach_model: str = ''
+    learning_directory: Path = Path('learning')
+    external_inference: bool = False
     game: str = 'tic_tac_toe'
     tactical_guard: bool = True
     opening_suggestion: bool = True
@@ -28,13 +34,16 @@ def load_config(path: Path) -> Config:
         raise ValueError(f'Invalid YAML configuration: {exc}') from exc
     if not isinstance(data, dict):
         raise ValueError('Configuration must be a YAML mapping.')
-    sections = {key: data.get(key, {}) for key in ('game', 'imajev', 'recognition', 'canvas', 'diagnostics', 'opponent')}
+    sections = {key: data.get(key, {}) for key in ('game', 'imajev', 'recognition', 'canvas', 'diagnostics', 'opponent', 'learning')}
     if any(not isinstance(section, dict) for section in sections.values()):
         raise ValueError('Configuration sections must be mappings.')
-    g, i, r, c, d, o = (sections[k] for k in sections)
+    g, i, r, c, d, o, l = (sections[k] for k in sections)
     if g.get('human_symbol', 'X') != 'X':
         raise ValueError('Tic-tac-toe currently supports human X only.')
     config = Config(
+        learning_enabled=l.get('enabled', False), coach_backend=l.get('coach_backend', 'shared'),
+        ollama_url=l.get('ollama_url', Config.ollama_url), coach_model=l.get('model', ''),
+        learning_directory=path.parent / l.get('directory', 'learning'),
         game=g.get('default', 'tic_tac_toe'), tactical_guard=o.get('tactical_guard', True), opening_suggestion=o.get('opening_suggestion', True), endpoint=i.get('endpoint', Config.endpoint),
         expected_model=i.get('expected_model', Config.expected_model),
         request_timeout=float(i.get('request_timeout_seconds', Config.request_timeout)),
@@ -52,4 +61,11 @@ def load_config(path: Path) -> Config:
         raise ValueError('Invalid recognition threshold or observation size.')
     if not isinstance(config.expected_model, str) or not config.expected_model or not all(isinstance(v, bool) for v in (config.diagnostics, config.save_sessions, config.tactical_guard, config.opening_suggestion)):
         raise ValueError('Invalid model or diagnostics settings.')
+    if not isinstance(config.learning_enabled, bool) or config.coach_backend not in ('shared', 'ollama'):
+        raise ValueError('Invalid learning settings.')
+    coach_url = urlparse(config.ollama_url)
+    if coach_url.scheme != 'http' or coach_url.hostname not in ('localhost', '127.0.0.1', '::1') or coach_url.username or coach_url.password or coach_url.query or coach_url.fragment:
+        raise ValueError('Ollama must use an HTTP loopback URL.')
+    if config.coach_backend == 'ollama' and not config.coach_model:
+        raise ValueError('Ollama coaching requires learning.model; install it explicitly before playing.')
     return config

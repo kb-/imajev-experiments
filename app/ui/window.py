@@ -2,7 +2,7 @@ import base64
 import json
 from pathlib import Path
 from PyQt6.QtCore import Qt, QTimer
-from PyQt6.QtWidgets import (QComboBox, QFileDialog, QFrame, QHBoxLayout, QLabel, QLayout,
+from PyQt6.QtWidgets import (QCheckBox, QComboBox, QFileDialog, QFrame, QHBoxLayout, QLabel, QLayout,
                             QMainWindow, QMessageBox, QPushButton, QScrollArea, QTextEdit, QVBoxLayout, QWidget)
 from app.core.registry import GAMES
 from app.ui.canvas import Canvas
@@ -91,7 +91,11 @@ class Window(QMainWindow):
         self.selector.setCurrentIndex(self.selector.findData(controller.game.id))
         self.selector.setAccessibleName('Game selector')
         header.addWidget(self.selector)
-        new = QPushButton('New game')
+        self.learning_toggle = QCheckBox('Learning mode (next game)')
+        self.learning_toggle.setChecked(controller.next_learning)
+        self.learning_toggle.toggled.connect(lambda value: setattr(controller, 'next_learning', value))
+        header.addWidget(self.learning_toggle)
+        new = self.new_button = QPushButton('New game')
         new.clicked.connect(self.new_game)
         header.addWidget(new)
         layout.addLayout(header)
@@ -135,12 +139,15 @@ class Window(QMainWindow):
         self.model.setWordWrap(True)
         side.addWidget(self.model)
         if controller.config.tactical_guard:
-            tactics = self.label('Immediate wins and blocks enforced', 'muted')
+            tactics = self.tactics_label = self.label('Immediate wins and blocks enforced', 'muted')
             tactics.setWordWrap(True)
             side.addWidget(tactics)
         self.retry_button = QPushButton('Retry')
         self.retry_button.clicked.connect(controller.retry)
         side.addWidget(self.retry_button)
+        self.continue_button = QPushButton('Continue with previous strategy')
+        self.continue_button.clicked.connect(controller.continue_learning)
+        side.addWidget(self.continue_button)
         self.diag_button = QPushButton('Diagnostics ▾' if controller.config.diagnostics else 'Diagnostics ▸')
         self.diag_button.setCheckable(True)
         self.diag_button.setChecked(controller.config.diagnostics)
@@ -205,7 +212,7 @@ class Window(QMainWindow):
     def refresh(self):
         c = self.controller
         phases = {'loading': 'Warming up', 'human': 'Your turn', 'recognising': 'Reading your ink',
-                  'computer': 'Imajev’s turn', 'over': 'Game complete', 'error': 'Needs attention'}
+                  'coaching': 'Studying games', 'computer': 'Imajev’s turn', 'over': 'Game complete', 'error': 'Needs attention'}
         self.phase_label.setText(phases[c.phase])
         starter = getattr(c.state, 'starting_player', None)
         self.starter_label.setText('You started · X' if starter == c.game.human_player else 'Imajev started · O' if starter == c.game.computer_player else '')
@@ -216,7 +223,14 @@ class Window(QMainWindow):
         status = 'Working' if c.busy else ('Attention needed' if c.phase == 'error' else ('Ready' if c.ready else 'Connecting'))
         self.model.setText(f'{c.config.expected_model} · {status}')
         self.model.setMinimumHeight(self.model.sizeHint().height())
-        self.retry_button.setVisible(c.phase == 'error')
+        self.new_button.setEnabled(not c.coaching and not c.coaching_failed)
+        self.selector.setEnabled(not c.coaching and not c.coaching_failed)
+        if hasattr(self, 'tactics_label'):
+            self.tactics_label.setVisible(not c.learning)
+        self.continue_button.setVisible(c.coaching_failed)
+        self.continue_button.setEnabled(not c.busy)
+        self.retry_button.setText('Retry coaching' if c.coaching_failed else 'Retry')
+        self.retry_button.setVisible(c.phase == 'error' or c.coaching_failed)
         self.retry_button.setEnabled(not c.busy)
         self.undo_button.setEnabled(c.editable and bool(c.pending))
         self.clear_button.setEnabled(c.editable and bool(c.pending))
@@ -230,7 +244,10 @@ class Window(QMainWindow):
         else:
             self.input_hint.setText('Drawing is paused. ' + c.message)
         log_info = f'\nMouse diagnostics: {c.log_path}' if getattr(c, 'log_path', None) else ''
-        summary = c.diagnostics + ('\n' + c.storage_error if c.storage_error else '') + log_info
+        summary = (f'Learning: {c.learning} · game strategy revision {c.strategy_revision}\n{c.strategy}\n'
+                   f'Current strategy revision {c.current_strategy["revision"]}\n{c.current_strategy["text"]}\n{c.coach_diagnostics}\n') + c.diagnostics + ('\n' + c.storage_error if c.storage_error else '') + log_info
+        if c.coaching and c.coach_prompt:
+            summary += '\nCOACHING PROMPT\n' + json.dumps(c.coach_prompt, indent=2)
         self.diag.setPlainText(summary + '\n\nQUESTIONS ASKED (NEWEST FIRST)\n' + format_question_history(c.events))
 
     def export(self):
@@ -253,7 +270,7 @@ class Window(QMainWindow):
                 QMessageBox.warning(self, 'Export failed', str(exc))
 
     def closeEvent(self, event):
-        if self.controller.busy:
+        if not self.controller.shutdown():
             # Do not destroy a running QThreadPool or block the UI waiting for a GPU request.
             self.controller.active = None
             self.controller.stopping = True
@@ -266,6 +283,6 @@ class Window(QMainWindow):
             event.accept()
 
     def finish_close(self):
-        if not self.controller.busy:
+        if self.controller.shutdown():
             self.close_timer.stop()
             self.close()

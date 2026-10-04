@@ -4,6 +4,8 @@ import uuid
 import logging
 import json
 from PyQt6.QtCore import QObject, QThreadPool, pyqtSignal
+from app.storage.learning import LearningStore
+from app.inference.coach import coach_messages, shared_coach
 from app.core.contracts import Stroke, Ticket
 from app.inference.jobs import Job
 from app.storage.session_store import SessionStore, session_record
@@ -15,12 +17,26 @@ logger = logging.getLogger(__name__)
 
 class SessionController(QObject):
     changed = pyqtSignal()
+    progress = pyqtSignal(str)
 
     def __init__(self, game, client, config, parent=None):
         super().__init__(parent)
+        self.progress.connect(self._progress)
         self.game, self.client, self.config = game, client, config
         self.pool = QThreadPool(self)
         self.pool.setMaxThreadCount(1)
+        self.learning_store = LearningStore(config.learning_directory)
+        self.current_strategy = {'revision': 0, 'text': ''}
+        self.next_learning = config.learning_enabled
+        self.coaching = False
+        self.coaching_failed = False
+        self.coach_diagnostics = ''
+        self.coach_prompt = None
+        self.coach_trigger = None
+        self.coach_auto_retry = False
+        self.recovery_revision = None
+        self.strategy_updates = []
+        self.service_manager = None
         self.store = SessionStore(config.directory, config.save_sessions)
         self.busy = False
         self.inflight = None
@@ -38,11 +54,29 @@ class SessionController(QObject):
         self.starting_players = {}
         self.new_game()
 
+    def _progress(self, message):
+        self.message = message
+        self.changed.emit()
+
     @property
     def editable(self):
         return self.phase == 'human' and not self.busy
 
     def new_game(self, alternate_starter=False):
+        if self.coaching or self.coaching_failed:
+            return
+        self.learning = self.next_learning
+        ledger = self.learning_store.ledger() if self.learning else {'revision': 0, 'text': ''}
+        if self.learning:
+            self.current_strategy = ledger
+        self.strategy_revision, self.strategy = ledger['revision'], ledger['text']
+        self.initial_strategy_revision, self.initial_strategy = self.strategy_revision, self.strategy
+        self.strategy_updates = []
+        self.recovery_revision = None
+        self.coach_trigger = None
+        self.coach_auto_retry = False
+        self.coach_diagnostics = ''
+        self.coach_prompt = None
         self.active = None  # Invalidates every old response, even when worker cannot cancel GPU work.
         self.session_id = str(uuid.uuid4())
         if hasattr(self.game, 'initial_state_for_player'):
@@ -79,6 +113,17 @@ class SessionController(QObject):
             if event.get('image'):
                 event['image'] = str((path.parent / event['image']).resolve())
         self.source_session_id = record.get('session_id')
+        metadata = record.get('learning', {})
+        self.learning = metadata.get('enabled', False)
+        self.next_learning = self.learning
+        self.strategy = metadata.get('strategy', '')
+        self.strategy_revision = metadata.get('revision', 0)
+        self.initial_strategy_revision = metadata.get('initial_revision', self.strategy_revision)
+        self.initial_strategy = metadata.get('initial_strategy', self.strategy)
+        self.strategy_updates = metadata.get('updates', [])
+        if self.learning:
+            self.session_id = record['session_id']
+            self.current_strategy = self.learning_store.ledger()
         for event in reversed(self.events):
             action = event.get('accepted_action')
             if action:
@@ -120,6 +165,9 @@ class SessionController(QObject):
             self._launch('recognition')
 
     def retry(self):
+        if self.coaching_failed and not self.busy:
+            self._coach(self.coach_trigger, self.coach_auto_retry)
+            return
         if self.phase == 'error' and not self.busy and self.retry_purpose:
             if self.retry_purpose == 'decision':
                 self.decision_attempt += 1
@@ -145,9 +193,14 @@ class SessionController(QObject):
         state = self.state
         render_purpose = 'decision' if purpose == 'decision' else 'recognition'
         decision_options = {'opening_suggestion': self.config.opening_suggestion} if getattr(self.game, 'supports_opening_suggestion', False) else {}
-        request = self.game.decision_request(state, actions, **decision_options) if purpose == 'decision' else self.game.recognition_request(state, drawing)
-        if purpose == 'decision' and self.decision_attempt and hasattr(self.game, 'retry_decision_request'):
-            request = self.game.retry_decision_request(state, actions, self.decision_attempt, **decision_options)
+        if purpose == 'decision' and self.learning:
+            request = self.game.learning_request(state, actions, self.strategy, self.decision_attempt)
+        elif purpose == 'decision':
+            request = self.game.decision_request(state, actions, **decision_options)
+            if self.decision_attempt and hasattr(self.game, 'retry_decision_request'):
+                request = self.game.retry_decision_request(state, actions, self.decision_attempt, **decision_options)
+        else:
+            request = self.game.recognition_request(state, drawing)
         png = observation_png(self.game.render(state, drawing, render_purpose), self.config.observation_size)
         self.phase = {'recognition': 'recognising', 'decision': 'computer', 'startup': 'loading'}[purpose]
         self.message = {'recognition': 'Reading your move…', 'decision': 'Imajev is choosing…', 'startup': 'Connecting and warming up Imajev…'}[purpose]
@@ -156,14 +209,19 @@ class SessionController(QObject):
         event = {'ticket': asdict(ticket), 'request': request, 'state': self.game.encode_state(state),
                  'drawing': [asdict(s) for s in drawing], 'prompt_version': getattr(self.game, 'prompt_version', '1'),
                  'player': self.game.current_player(state), 'offered_actions': [asdict(a) for a in actions],
-                 'decision_attempt': self.decision_attempt if purpose == 'decision' else None}
+                 'decision_attempt': self.decision_attempt if purpose == 'decision' else None,
+                 'strategy_revision': self.strategy_revision if purpose == 'decision' and self.learning else None}
         try:
             event['image'] = self.store.image(ticket, png)
         except OSError as exc:
             self.storage_error = f'Could not save observation: {exc}'
         self.events.append(event)
         method = self.client.warmup if purpose == 'startup' else self.client.decide
-        self.job = Job(ticket, lambda: method(request, png))
+        def operation():
+            if purpose == 'startup' and self.service_manager:
+                self.service_manager.start()
+            return method(request, png)
+        self.job = Job(ticket, operation)
         self.job.signals.completed.connect(self._completed)
         self._publish()
         self.pool.start(self.job)
@@ -217,7 +275,7 @@ class SessionController(QObject):
                 proposed = self.game.decode_decision(self.state, reply)
                 event['model_proposed_action'] = proposed
                 action = proposed
-                if self.config.tactical_guard and hasattr(self.game, 'tactical_choice'):
+                if not self.learning and self.config.tactical_guard and hasattr(self.game, 'tactical_choice'):
                     action, correction = self.game.tactical_choice(self.state, proposed)
                     if correction:
                         event['tactical_correction'] = {'reason': correction, 'proposed': proposed, 'committed': action}
@@ -237,6 +295,18 @@ class SessionController(QObject):
             if ticket.purpose == 'recognition':
                 self.phase, self.message = 'human', str(exc)
                 self._publish()
+            elif self.learning and reply.answers['move'].abstained:
+                revision = self.game.revision(self.state)
+                auto_retry = self.recovery_revision != revision
+                self.recovery_revision = revision
+                # Persist the rejected proposal before constructing coach history.
+                self._publish()
+                self._coach({'type': 'decision_abstention', 'update_id': ticket.request_id,
+                             'state_revision': revision, 'board': request_board(self.game, self.state),
+                             'current_player': self.game.current_player(self.state),
+                             'legal_actions': [asdict(a) for a in self.game.legal_actions(self.state)],
+                             'proposal': reply.answers['move'].choice,
+                             'unknown_probability': reply.answers['move'].unknown_probability}, auto_retry)
             else:
                 self._error('decision', str(exc))
             return
@@ -248,11 +318,139 @@ class SessionController(QObject):
             self.phase = 'over'
             self.message = 'A draw. Nicely played.' if result.kind == 'draw' else ('You won!' if result.winner == self.game.human_player else 'Imajev wins. Try another game?')
             self._publish()
+            if self.learning and (result.kind == 'draw' or result.winner == self.game.human_player) and not self.learning_store.updated(self.session_id):
+                self._coach()
         elif self.game.current_player(self.state) == self.game.computer_player:
             self._launch('decision')
         else:
             self.phase, self.message = 'human', self.game.instruction
             self._publish()
+
+    def _coach(self, trigger=None, auto_retry=False):
+        if self.busy or self.stopping:
+            return
+        logger.info('coaching started game=%s trigger=%s auto_retry=%s', self.session_id,
+                    trigger.get('type') if trigger else 'terminal', auto_retry)
+        self.coach_trigger = trigger
+        self.coach_auto_retry = auto_retry
+        self.coaching = self.busy = True
+        self.coaching_failed = False
+        self.phase = 'coaching'
+        self.message = 'Studying games…'
+        self._publish()
+        ticket = Ticket(self.session_id, self.game.revision(self.state), str(uuid.uuid4()), 'coach')
+        self.coach_request = None
+        def operation():
+            request = self.learning_store.request(self.session_id, max_bytes=2500 if self.config.coach_backend == 'ollama' else 9000, trigger=trigger)
+            self.coach_request = request
+            self.coach_prompt = coach_messages(request)
+            self.learning_store.attempt(self.session_id, request)
+            self.progress.emit('Updating strategy…')
+            if self.config.coach_backend == 'ollama':
+                if not self.service_manager:
+                    raise RuntimeError('Ollama coaching requires managed inference.')
+                self.service_manager.progress = self.progress.emit
+                response = self.service_manager.ollama(request)
+                # A real warmup confirms the reloaded model before gameplay resumes.
+                self.client.warmup(self.game.recognition_request(self.state, ()),
+                    observation_png(self.game.render(self.state, (), 'recognition'), self.config.observation_size))
+            else:
+                response = shared_coach(self.client, request)
+            return response
+        self.job = Job(ticket, operation)
+        self.job.signals.completed.connect(self._coach_completed)
+        self.pool.start(self.job)
+
+    def _coach_completed(self, ticket, response, error, seconds):
+        self.busy = self.coaching = False
+        self.job = None
+        request = self.coach_request
+        try:
+            if not error:
+                self.current_strategy = self.learning_store.commit(self.session_id, request, response)
+        except (OSError, ValueError, TypeError) as exc:
+            error = str(exc)
+        try:
+            self.learning_store.attempt(self.session_id, request, response, error, seconds)
+        except (OSError, ValueError, TypeError) as exc:
+            error = str(exc)
+        if response and response.get('included_game_ids') and request:
+            request = dict(request, included_game_ids=response['included_game_ids'])
+        self.coach_diagnostics = json.dumps({'prompt': (response or {}).get('prompt', self.coach_prompt), 'request': request, 'response': response, 'seconds': seconds, 'error': error}, indent=2)
+        logger.info('coaching completed game=%s seconds=%.2f revision=%s error=%s',
+                    self.session_id, seconds, self.current_strategy['revision'], error)
+        self.coaching_failed = bool(error)
+        self.phase = 'error' if error and self.coach_trigger else 'over'
+        self.message = ('Coaching failed: ' + error + '. Retry coaching or continue with the previous strategy.' if error else 'Strategy updated. Ready for a new game.')
+        if not error and self.coach_trigger:
+            self.strategy_revision = self.current_strategy['revision']
+            self.strategy = self.current_strategy['text']
+            if not any(u['update_id'] == self.coach_trigger['update_id'] for u in self.strategy_updates):
+                self.strategy_updates.append({'state_revision': self.game.revision(self.state),
+                                              'revision': self.strategy_revision, 'strategy': self.strategy,
+                                              'update_id': self.coach_trigger['update_id']})
+            self._publish()
+            if self.stopping:
+                return
+            if self.coach_auto_retry:
+                self.decision_attempt += 1
+                self._launch('decision')
+            else:
+                self.phase, self.retry_purpose = 'error', 'decision'
+                self.message = 'Strategy updated after another abstention. Retry Imajev’s turn to continue.'
+                self._publish()
+        else:
+            self._publish()
+
+    def continue_learning(self):
+        if self.busy or not self.coaching_failed:
+            return
+        ticket = Ticket(self.session_id, self.game.revision(self.state), str(uuid.uuid4()), 'continue')
+        self.busy = True
+        self.message = 'Checking Imajev readiness…'
+        def operation():
+            if self.service_manager:
+                self.service_manager.start()
+            return self.client.warmup(self.game.recognition_request(self.state, ()),
+                observation_png(self.game.render(self.state, (), 'recognition'), self.config.observation_size))
+        self.job = Job(ticket, operation)
+        self.job.signals.completed.connect(self._continue_completed)
+        self._publish()
+        self.pool.start(self.job)
+
+    def _continue_completed(self, ticket, reply, error, seconds):
+        self.busy = False
+        self.job = None
+        self.coaching_failed = bool(error)
+        self.ready = not error
+        self.message = str(error) if error else 'Previous strategy retained. Ready for a new game.'
+        if not error and self.coach_trigger and not self.stopping:
+            self.decision_attempt += 1
+            self._launch('decision')
+        else:
+            self._publish()
+
+    def shutdown(self):
+        """Finish GPU work, then stop owned children in the background."""
+        self.stopping = True
+        self.active = None
+        if self.busy:
+            return False
+        if not self.service_manager:
+            return True
+        manager = self.service_manager
+        self.service_manager = None
+        self.busy = True
+        self.job = Job(None, manager.shutdown)
+        self.job.signals.completed.connect(self._shutdown_completed)
+        self.pool.start(self.job)
+        return False
+
+    def _shutdown_completed(self, ticket, reply, error, seconds):
+        self.busy = False
+        self.job = None
+        if error:
+            logger.error('Service shutdown failed: %s', error)
 
     def _error(self, purpose, message):
         logger.warning('inference error purpose=%s: %s', purpose, message)
@@ -261,13 +459,26 @@ class SessionController(QObject):
 
     def record(self):
         record = session_record(self.session_id, self.game, self.state, self.pending, self.events, self.config)
+        record['tactical_guard'] = self.config.tactical_guard and not self.learning
+        record['opening_suggestion'] = self.config.opening_suggestion and not self.learning
+        record['learning'] = {'enabled': self.learning, 'revision': self.strategy_revision, 'strategy': self.strategy,
+                              'initial_revision': self.initial_strategy_revision, 'initial_strategy': self.initial_strategy,
+                              'updates': self.strategy_updates}
         if self.source_session_id:
             record['source_session_id'] = self.source_session_id
         return record
 
     def _publish(self):
         try:
-            self.store.write(self.session_id, self.record())
+            record = self.record()
+            self.store.write(self.session_id, record)
+            if self.learning:
+                self.learning_store.save_game(record, self.game, self.state)
         except (OSError, ValueError) as exc:
             self.storage_error = f'Could not save session: {exc}'
         self.changed.emit()
+
+
+def request_board(game, state):
+    # Use the game request's authoritative board, without stroke coordinates.
+    return game.learning_request(state, game.legal_actions(state))['state']['board']

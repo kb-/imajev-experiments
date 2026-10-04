@@ -177,6 +177,18 @@ class TicTacToe:
             return proposed, None
         return priorities[0], reason
 
+    def learning_request(self, state, actions, strategy='', attempt=0):
+        return {'state': {'game': self.id, 'board': dict(zip(CELLS, state.board)),
+                         'current_player': state.next_player, 'starting_player': state.starting_player,
+                         'coordinates': 'Columns A to C left to right; rows 1 to 3 top to bottom.',
+                         'rules': 'Players alternate. Three matching marks in a row, column or diagonal wins. A full board without a winner is a draw.',
+                         'strategy': strategy, 'retry_attempt': attempt},
+                'questions': {'move': {'type': 'choice', 'instructions':
+                    ('Choose the best legal action for O. The symbolic board is authoritative.' if not attempt else
+                     'Reconsider the board and retained strategy. Select one listed legal action ID for O.' if attempt % 2 else
+                     'Evaluate this position again and return your chosen legal move for O.'),
+                    'criteria': {a.id: a.description for a in actions}}}}
+
     def decision_request(self, state: State, actions: tuple[Action, ...], opening_suggestion: bool = True) -> dict:
         priorities, reason = self.tactical_priorities(state)
         x_state = replace(state, next_player='X')

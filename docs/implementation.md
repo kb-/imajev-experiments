@@ -240,3 +240,77 @@ Implement the `Game` protocol in `app/core/contracts.py` and register the implem
 Games can optionally implement `initial_state_for_player(player)` to support alternating starters. The UI requests alternation with `new_game(alternate_starter=True)`; direct controller resets default to the human starter.
 
 The controller is tested with a small second game, but the current window still contains tic-tac-toe-specific labels and instructions. Adding a production game also requires adapting those UI elements and providing its own rule, rendering, protocol, and lifecycle coverage.
+
+## Persistent strategy learning
+
+`SessionController` snapshots learning mode and the current strategy at New game. Learning prompts use `TicTacToe.learning_request`, which contains no computed tactical advice; recognition and rules validation are unchanged. A terminal loss or draw triggers a serialized worker after saving history. Learning-mode decision abstentions also trigger coaching before the game finishes; the request includes the current board, legal actions and abstention details. Recognition abstentions continue to ask for a redraw. Wins are saved without terminal coaching. Resume retains the logical session ID and strategy snapshot. The atomic strategy ledger records terminal game IDs and separate abstention request IDs, preventing duplicate successful updates while allowing later loss/draw coaching for the same game.
+
+`LearningStore` writes resumable records and compact accepted move summaries under `learning/`, independently of diagnostics. Coaching includes the previous strategy, cumulative completed outcomes, the triggering game first, and other completed learning games newest first. The unfinished triggering game is included for abstention recovery, but it does not count toward completed outcome statistics. A conservative byte cap bounds client requests; shared coaching trims older games against the actual 3,072-token tokenizer budget and returns the included IDs. Revisions, their requests and responses share one atomic ledger replacement. Failed attempts retain the old revision.
+
+```mermaid
+sequenceDiagram
+    participant GUI
+    participant Worker
+    participant Store
+    participant Service
+    GUI->>Store: Save terminal learning game
+    GUI->>Worker: Study loss or draw
+    Worker->>Store: Previous strategy and compact history
+    Worker->>Service: POST /v1/coach
+    Service->>Service: Acquire inference lock
+    Service->>Service: PEFT disable_adapter context
+    Service->>Service: Base LM generation, greedy, thinking off
+    Service->>Service: Restore adapter and release generation cache
+    Service-->>Worker: Strategy, included IDs, usage, provenance
+    Worker->>Store: Atomic strategy revision
+    Worker-->>GUI: Enable New game
+    GUI->>Service: Later decision includes retained strategy
+```
+
+The [PEFT context manager](https://huggingface.co/docs/peft/package_reference/peft_model#peft.PeftModel.disable_adapter) restores the adapter when generation returns or raises. The trained decision readout remains separate from the ordinary generation head. Both POST endpoints share the busy gate and model lock.
+
+`ServiceManager` launches the existing offline pinned launcher and checks child exit during readiness polling. The controller uses one Qt worker pool thread for inference and coaching. An existing listener is reported; external mode never starts or stops it. Ollama mode requires process ownership and an installed configured model.
+
+```mermaid
+sequenceDiagram
+    participant GUI
+    participant Worker
+    participant Imajev
+    participant Ollama
+    GUI->>Worker: Terminal loss or draw
+    Worker->>Ollama: Check installed model and unrelated loaded models
+    Worker->>Imajev: Stop owned child and wait for exit
+    Worker->>Ollama: /api/chat, stream false, keep_alive 0
+    Ollama-->>Worker: Revised strategy
+    Worker->>Ollama: Explicit unload, then poll /api/ps
+    Worker->>Imajev: Launch pinned service
+    Worker->>Imajev: Readiness and real image warmup
+    Worker-->>GUI: Update strategy and enable New game
+```
+
+The [Ollama chat API](https://docs.ollama.com/api/chat) and [running-model API](https://docs.ollama.com/api/ps) support the swap. Unconfirmed unloading blocks restart, including Continue. Inline Diagnostics retains requests, responses, timings and errors. Failure leaves New game disabled until Retry succeeds or Continue confirms Imajev readiness. No GPU transition runs in a gameplay GUI slot.
+
+The repeatable live acceptance command is `QT_QPA_PLATFORM=offscreen uv run python -m scripts.verify_learning`. It owns its service, records revisions under `logs/learning-validation/`, and plays real computer turns after two synthetic losses. See [measured acceptance](evaluation/learning.md) for results and limitations. Ollama uses a conservative 2,500-byte history request cap to reserve space in its context without installing another tokenizer; shared coaching uses the loaded tokenizer for exact input budgeting.
+
+After successful abstention coaching, the controller saves the current strategy and its update at the board revision, then retries the computer decision once automatically. Repeated abstention triggers another coaching request and then pauses for explicit Retry. The initial game strategy remains recorded separately; restored games use the latest effective strategy. The original board remains intact on coach failure. Retry coaching reuses the failed request's update ID; Continue confirms readiness and resumes the same turn with the previous strategy.
+
+```mermaid
+sequenceDiagram
+    participant Imajev
+    participant Controller
+    participant Coach
+    participant Store
+    Imajev-->>Controller: Decision abstained
+    Controller->>Store: Save board and rejected decision
+    Controller->>Coach: Position, legal actions, previous strategy, history
+    Coach-->>Controller: Revised strategy
+    Controller->>Store: Atomic revision with abstention request ID
+    Controller->>Imajev: Retry same position using revised strategy
+    alt Decision accepted
+        Imajev-->>Controller: Legal move
+    else Abstains again
+        Controller->>Coach: Study repeated abstention
+        Coach-->>Controller: Revised strategy
+        Controller-->>Controller: Pause for explicit Retry
+    end
+```

@@ -16,7 +16,7 @@ def test_new_games_alternate_starters_and_begin_computer_turn(qapp):
     wait_for(qapp, lambda: controller.phase == 'human')
     assert controller.state.revision == 1
     assert controller.state.board.count('O') == 1
-    assert controller.events[-1]['request']['state']['starting_player'] == 'O'
+    assert controller.events[-1]['request']['state']['player_to_move'] == 'O'
     controller.new_game(alternate_starter=True)
     assert controller.state.starting_player == 'X'
     assert controller.state.revision == 0 and controller.editable

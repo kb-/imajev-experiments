@@ -56,6 +56,7 @@ class TicTacToe:
     computer_player = 'O'
     instruction = 'Draw an X in one empty cell.'
     supports_opening_suggestion = True
+    supports_prompt_variants = True
 
     def initial_state(self) -> State:
         return State()
@@ -177,7 +178,12 @@ class TicTacToe:
             return proposed, None
         return priorities[0], reason
 
-    def decision_request(self, state: State, actions: tuple[Action, ...], opening_suggestion: bool = True) -> dict:
+    def decision_request(self, state: State, actions: tuple[Action, ...], opening_suggestion: bool = True, prompt_variant: str = 'legacy') -> dict:
+        if prompt_variant == 'quoted':
+            from .prompting import decision_request
+            return decision_request(state, actions, 'quoted')
+        if prompt_variant != 'legacy':
+            raise ValueError('Move prompt must be legacy or quoted.')
         priorities, reason = self.tactical_priorities(state)
         x_state = replace(state, next_player='X')
         x_threats = tuple(a.id for a in actions if self.outcome(self.apply_action(x_state, a.id)).winner == 'X')
@@ -207,8 +213,14 @@ class TicTacToe:
                 'questions': {'move': {'type': 'choice', 'instructions': instruction,
                                        'criteria': {a.id: a.description for a in actions}}}}
 
-    def retry_decision_request(self, state: State, actions: tuple[Action, ...], attempt: int, opening_suggestion: bool = True) -> dict:
-        request = self.decision_request(state, actions, opening_suggestion)
+    def retry_decision_request(self, state: State, actions: tuple[Action, ...], attempt: int, opening_suggestion: bool = True, prompt_variant: str = 'legacy') -> dict:
+        request = self.decision_request(state, actions, opening_suggestion, prompt_variant)
+        if prompt_variant == 'quoted':
+            request['state']['retry_attempt'] = attempt
+            request['questions']['move']['instructions'] += (
+                f' Retry {attempt}: the previous answer did not produce a move. '
+                'Reconsider every listed cell and return one legal cell ID instead of abstaining.')
+            return request
         opening = request['state']['opening_advice']
         priorities, _ = self.tactical_priorities(state)
         if len(priorities) == 1:
@@ -242,9 +254,11 @@ class TicTacToe:
         answer = reply.answers['move']
         if answer.abstained:
             raise ValueError('Imajev abstained while choosing O. Retry will ask a different question.')
-        if answer.choice not in {a.id for a in self.legal_actions(state)}:
+        from .prompting import normalize_choice
+        choice = normalize_choice(answer.choice)
+        if choice not in {a.id for a in self.legal_actions(state)}:
             raise ValueError('Imajev selected an invalid move. Retry the computer turn.')
-        return answer.choice
+        return choice
 
     def encode_state(self, state: State) -> dict:
         return {'version': 1, 'game': self.id, **asdict(state)}

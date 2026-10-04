@@ -1,4 +1,4 @@
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from pathlib import Path
 import uuid
 import logging
@@ -69,7 +69,11 @@ class SessionController(QObject):
         record = json.loads(path.read_text(encoding='utf-8'))
         if record.get('version') != 1 or record.get('state', {}).get('game') != self.game.id:
             raise ValueError('This session record does not match the selected game.')
+        prompt_variant = record.get('prompt_variant', 'legacy')
+        if prompt_variant not in ('legacy', 'quoted'):
+            raise ValueError('Saved move prompt must be legacy or quoted.')
         self.state = self.game.decode_state(record['state'])
+        self.config = replace(self.config, prompt_variant=prompt_variant)
         if hasattr(self.state, 'starting_player'):
             self.starting_players[self.game.id] = self.state.starting_player
         self.pending = tuple(Stroke(tuple(tuple(point) for point in stroke['points']), stroke['width'], stroke['color'])
@@ -145,6 +149,8 @@ class SessionController(QObject):
         state = self.state
         render_purpose = 'decision' if purpose == 'decision' else 'recognition'
         decision_options = {'opening_suggestion': self.config.opening_suggestion} if getattr(self.game, 'supports_opening_suggestion', False) else {}
+        if getattr(self.game, 'supports_prompt_variants', False):
+            decision_options['prompt_variant'] = self.config.prompt_variant
         request = self.game.decision_request(state, actions, **decision_options) if purpose == 'decision' else self.game.recognition_request(state, drawing)
         if purpose == 'decision' and self.decision_attempt and hasattr(self.game, 'retry_decision_request'):
             request = self.game.retry_decision_request(state, actions, self.decision_attempt, **decision_options)
@@ -157,6 +163,11 @@ class SessionController(QObject):
                  'drawing': [asdict(s) for s in drawing], 'prompt_version': getattr(self.game, 'prompt_version', '1'),
                  'player': self.game.current_player(state), 'offered_actions': [asdict(a) for a in actions],
                  'decision_attempt': self.decision_attempt if purpose == 'decision' else None}
+        if purpose == 'decision' and getattr(self.game, 'supports_prompt_variants', False):
+            event['prompt_variant'] = self.config.prompt_variant
+            if self.config.prompt_variant == 'quoted':
+                from app.games.tic_tac_toe.prompting import VERSION
+                event['prompt_version'] = VERSION + ':quoted'
         try:
             event['image'] = self.store.image(ticket, png)
         except OSError as exc:

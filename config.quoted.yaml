@@ -9,6 +9,7 @@ imajev:
 opponent:
   prompt_variant: quoted
   tactical_guard: true
+  opening_suggestion: false
 recognition:
   min_effective_probability: 0.85
 canvas:

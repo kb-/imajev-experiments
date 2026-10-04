@@ -7,6 +7,7 @@ imajev:
   request_timeout_seconds: 45
   startup_timeout_seconds: 300
 opponent:
+  prompt_variant: quoted
   tactical_guard: true
 recognition:
   min_effective_probability: 0.85

@@ -15,7 +15,10 @@ from test_session import Fake, make, wait_for
 
 def test_quoted_config_and_invalid_variant(tmp_path):
     assert load_config(Path('config.quoted.yaml')).prompt_variant == 'quoted'
-    assert load_config(tmp_path / 'missing.yaml').prompt_variant == 'legacy'
+    assert load_config(tmp_path / 'missing.yaml').prompt_variant == 'quoted'
+    assert Config().prompt_variant == 'quoted'
+    assert load_config(Path('config.yaml')).prompt_variant == 'quoted'
+    assert load_config(Path('config.no-opening.yaml')).prompt_variant == 'legacy'
     path = tmp_path / 'invalid.yaml'
     path.write_text('opponent:\n  prompt_variant: thinking\n')
     with pytest.raises(ValueError, match='legacy or quoted'):
@@ -84,6 +87,7 @@ def test_quoted_rejects_occupied_cell():
 
 def test_gui_switch_applies_on_new_game_and_accepts_bare_id(qapp):
     c, fake = make(qapp)
+    c.config = Config(prompt_variant='legacy')
     window = Window(c)
     window.resize(880, 690)
     window.show()
@@ -108,6 +112,7 @@ def test_gui_switch_applies_on_new_game_and_accepts_bare_id(qapp):
 
 def test_gui_switch_during_inference_discards_old_prompt_reply(qapp):
     c, fake = make(qapp)
+    c.config = Config(prompt_variant='legacy')
     window = Window(c)
     wait_for(qapp, lambda: not c.busy and len(fake.calls) == 1)
     fake.gate.clear()
@@ -123,3 +128,14 @@ def test_gui_switch_during_inference_discards_old_prompt_reply(qapp):
     assert c.phase == 'human' and c.state.revision == 0
     assert not c.events
     window.close()
+
+
+def test_old_session_resumes_original_prompt(qapp, tmp_path):
+    c, _ = make(qapp)
+    record = c.record()
+    del record['prompt_variant']
+    path = tmp_path / 'old-session.json'
+    path.write_text(json.dumps(record))
+    resumed = SessionController(TicTacToe(), Fake(), Config())
+    resumed.restore(path)
+    assert resumed.config.prompt_variant == 'legacy'

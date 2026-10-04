@@ -1,7 +1,7 @@
 # Context and output prompting experiment
 
 Live trial completed on 4 October 2026 on `feature/prompting-strategy-evaluation`.
-The gameplay default remains unchanged. See the [protocol and variant definitions](prompting-strategy.md).
+At the time of this experiment, the gameplay default remained unchanged. Quoted was subsequently made the GUI default by user choice; it was not independently evaluated on the holdout. See the [protocol and variant definitions](prompting-strategy.md).
 
 Candidate consequences are useful, but the highest board-score variant is a worse
 game opponent than the existing prompt. On fresh holdout boards, expanded C improves

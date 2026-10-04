@@ -69,7 +69,7 @@ class SessionController(QObject):
         record = json.loads(path.read_text(encoding='utf-8'))
         if record.get('version') != 1 or record.get('state', {}).get('game') != self.game.id:
             raise ValueError('This session record does not match the selected game.')
-        prompt_variant = record.get('prompt_variant', self.config.prompt_variant)
+        prompt_variant = record.get('prompt_variant', 'legacy')
         if prompt_variant not in ('legacy', 'quoted'):
             raise ValueError('Saved move prompt must be legacy or quoted.')
         self.state = self.game.decode_state(record['state'])

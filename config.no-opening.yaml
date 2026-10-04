@@ -7,6 +7,7 @@ imajev:
   request_timeout_seconds: 45
   startup_timeout_seconds: 300
 opponent:
+  prompt_variant: legacy
   tactical_guard: true
   opening_suggestion: false
 recognition:

@@ -112,13 +112,14 @@ Use `--original-prompt` to compare the exact recorded request. Exported sessions
 The [non-thinking prompting experiment](docs/evaluation/prompting-strategy-results.md)
 compares twelve context/output variants, including the matrix-board prompt and
 structured candidate consequences. Expanded consequences improve sampled move
-agreement but regress on immediate tactics and full games, so the gameplay prompt
-remains unchanged. The [evaluation guide](docs/evaluation/prompting-strategy.md)
+agreement but regress on immediate tactics and full games. Quoted is now the
+gameplay default by user choice; the experiment did not establish a holdout
+improvement for this variant. The [evaluation guide](docs/evaluation/prompting-strategy.md)
 documents the reproducible harness and local artifacts.
 
 `opponent.tactical_guard: true` is enabled in `config.yaml`. Imajev receives the board, legal moves, win condition and any immediate O win or X threat. The app records its proposed move. If it overlooks an immediate O win or the one cell needed to block an X win next turn, the rules engine commits that tactical move and labels the correction on the board and in Diagnostics. This is a one-turn rule, not a minimax opponent; Imajev still chooses moves without such a tactic and can miss longer-term threats or forks.
 
-To play with the experiment's `quoted` prompt, select **Quoted** under **Move prompt** in the GUI, then click **New game**. The current game keeps its prompt until you start another game. Quoted uses the board grid, coordinate grid, five strategy priorities, and per-cell tactical consequences from the tested request, with bare cell IDs as choices. It does not add a suggested opening; the tactical guard still follows your configuration. Saved/exported sessions record the prompt, and resuming restores it.
+New games use the experiment's **Quoted** prompt by default. To switch back, select **Original** under **Move prompt** in the GUI, then click **New game**. The current game keeps its prompt until you start another game. Quoted uses the board grid, coordinate grid, five strategy priorities, and per-cell tactical consequences from the tested request, with bare cell IDs as choices. It does not add a suggested opening; the tactical guard still follows your configuration. Saved/exported sessions record the prompt, and resuming restores it.
 
 You can also start directly in this mode:
 
@@ -126,7 +127,7 @@ You can also start directly in this mode:
 uv run --locked --offline imajev-game --config config.quoted.yaml
 ```
 
-The original prompt remains the default. Quoted is an experimental option; its diagnostic results did not establish a holdout improvement.
+Set `opponent.prompt_variant: legacy` to start with the original prompt. The `config.no-opening.yaml` profile explicitly keeps the original prompt without opening guidance. Older saved sessions without a prompt field resume with the original prompt.
 
 Set `opponent.tactical_guard: false` to measure the model's unassisted play. Restart the app after changing the setting. `scripts/evaluate.py opponent` evaluates raw model choices; add `--with-tactical-guard` to measure the assisted gameplay policy. The records distinguish `model_proposed_action` from `accepted_action` and give the correction reason.
 

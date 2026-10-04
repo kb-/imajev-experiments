@@ -48,7 +48,7 @@ def test_no_forced_choice_without_a_unique_defense():
 class WrongMoveFake(Fake):
     def decide(self, request, image):
         self.calls.append(request)
-        return parse_reply(answer(request, {'move': 'place_B3'}), request, 'imajev-2b')
+        return parse_reply(answer(request, {'move': 'B3' if 'B3' in request['questions']['move']['criteria'] else 'place_B3'}), request, 'imajev-2b')
 
 
 def test_controller_records_model_choice_and_tactical_correction(qapp):

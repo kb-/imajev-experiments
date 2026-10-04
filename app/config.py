@@ -10,7 +10,7 @@ class Config:
     game: str = 'tic_tac_toe'
     tactical_guard: bool = True
     opening_suggestion: bool = True
-    prompt_variant: str = 'legacy'
+    prompt_variant: str = 'quoted'
     endpoint: str = 'http://127.0.0.1:8765/v1/systemone'
     expected_model: str = 'imajev-4b-nf4'
     request_timeout: float = 45
@@ -36,7 +36,7 @@ def load_config(path: Path) -> Config:
     if g.get('human_symbol', 'X') != 'X':
         raise ValueError('Tic-tac-toe currently supports human X only.')
     config = Config(
-        prompt_variant=o.get('prompt_variant', 'legacy'),
+        prompt_variant=o.get('prompt_variant', Config.prompt_variant),
         game=g.get('default', 'tic_tac_toe'), tactical_guard=o.get('tactical_guard', True), opening_suggestion=o.get('opening_suggestion', True), endpoint=i.get('endpoint', Config.endpoint),
         expected_model=i.get('expected_model', Config.expected_model),
         request_timeout=float(i.get('request_timeout_seconds', Config.request_timeout)),

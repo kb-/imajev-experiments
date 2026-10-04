@@ -22,7 +22,7 @@ class AbstainOnce:
 
 def test_retry_changes_request_and_preserves_accepted_x(qapp):
     game, fake = TicTacToe(), AbstainOnce()
-    c = SessionController(game, fake, Config())
+    c = SessionController(game, fake, Config(prompt_variant='legacy'))
     c.ready = True
     c.new_game()
     c.state = game.apply_action(State(), 'place_A1')
@@ -45,7 +45,7 @@ def test_retry_changes_request_and_preserves_accepted_x(qapp):
 
 def test_resume_paused_computer_turn(qapp, tmp_path):
     game, fake = TicTacToe(), AbstainOnce()
-    original = SessionController(game, fake, Config())
+    original = SessionController(game, fake, Config(prompt_variant='legacy'))
     original.ready = True
     original.new_game()
     original.state = game.apply_action(State(), 'place_A1')
@@ -55,7 +55,7 @@ def test_resume_paused_computer_turn(qapp, tmp_path):
     path.write_text(json.dumps(original.record()))
     resumed_fake = AbstainOnce()
     resumed_fake.requests.append({'earlier': 'abstention'})
-    resumed = SessionController(game, resumed_fake, Config())
+    resumed = SessionController(game, resumed_fake, Config(prompt_variant='legacy'))
     resumed.restore(path)
     assert resumed.session_id != original.session_id
     assert resumed.source_session_id == original.session_id

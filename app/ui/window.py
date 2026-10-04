@@ -1,3 +1,4 @@
+from dataclasses import replace
 import base64
 import json
 from pathlib import Path
@@ -130,6 +131,18 @@ class Window(QMainWindow):
         self.last = QLabel()
         self.last.setWordWrap(True)
         side.addWidget(self.last)
+        side.addWidget(self.label('MOVE PROMPT', 'eyebrow'))
+        self.prompt_selector = QComboBox()
+        self.prompt_selector.addItem('Original', 'legacy')
+        self.prompt_selector.addItem('Quoted', 'quoted')
+        self.prompt_selector.setCurrentIndex(self.prompt_selector.findData(controller.config.prompt_variant))
+        self.prompt_selector.setAccessibleName('Move prompt')
+        self.prompt_selector.setToolTip('Choose a prompt, then click New game to apply it.')
+        side.addWidget(self.prompt_selector)
+        self.prompt_label = self.label('', 'muted')
+        self.prompt_label.setWordWrap(True)
+        side.addWidget(self.prompt_label)
+        self.prompt_selector.currentIndexChanged.connect(self.refresh)
         side.addWidget(self.label('LOCAL MODEL', 'eyebrow'))
         self.model = QLabel()
         self.model.setWordWrap(True)
@@ -194,6 +207,7 @@ class Window(QMainWindow):
     def new_game(self):
         self.canvas.current = []
         self.controller.game = GAMES[self.selector.currentData()]
+        self.controller.config = replace(self.controller.config, prompt_variant=self.prompt_selector.currentData())
         self.controller.new_game(alternate_starter=True)
         if not self.controller.ready and not self.controller.busy:
             self.controller.start()
@@ -209,6 +223,10 @@ class Window(QMainWindow):
         self.phase_label.setText(phases[c.phase])
         starter = getattr(c.state, 'starting_player', None)
         self.starter_label.setText('You started · X' if starter == c.game.human_player else 'Imajev started · O' if starter == c.game.computer_player else '')
+        current_prompt = 'Quoted' if c.config.prompt_variant == 'quoted' else 'Original'
+        pending = self.prompt_selector.currentData() != c.config.prompt_variant
+        self.prompt_label.setText(f'Playing: {current_prompt}. ' + ('Click New game to apply selection.' if pending else 'Selection applies to new games.'))
+        self.prompt_selector.setEnabled(getattr(c.game, 'supports_prompt_variants', False))
         self.message.setText(c.message)
         self.message.setMinimumHeight(self.message.sizeHint().height())
         self.last.setText(c.last_move)

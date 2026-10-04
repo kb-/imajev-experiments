@@ -118,6 +118,16 @@ documents the reproducible harness and local artifacts.
 
 `opponent.tactical_guard: true` is enabled in `config.yaml`. Imajev receives the board, legal moves, win condition and any immediate O win or X threat. The app records its proposed move. If it overlooks an immediate O win or the one cell needed to block an X win next turn, the rules engine commits that tactical move and labels the correction on the board and in Diagnostics. This is a one-turn rule, not a minimax opponent; Imajev still chooses moves without such a tactic and can miss longer-term threats or forks.
 
+To play with the experiment's `quoted` prompt, select **Quoted** under **Move prompt** in the GUI, then click **New game**. The current game keeps its prompt until you start another game. Quoted uses the board grid, coordinate grid, five strategy priorities, and per-cell tactical consequences from the tested request, with bare cell IDs as choices. It does not add a suggested opening; the tactical guard still follows your configuration. Saved/exported sessions record the prompt, and resuming restores it.
+
+You can also start directly in this mode:
+
+```bash
+uv run --locked --offline imajev-game --config config.quoted.yaml
+```
+
+The original prompt remains the default. Quoted is an experimental option; its diagnostic results did not establish a holdout improvement.
+
 Set `opponent.tactical_guard: false` to measure the model's unassisted play. Restart the app after changing the setting. `scripts/evaluate.py opponent` evaluates raw model choices; add `--with-tactical-guard` to measure the assisted gameplay policy. The records distinguish `model_proposed_action` from `accepted_action` and give the correction reason.
 
 ## Resume a paused game

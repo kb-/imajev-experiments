@@ -109,6 +109,13 @@ Use `--original-prompt` to compare the exact recorded request. Exported sessions
 
 ## Opponent tactics
 
+The [non-thinking prompting experiment](docs/evaluation/prompting-strategy-results.md)
+compares twelve context/output variants, including the matrix-board prompt and
+structured candidate consequences. Expanded consequences improve sampled move
+agreement but regress on immediate tactics and full games, so the gameplay prompt
+remains unchanged. The [evaluation guide](docs/evaluation/prompting-strategy.md)
+documents the reproducible harness and local artifacts.
+
 `opponent.tactical_guard: true` is enabled in `config.yaml`. Imajev receives the board, legal moves, win condition and any immediate O win or X threat. The app records its proposed move. If it overlooks an immediate O win or the one cell needed to block an X win next turn, the rules engine commits that tactical move and labels the correction on the board and in Diagnostics. This is a one-turn rule, not a minimax opponent; Imajev still chooses moves without such a tactic and can miss longer-term threats or forks.
 
 Set `opponent.tactical_guard: false` to measure the model's unassisted play. Restart the app after changing the setting. `scripts/evaluate.py opponent` evaluates raw model choices; add `--with-tactical-guard` to measure the assisted gameplay policy. The records distinguish `model_proposed_action` from `accepted_action` and give the correction reason.

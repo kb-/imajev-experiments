@@ -2,7 +2,7 @@
 
 The GUI and inference environments are separate. The supplied launcher uses the [upstream PyTorch image server](https://github.com/mohit67890/imajev/tree/ccf586d43d2a580319b6535c893668904d909eb9). It adds a local busy gate and provenance endpoint; NF4 base-model loading is supplied by the local wrapper; prompts, adapter, calibration, and HTTP inference handling use the pinned upstream implementation.
 
-For the complete first-time setup and everyday two-terminal startup sequence, see [Run the complete app](../README.md#run-the-complete-app). This guide supplies deployment details and alternate profiles. The standard setup and launch scripts select NF4; `uv run imajev-game` launches only the GUI.
+For the complete first-time setup and everyday managed startup sequence, see [Run the complete app](../README.md#run-the-complete-app). This guide supplies deployment details and alternate profiles. The standard setup and launch scripts select NF4; `uv run imajev-game` manages a pinned service child by default. The explicit service commands below use `--external-inference` for the GUI.
 
 Pinned assets:
 
@@ -48,7 +48,7 @@ The original 2B assets and manifest remain separate from NF4. To prepare, launch
 ```sh
 bash scripts/setup_inference_2b.sh
 bash scripts/launch_inference_2b.sh
-uv run imajev-game --config config.2b.yaml
+uv run imajev-game --external-inference --config config.2b.yaml
 ```
 
 Run setup once while online, then keep the launcher running in one terminal and start the GUI in another. These scripts use `.inference/runtime-manifest.json`, the pinned 2B base and adapter, and the original calibration. Both profiles bind to port 8765; run one inference service at a time and use the matching GUI configuration.
@@ -63,7 +63,7 @@ With a desktop display available, install uv and copy/clone this app. From the a
 
 ```sh
 uv sync --locked
-uv run imajev-game
+uv run imajev-game --external-inference
 ```
 
 Use the same app checkout as the inference service when both run on the same Linux machine; the GUI environment is separate from `inference/.venv`. For a GUI running inside WSL2, a working graphical display is also required.
@@ -77,7 +77,7 @@ curl --fail http://127.0.0.1:8765/v1/status
 
 ### Windows
 
-Run the inference service inside WSL2 and the GUI on Windows. On Windows, install uv, copy/clone this app, and run `uv sync --locked` then `uv run imajev-game` from the app directory. Verify access from Windows with:
+Run the inference service inside WSL2 and the GUI on Windows. On Windows, install uv, copy/clone this app, and run `uv sync --locked` then `uv run imajev-game --external-inference` from the app directory. Verify access from Windows with:
 
 ```powershell
 Invoke-RestMethod http://127.0.0.1:8765/v1/models

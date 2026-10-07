@@ -6,7 +6,7 @@ See the [implementation guide](docs/implementation.md) for architecture, turn fl
 
 ## Run the complete app
 
-The app needs **two running processes**: the local model service and the desktop GUI. `uv run imajev-game` starts only the GUI; it does not start or install the model service. Run all commands below from this repository's root directory.
+`uv run imajev-game` starts the desktop GUI and manages its own local Imajev service. It does not install models. Run commands from this repository's root directory after setup.
 
 ### First-time setup (online)
 
@@ -23,15 +23,7 @@ The second command installs the separate inference environment, including bitsan
 
 ### Every time you play
 
-**Terminal 1 — start the model service and leave it running:**
-
-```sh
-bash scripts/launch_inference.sh
-```
-
-This verifies the prepared assets and starts the default NF4 service offline at `http://127.0.0.1:8765`. Start only one service on this port. You do not also need to run `launch_inference_4b_nf4.sh`: the standard launcher already delegates to it.
-
-**Terminal 2 — start the GUI:**
+**Start the app:**
 
 ```sh
 uv run --locked imajev-game
@@ -49,7 +41,9 @@ To keep the opening suggestion disabled during debugging:
 uv run --locked imajev-game --config config.no-opening.yaml --debug-input
 ```
 
-The GUI may show **Warming up** while the service loads and its first image request runs. Drawing becomes available when the panel shows **Ready**. If the service is already running, start only the GUI. Closing the GUI leaves the service running; press Ctrl+C in Terminal 1 when you want to stop it.
+The GUI shows **Warming up** while the service loads and its first image request runs. Drawing becomes available when the panel shows **Ready**. Closing the app waits for active work and stops its owned processes in the background.
+
+An existing listener on port 8765 is reported without attachment or termination. To keep a separately managed service, run `bash scripts/launch_inference.sh` in one terminal and `uv run --locked imajev-game --external-inference` in another. Closing an external-mode GUI leaves that service running. Native Windows GUIs connecting to a WSL service must use external mode. Ollama coaching requires managed inference.
 
 After first-time setup, you can add `--offline` to the GUI command (`uv run --locked --offline imajev-game`) to prevent uv from using the network. The GUI environment must already be installed for this to work.
 
@@ -74,6 +68,7 @@ The GUI and inference environments are separate; no model or Torch is loaded in 
 - Undo removes one whole pending stroke; Clear removes all pending ink.
 - The first game starts with you. Each click on New game alternates the starter between you (X) and Imajev (O); the right panel identifies who started.
 - New game stays available during inference. The previous job must finish before another request starts; old replies cannot change the new board.
+- During coaching or recovery, New game waits until the update succeeds or you explicitly continue with the previous strategy.
 - Expand Diagnostics for model scores and timing. Recognition scores include the unknown probability; opponent scores represent preference.
 - Export session saves versioned JSON with full strokes, canonical state, requests and responses. With `diagnostics.save_sessions: true`, JSON and observation PNGs are written under `sessions/`. All records stay local.
 
@@ -87,7 +82,7 @@ uv run python scripts/evaluate.py --help
 
 Tests use an explicit fake only in the test suite; normal gameplay always requires Imajev. The exhaustive engine test enumerates all reachable boards. Lifecycle tests exercise reset, stale responses, double submission and recovery. A tiny second game tests the generic controller contract.
 
-Real handwriting accuracy, offline GPU play and RTX 3070 memory/latency have **not** been established in this environment. See [acceptance status](docs/evaluation/STATUS.md). Do not interpret unit tests as model or hardware validation.
+See [acceptance status](docs/evaluation/STATUS.md) for existing model measurements, and [coached quoted](docs/coached-quoted.md) for the new coaching workflow and validation command. Unit tests do not establish model playing strength.
 
 ## Debug mouse input
 
@@ -97,7 +92,7 @@ uv run imajev-game --debug-input
 
 This writes mouse press/move/release coordinates, buttons, stroke completion and ignored-click reasons to the terminal and `logs/input-debug.log` (rotating, local files). `--log-file /path/to/game.log` changes the location. With `--debug-input`, the Diagnostics panel also opens and full session JSON/observation PNGs are saved under `sessions/` for recognition replay. Detailed pointer logging is opt-in; normal launches log model lifecycle and rejected drawing presses to the terminal. Restart the app to enable the flag.
 
-Drawing is disabled until local model startup and image warm-up succeed. The hint below the board and its tooltip explain why input is locked. If no ink appears and the panel shows Warming up or Needs attention, start the local service using `scripts/launch_inference.sh` after completing the setup in `docs/deployment.md`, then Retry.
+Drawing is disabled until local model startup and image warm-up succeed. The hint below the board and its tooltip explain why input is locked. If startup fails, read the inline error and service log, fix setup or the port conflict, then Retry. External mode requires starting the service separately.
 
 To replay a saved recognition failure against the current prompt:
 
@@ -128,6 +123,18 @@ uv run --locked --offline imajev-game --config config.quoted.yaml
 ```
 
 Set `opponent.prompt_variant: legacy` to start with the original prompt. The `config.no-opening.yaml` profile explicitly keeps the original prompt without opening guidance. Older saved sessions without a prompt field resume with the original prompt.
+
+### Coached quoted
+
+Select **Coached quoted**, then New game, or launch directly:
+
+```bash
+uv run --locked --offline imajev-game --config config.coached-quoted.yaml
+```
+
+It uses Quoted's board and candidate facts, initially with only `win immediately` and `otherwise stop X winning next turn`. Imajev follows the rules without tactical move corrections. After a loss only, the coach revises the rule list in descending priority order using all completed coached games since the last successful update. Draws and wins contribute history but do not trigger coaching; abstentions remain ordinary Retry decisions. Valid updates apply automatically to the next game and persist across restarts.
+
+Shared Qwen coaching is the default. Ollama is optional and requires an explicitly installed model and managed GPU swapping. Rules, revision and coaching Diagnostics appear inline. See [setup, storage and recovery](docs/coached-quoted.md).
 
 Set `opponent.tactical_guard: false` to measure the model's unassisted play. Restart the app after changing the setting. `scripts/evaluate.py opponent` evaluates raw model choices; add `--with-tactical-guard` to measure the assisted gameplay policy. The records distinguish `model_proposed_action` from `accepted_action` and give the correction reason.
 

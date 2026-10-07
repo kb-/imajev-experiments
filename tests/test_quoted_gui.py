@@ -21,7 +21,7 @@ def test_quoted_config_and_invalid_variant(tmp_path):
     assert load_config(Path('config.no-opening.yaml')).prompt_variant == 'legacy'
     path = tmp_path / 'invalid.yaml'
     path.write_text('opponent:\n  prompt_variant: thinking\n')
-    with pytest.raises(ValueError, match='legacy or quoted'):
+    with pytest.raises(ValueError, match='legacy, quoted or coached_quoted'):
         load_config(path)
 
 

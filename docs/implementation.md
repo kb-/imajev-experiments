@@ -240,3 +240,55 @@ Implement the `Game` protocol in `app/core/contracts.py` and register the implem
 Games can optionally implement `initial_state_for_player(player)` to support alternating starters. The UI requests alternation with `new_game(alternate_starter=True)`; direct controller resets default to the human starter.
 
 The controller is tested with a small second game, but the current window still contains tic-tac-toe-specific labels and instructions. Adding a production game also requires adapting those UI elements and providing its own rule, rendering, protocol, and lifecycle coverage.
+
+
+## Coached quoted and service ownership
+
+[Coached quoted](coached-quoted.md) adds a third move-prompt choice. It retains Quoted's candidate facts but replaces its full strategy with a persistent ordered list, initially only win and block. Each game snapshots the list and revision, including on resume. Coached play disables commit-time tactical corrections. Retry rephrases the decision while preserving the rule list; abstentions do not request coaching.
+
+Only an Imajev loss launches a background coaching job. The coach diagnoses the triggering loss first, then receives that explanation in a separate request to revise the ordered rules. The diagnosis appears immediately in inline Diagnostics and survives a failed revision or resume. The compact window contains every completed coached game since the last successful update, including draws and wins. Oversized windows use batch summaries with coverage recorded at each stage. The final request retains the complete triggering loss. A validated ordered rule list (normalized from numbered text or JSON) and consumed history IDs are committed in one atomic ledger update under an interprocess lock. The logical game ID prevents duplicate successful updates after restore.
+
+```mermaid
+sequenceDiagram
+    participant GUI as Qt controller
+    participant Store as CoachedStore
+    participant Service as Imajev service
+    participant Base as Qwen base LM
+    GUI->>Store: Save completed human win
+    GUI->>Service: POST /v1/coach (diagnose triggering loss)
+    Service->>Base: Disable adapter under lock; diagnose; restore adapter
+    Base-->>GUI: Loss diagnosis
+    GUI->>GUI: Display diagnosis in inline Diagnostics
+    GUI->>Service: POST /v1/coach (diagnosis, rules and history)
+    Service->>Service: Acquire inference lock
+    Service->>Base: Disable PEFT adapter; generate numbered rules
+    Base-->>Service: Ordered rule list
+    Service->>Service: Restore adapter; release caches and lock
+    Service-->>GUI: Rules, usage and provenance
+    GUI->>Service: Readiness and image warm-up
+    GUI->>Store: Atomic revision + consumed game IDs
+    GUI->>GUI: Enable New game with updated rules
+```
+
+Normal app startup now launches the pinned child through ServiceManager; `--external-inference` retains separate-service operation. Startup, coaching, recovery and shutdown run in the controller's serialized worker pool. Window close hides the UI, waits for active work, then shuts down owned processes in a background job. An occupied port is an error, never implicit attachment. The busy gate covers both inference and coaching endpoints, including requests that outlive a client timeout.
+
+```mermaid
+sequenceDiagram
+    participant GUI as Background coaching job
+    participant Manager as ServiceManager
+    participant Imajev as Owned Imajev child
+    participant Ollama as Selected Ollama model
+    GUI->>Manager: Coach history window
+    Manager->>Ollama: Check installed model and unrelated loaded models
+    Manager->>Imajev: Stop process group and wait for exit
+    Manager->>Ollama: Chat, stream=false, keep_alive=0
+    Note over Manager,Ollama: Diagnosis, summary and update stages use this swap
+    Ollama-->>GUI: Diagnosis for inline Diagnostics
+    Ollama-->>Manager: Ordered rules
+    Manager->>Ollama: Explicit unload; confirm via /api/ps
+    Manager->>Imajev: Restart pinned child
+    GUI->>Imajev: Readiness and image warm-up
+    GUI->>GUI: Validate and apply next-game strategy
+```
+
+Ollama requires process ownership. An unconfirmed unload blocks restart and Continue. Failures retain the old rules and unconsumed history, with Retry coaching and Continue offered inline. No unrelated process or Ollama model is terminated. The selected model must already be installed; gameplay downloads nothing. Shared coaching is the default and never falls back to Ollama automatically.

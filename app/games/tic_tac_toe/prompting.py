@@ -1,5 +1,6 @@
 """Reproducible prompt variants and bounded tactical facts; no minimax imports."""
 from functools import lru_cache
+from app.storage.coached import BASIC_QUOTED_STRATEGY, validate_strategy
 
 from app.games.tic_tac_toe.game import CELLS, WINNING_LINES, TicTacToe
 
@@ -81,7 +82,7 @@ def candidate_facts(board, index, expanded=False):
     return facts
 
 
-def decision_request(state, actions, arm):
+def decision_request(state, actions, arm, strategy=None):
     if arm not in ARMS:
         raise ValueError(f'Unknown prompt variant: {arm}')
     if state.next_player != 'O' or not actions:
@@ -111,7 +112,7 @@ def decision_request(state, actions, arm):
     if arm == 'quoted':
         context = {'game': 'tic-tac-toe', 'player_to_move': 'O', 'opponent': 'X',
                    'coordinates': [row.copy() for row in COORDINATES], 'board': rows,
-                   'strategy': QUOTED_STRATEGY.copy()}
+                   'strategy': QUOTED_STRATEGY.copy() if strategy is None else validate_strategy(strategy)}
         instruction = COMPARE
     criteria = {}
     for action in actions:

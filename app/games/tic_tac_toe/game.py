@@ -178,10 +178,12 @@ class TicTacToe:
             return proposed, None
         return priorities[0], reason
 
-    def decision_request(self, state: State, actions: tuple[Action, ...], opening_suggestion: bool = True, prompt_variant: str = 'legacy') -> dict:
-        if prompt_variant == 'quoted':
+    def decision_request(self, state: State, actions: tuple[Action, ...], opening_suggestion: bool = True, prompt_variant: str = 'legacy', strategy: list[str] | None = None) -> dict:
+        if prompt_variant in ('quoted', 'coached_quoted'):
             from .prompting import decision_request
-            return decision_request(state, actions, 'quoted')
+            from app.storage.coached import BASIC_QUOTED_STRATEGY
+            rules = (BASIC_QUOTED_STRATEGY if strategy is None else strategy) if prompt_variant == 'coached_quoted' else None
+            return decision_request(state, actions, 'quoted', rules)
         if prompt_variant != 'legacy':
             raise ValueError('Move prompt must be legacy or quoted.')
         priorities, reason = self.tactical_priorities(state)
@@ -213,9 +215,9 @@ class TicTacToe:
                 'questions': {'move': {'type': 'choice', 'instructions': instruction,
                                        'criteria': {a.id: a.description for a in actions}}}}
 
-    def retry_decision_request(self, state: State, actions: tuple[Action, ...], attempt: int, opening_suggestion: bool = True, prompt_variant: str = 'legacy') -> dict:
-        request = self.decision_request(state, actions, opening_suggestion, prompt_variant)
-        if prompt_variant == 'quoted':
+    def retry_decision_request(self, state: State, actions: tuple[Action, ...], attempt: int, opening_suggestion: bool = True, prompt_variant: str = 'legacy', strategy: list[str] | None = None) -> dict:
+        request = self.decision_request(state, actions, opening_suggestion, prompt_variant, strategy)
+        if prompt_variant in ('quoted', 'coached_quoted'):
             request['state']['retry_attempt'] = attempt
             request['questions']['move']['instructions'] += (
                 f' Retry {attempt}: the previous answer did not produce a move. '

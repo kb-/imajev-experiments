@@ -53,6 +53,7 @@ class ImajevClient:
         self.config = config
         self.uncertain_busy = False
         self.service_metadata = None
+        self.manager = None
 
     def _check_busy(self, client):
         parts = urlsplit(self.config.endpoint)
@@ -111,6 +112,8 @@ class ImajevClient:
         models_url = urlunsplit((parts.scheme, parts.netloc, '/v1/models', '', ''))
         deadline = time.monotonic() + self.config.startup_timeout
         while True:
+            if self.manager:
+                self.manager.check()
             remaining = deadline - time.monotonic()
             if remaining <= 0:
                 raise Unavailable('Startup readiness timed out. Start the local image service, then Retry.')

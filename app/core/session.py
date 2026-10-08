@@ -3,6 +3,7 @@ from pathlib import Path
 import uuid
 import logging
 import json
+import random
 from PyQt6.QtCore import QObject, QThreadPool, pyqtSignal
 from app.core.contracts import Stroke, Ticket
 from app.inference.jobs import Job
@@ -10,6 +11,8 @@ from app.storage.session_store import SessionStore, session_record
 from app.ui.rendering import observation_png
 from app.storage.coached import CoachedStore, validate_strategy
 from app.inference.coach import diagnose_then_coach, shared_coach
+from app.config import validate_move_temperature
+from app.core.move_sampling import select_move
 
 
 logger = logging.getLogger(__name__)
@@ -23,6 +26,7 @@ class SessionController(QObject):
     def __init__(self, game, client, config, parent=None):
         super().__init__(parent)
         self.game, self.client, self.config = game, client, config
+        self.move_rng = random.Random()
         self.pool = QThreadPool(self)
         self.pool.setMaxThreadCount(1)
         self.store = SessionStore(config.directory, config.save_sessions)
@@ -107,8 +111,9 @@ class SessionController(QObject):
         prompt_variant = record.get('prompt_variant', 'legacy')
         if prompt_variant not in ('legacy', 'quoted', 'coached_quoted'):
             raise ValueError('Saved move prompt must be legacy, quoted or coached_quoted.')
+        temperature = validate_move_temperature(record.get('move_temperature', 0))
         self.state = self.game.decode_state(record['state'])
-        self.config = replace(self.config, prompt_variant=prompt_variant)
+        self.config = replace(self.config, prompt_variant=prompt_variant, move_temperature=temperature)
         if self.coached:
             metadata = record.get('coaching', {})
             self.strategy = validate_strategy(metadata.get('strategy'))
@@ -217,6 +222,8 @@ class SessionController(QObject):
                  'drawing': [asdict(s) for s in drawing], 'prompt_version': getattr(self.game, 'prompt_version', '1'),
                  'player': self.game.current_player(state), 'offered_actions': [asdict(a) for a in actions],
                  'decision_attempt': self.decision_attempt if purpose == 'decision' else None}
+        if purpose == 'decision':
+            event['move_temperature'] = self.config.move_temperature
         if purpose == 'decision' and getattr(self.game, 'supports_prompt_variants', False):
             event['prompt_variant'] = self.config.prompt_variant
             if self.config.prompt_variant in ('quoted', 'coached_quoted'):
@@ -285,15 +292,24 @@ class SessionController(QObject):
                 self.state = self.game.apply_action(self.state, action, self.pending)
                 self.pending = ()
             else:
-                proposed = self.game.decode_decision(self.state, reply)
+                proposed, action, distribution = select_move(
+                    self.game, self.state, reply, event['move_temperature'], self.move_rng)
                 event['model_proposed_action'] = proposed
-                action = proposed
+                selected = action
+                if distribution:
+                    event['move_sampling'] = {'temperature': event['move_temperature'],
+                                              'probabilities': distribution, 'selected_action': selected}
+                    self.diagnostics += (f'\nMove sampling · temperature {event["move_temperature"]:g}: '
+                                         f'best {proposed}; sampled {selected} '
+                                         f'({distribution[selected]:.1%} sampling probability).')
+                    logger.info('move sampled temperature=%g model_best=%s selected=%s probability=%.4f',
+                                event['move_temperature'], proposed, selected, distribution[selected])
                 if self.config.tactical_guard and not self.coached and hasattr(self.game, 'tactical_choice'):
-                    action, correction = self.game.tactical_choice(self.state, proposed)
+                    action, correction = self.game.tactical_choice(self.state, selected)
                     if correction:
-                        event['tactical_correction'] = {'reason': correction, 'proposed': proposed, 'committed': action}
-                        self.diagnostics += f'\nTactical rule: {correction}; Imajev proposed {proposed}, committed {action}.'
-                        logger.warning('tactical correction reason=%s proposed=%s committed=%s', correction, proposed, action)
+                        event['tactical_correction'] = {'reason': correction, 'proposed': selected, 'committed': action}
+                        self.diagnostics += f'\nTactical rule: {correction}; selected {selected}, committed {action}.'
+                        logger.warning('tactical correction reason=%s proposed=%s committed=%s', correction, selected, action)
                 self.state = self.game.apply_action(self.state, action)
                 self.decision_attempt = 0
             event['accepted_action'] = action
@@ -301,6 +317,8 @@ class SessionController(QObject):
             self.last_move = f'{event["player"]} · {description}'
             if event.get('tactical_correction'):
                 self.last_move += ' · tactical rule'
+            elif event.get('move_sampling'):
+                self.last_move += ' · sampled'
         except ValueError as exc:
             event['rejection'] = str(exc)
             logger.warning('move rejected request=%s purpose=%s reason=%s', ticket.request_id, ticket.purpose, exc)

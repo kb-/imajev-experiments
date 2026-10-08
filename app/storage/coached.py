@@ -68,6 +68,8 @@ class CoachedStore:
             turn['abstentions'] += int(bool(answer.get('abstained')))
             if event.get('accepted_action'):
                 turn['accepted_action'] = event['accepted_action']
+            if event.get('move_sampling'):
+                turn['sampled_action'] = event['move_sampling']['selected_action']
             if event.get('rejection'):
                 turn['last_rejection'] = event['rejection'][:160]
         events = list(turns.values())
@@ -75,6 +77,7 @@ class CoachedStore:
                           'starting_player': state.starting_player, 'outcome': outcome.kind, 'winner': outcome.winner,
                           'moves': [{'player': m.player, 'action': m.action} for m in state.history],
                           'decisions': events, 'strategy_revision': record['coaching']['revision'],
+                          'move_temperature': record.get('move_temperature', 0),
                           'strategy': record['coaching']['strategy']})
 
     def request(self, game_id):

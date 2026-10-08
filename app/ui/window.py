@@ -3,7 +3,7 @@ import base64
 import json
 from pathlib import Path
 from PyQt6.QtCore import Qt, QTimer
-from PyQt6.QtWidgets import (QComboBox, QFileDialog, QFrame, QHBoxLayout, QLabel, QLayout,
+from PyQt6.QtWidgets import (QComboBox, QDoubleSpinBox, QFileDialog, QFrame, QHBoxLayout, QLabel, QLayout,
                             QMainWindow, QMessageBox, QPushButton, QScrollArea, QTextEdit, QVBoxLayout, QWidget)
 from app.core.registry import GAMES
 from app.ui.canvas import Canvas
@@ -25,7 +25,7 @@ QPushButton:disabled { color: #a7b0a6; background: #ecefe8; }
 QPushButton#primary { background: #286c5d; color: white; border: 0; font-weight: 600; }
 QPushButton#primary:hover { background: #20584c; }
 QPushButton#primary:disabled { background: #a3b6ac; }
-QComboBox { background: #fafbf7; border: 1px solid #d1d8cc; padding: 8px 14px; border-radius: 8px; }
+QComboBox, QDoubleSpinBox { background: #fafbf7; border: 1px solid #d1d8cc; padding: 8px 14px; border-radius: 8px; }
 QTextEdit { background: #fafbf7; border: 1px solid #d1d8cc; border-radius: 8px; font-family: monospace; font-size: 11px; }
 '''
 
@@ -63,6 +63,9 @@ def format_question_history(events):
                 for name, answer in answers.items()))
         else:
             lines.append('Result: waiting for model')
+        if event.get('move_sampling'):
+            sampling = event['move_sampling']
+            lines.append(f'Move sampling: temperature {sampling["temperature"]:g}, selected {sampling["selected_action"]}')
         entries.append('\n'.join(lines))
     return '\n\n'.join(entries) if entries else 'No model questions yet.'
 
@@ -144,6 +147,20 @@ class Window(QMainWindow):
         self.prompt_label.setWordWrap(True)
         side.addWidget(self.prompt_label)
         self.prompt_selector.currentIndexChanged.connect(self.refresh)
+        side.addWidget(self.label('MOVE VARIETY', 'eyebrow'))
+        self.move_temperature = QDoubleSpinBox()
+        self.move_temperature.setRange(0, 3)
+        self.move_temperature.setDecimals(2)
+        self.move_temperature.setSingleStep(.25)
+        self.move_temperature.setSpecialValueText('Off · best move')
+        self.move_temperature.setValue(controller.config.move_temperature)
+        self.move_temperature.setAccessibleName('Computer move temperature')
+        self.move_temperature.setToolTip('0 chooses the best move. 1 samples from Imajev’s preferences. Higher values spread choices more evenly. Applies to new games.')
+        side.addWidget(self.move_temperature)
+        self.variety_label = self.label('', 'muted')
+        self.variety_label.setWordWrap(True)
+        side.addWidget(self.variety_label)
+        self.move_temperature.valueChanged.connect(self.refresh)
         side.addWidget(self.label('LOCAL MODEL', 'eyebrow'))
         self.model = QLabel()
         self.model.setWordWrap(True)
@@ -215,7 +232,8 @@ class Window(QMainWindow):
             return
         self.canvas.current = []
         self.controller.game = GAMES[self.selector.currentData()]
-        self.controller.config = replace(self.controller.config, prompt_variant=self.prompt_selector.currentData())
+        self.controller.config = replace(self.controller.config, prompt_variant=self.prompt_selector.currentData(),
+                                         move_temperature=self.move_temperature.value())
         self.controller.new_game(alternate_starter=True)
         if not self.controller.ready and not self.controller.busy:
             self.controller.start()
@@ -235,6 +253,11 @@ class Window(QMainWindow):
         pending = self.prompt_selector.currentData() != c.config.prompt_variant
         self.prompt_label.setText(f'Playing: {current_prompt}. ' + ('Click New game to apply selection.' if pending else 'Selection applies to new games.'))
         self.prompt_selector.setEnabled(getattr(c.game, 'supports_prompt_variants', False))
+        temperature = c.config.move_temperature
+        pending_variety = self.move_temperature.value() != temperature
+        variety = 'best move' if temperature == 0 else f'temperature {temperature:g}'
+        self.variety_label.setText(f'Playing: {variety}. ' + (
+            'Click New game to apply selection.' if pending_variety else '0 picks best; higher adds variety.'))
         self.tactics_label.setVisible(c.config.tactical_guard and not c.coached)
         self.message.setText(c.message)
         self.message.setMinimumHeight(self.message.sizeHint().height())

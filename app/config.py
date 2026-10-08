@@ -16,6 +16,7 @@ class Config:
     tactical_guard: bool = True
     opening_suggestion: bool = True
     prompt_variant: str = 'quoted'
+    move_temperature: float = 0
     endpoint: str = 'http://127.0.0.1:8765/v1/systemone'
     expected_model: str = 'imajev-4b-nf4'
     request_timeout: float = 45
@@ -25,6 +26,19 @@ class Config:
     diagnostics: bool = False
     save_sessions: bool = False
     directory: Path = Path('sessions')
+
+
+def validate_move_temperature(value) -> float:
+    message = 'Move temperature must be a finite number between 0 and 3.'
+    if isinstance(value, bool):
+        raise ValueError(message)
+    try:
+        temperature = float(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(message) from exc
+    if not math.isfinite(temperature) or not 0 <= temperature <= 3:
+        raise ValueError(message)
+    return temperature
 
 
 def load_config(path: Path) -> Config:
@@ -45,6 +59,7 @@ def load_config(path: Path) -> Config:
         coach_model=l.get('model', ''), learning_directory=path.parent / l.get('directory', 'learning/coached-quoted'),
         external_inference=i.get('external_inference', False),
         prompt_variant=o.get('prompt_variant', Config.prompt_variant),
+        move_temperature=validate_move_temperature(o.get('move_temperature', 0)),
         game=g.get('default', 'tic_tac_toe'), tactical_guard=o.get('tactical_guard', True), opening_suggestion=o.get('opening_suggestion', True), endpoint=i.get('endpoint', Config.endpoint),
         expected_model=i.get('expected_model', Config.expected_model),
         request_timeout=float(i.get('request_timeout_seconds', Config.request_timeout)),

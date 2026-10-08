@@ -203,7 +203,9 @@ Automatic saving is optional. With `diagnostics.save_sessions: true`, each sessi
 
 The top-level record includes model and adapter identifiers, the recognition threshold, opponent settings, canonical state, pending ink, and event history. Completed transitions and request lifecycle updates publish the session. Editing pending ink emits a UI update; it does not immediately save every pointer movement.
 
-Export creates a standalone JSON file with embedded observation images. Resume replays and validates the saved accepted history, checks it against the stored board, restores pending ink and events, and creates a new session with `source_session_id`. It warms the service before continuing; a restored O turn resumes automatically. A completed restored game stays completed. Resume uses the current configuration rather than automatically restoring saved opponent settings.
+Export creates a standalone JSON file with embedded observation images. Resume replays and validates the saved accepted history, checks it against the stored board, restores pending ink and events, and creates a new session with `source_session_id` (coached games retain their logical ID). It warms the service before continuing; a restored O turn resumes automatically. A completed restored game stays completed. Resume restores the move-prompt variant and move temperature, defaulting to Original and temperature zero for older records; other opponent settings use the current configuration.
+
+The optional **Move variety** control applies on New game. Temperature zero retains Imajev's top choice. For positive temperature `T`, `select_move` validates the original decision, decodes each candidate with the game's authoritative legality check, aggregates equivalent action IDs and samples with weights proportional to `p ** (1 / T)`. A log-space calculation keeps small positive temperatures stable. Zero-probability and unknown choices are excluded. Abstentions remain errors; recognition and forced moves do not sample. Each decision records its temperature, unchanged raw reply, original top choice, sampling distribution and sampled action. Existing tactical corrections run after sampling. Completed coached summaries retain the temperature and sampled actions so losses can be distinguished from the model's original proposals. Sampling changes selected moves, not the model's reasoning, prompt or calibration.
 
 ```sh
 uv run --locked imajev-game --debug-input
@@ -218,6 +220,7 @@ uv run --locked imajev-game --resume sessions/SESSION_ID/session.json --debug-in
 | `game.default` | `tic_tac_toe` | Registered game |
 | `opponent.tactical_guard` | `true` | Commit-time immediate-win/block correction |
 | `opponent.opening_suggestion` | `true` | Guidance on the first O move and its retries |
+| `opponent.move_temperature` | `0` | Move sampling: 0 picks best; 1 uses model probabilities; higher values up to 3 add variety |
 | `imajev.expected_model` | `imajev-4b-nf4` | Required response model ID |
 | `imajev.request_timeout_seconds` | `45` | Inference request timeout |
 | `imajev.startup_timeout_seconds` | `300` | Readiness and image warm-up budget |

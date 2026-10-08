@@ -124,6 +124,10 @@ uv run --locked --offline imajev-game --config config.quoted.yaml
 
 Set `opponent.prompt_variant: legacy` to start with the original prompt. The `config.no-opening.yaml` profile explicitly keeps the original prompt without opening guidance. Older saved sessions without a prompt field resume with the original prompt.
 
+To make Imajev less predictable, raise **Move variety** in the side panel, then click **New game**. `0` (the default) chooses its highest-ranked move; `1` samples from its move probabilities; higher values up to `3` spread choices more evenly. Try `0.5` for gentler variation or `1` for more exploration. This can produce weaker moves. The configured tactical guard still enforces immediate wins and blocks in ordinary modes; Coached quoted keeps its existing unguarded play.
+
+Set `opponent.move_temperature: 1` in YAML to start with sampling enabled. This is app-side move sampling, separate from the model's confidence calibration and the coach's generation settings. Recognition and abstention validation remain authoritative. Diagnostics and session records distinguish the model's top choice, the sampled move, and any tactical correction. Resuming restores the game's temperature; older records default to `0`.
+
 ### Coached quoted
 
 Select **Coached quoted**, then New game, or launch directly:

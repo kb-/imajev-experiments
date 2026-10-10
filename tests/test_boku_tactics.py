@@ -27,7 +27,8 @@ def test_logged_loss_has_only_one_block_and_retries_retain_facts(mode):
     defaults = request['state']['candidate_fact_defaults']
     assert {a for a,f in facts.items() if f.get('blocks_Black_win_next_turn')} == {'place_E5'}
     assert {**defaults, **facts['place_E5']} == {
-        'wins_now': False, 'blocks_Black_win_next_turn': True, 'allows_Black_win_next_turn': False}
+        'wins_now': False, 'blocks_Black_win_next_turn': True, 'allows_Black_win_next_turn': False,
+        'allows_Black_capture_forced_win': False}
     assert facts['place_D6'] == {'allows_Black_win_next_turn': True}
     assert set(facts) == {a.id for a in actions}
     retry = game.retry_decision_request(state,actions,1,prompt_variant=mode)

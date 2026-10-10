@@ -23,6 +23,7 @@ class SessionController(QObject):
     changed = pyqtSignal()
     progress = pyqtSignal(str)
     diagnosis_ready = pyqtSignal(object, object)
+    request_ready = pyqtSignal(object, object)
 
     def __init__(self, game, client, config, parent=None):
         super().__init__(parent)
@@ -56,6 +57,7 @@ class SessionController(QObject):
         self.shutdown_done = False
         self.progress.connect(self._progress)
         self.diagnosis_ready.connect(self._diagnosis_ready)
+        self.request_ready.connect(self._request_ready)
         self.new_game()
 
     def _coaching_store(self):
@@ -116,6 +118,13 @@ class SessionController(QObject):
         if ticket != self.inflight:
             return
         self.coach_diagnosis = analysis['summary']
+        self._publish()
+
+    def _request_ready(self, ticket, request):
+        if ticket != self.active or ticket != self.inflight or self.stopping:
+            return
+        self.events[-1]['request'] = request
+        self.message = 'Imajev is choosing…'
         self._publish()
 
     def new_game(self, alternate_starter=False):
@@ -248,11 +257,17 @@ class SessionController(QObject):
         drawing = self.pending
         state = self.game.initial_state() if purpose == 'startup' else self.state
         render_purpose = 'decision' if purpose == 'decision' else 'recognition'
-        request = (self.policy.decision(self.game, state, actions, self.config, self.strategy, self.decision_attempt)
+        prepare_in_worker = purpose == 'decision' and self.policy.prepare_decision_in_worker
+        game, policy, config = self.game, self.policy, self.config
+        strategy, attempt = self.strategy.copy(), self.decision_attempt
+        request = (None if prepare_in_worker else
+                   self.policy.decision(self.game, state, actions, self.config, self.strategy, self.decision_attempt)
                    if purpose == 'decision' else self.game.recognition_request(state, drawing))
         png = observation_png(self.game.render(state, drawing, render_purpose), self.config.observation_size)
         self.phase = {'recognition': 'recognising', 'decision': 'computer', 'startup': 'loading'}[purpose]
         self.message = {'recognition': 'Reading your move…', 'decision': 'Imajev is choosing…', 'startup': 'Connecting and warming up Imajev…'}[purpose]
+        if prepare_in_worker:
+            self.message = 'Checking move consequences…'
         self.busy, self.active, self.inflight, self.retry_purpose = True, ticket, ticket, None
         logger.info('inference started purpose=%s request=%s revision=%s', purpose, ticket.request_id, ticket.state_revision)
         event = {'ticket': asdict(ticket), 'request': request, 'state': self.game.encode_state(state),
@@ -270,9 +285,15 @@ class SessionController(QObject):
         self.events.append(event)
         method = self.client.warmup if purpose == 'startup' else self.client.decide
         def operation():
+            prepared = request
+            if prepare_in_worker:
+                prepared = policy.decision(game, state, actions, config, strategy, attempt)
+                if self.active != ticket or self.stopping:
+                    raise RuntimeError('Decision preparation was superseded.')
+                self.request_ready.emit(ticket, prepared)
             if purpose == 'startup' and self.service_manager:
                 self.service_manager.start()
-            return method(request, png)
+            return method(prepared, png)
         self.job = Job(ticket, operation)
         self.job.signals.completed.connect(self._completed)
         self._publish()

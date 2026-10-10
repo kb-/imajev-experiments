@@ -23,6 +23,7 @@ class Policy(SessionPolicy):
     human_player = 'Black'
     prompt_choices = (('legacy', 'Original'), ('quoted', 'Quoted'), ('coached_quoted', 'Coached quoted'))
     default_prompt = 'quoted'
+    prepare_decision_in_worker = True
     coaching = Coaching()
 
     def decision(self, game, state, actions, config, strategy, attempt):

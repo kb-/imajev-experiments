@@ -38,7 +38,7 @@ class Boku:
     name = 'Boku'
     human_player = 'Black'
     computer_player = 'White'
-    prompt_version = 'boku-v2-tactical-facts'
+    prompt_version = 'boku-v3-capture-traps'
     instruction = 'Draw a circle in one empty pocket, then Submit.'
 
     @property

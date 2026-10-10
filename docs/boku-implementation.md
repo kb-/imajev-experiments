@@ -78,7 +78,10 @@ Original retains Boku’s existing full-state prompt. Quoted (the default) adds 
 
 Both quoted modes also provide Boku-specific candidate facts computed by the
 authoritative rules engine: `wins_now`, `blocks_Black_win_next_turn` and
-`allows_Black_win_next_turn`. These cover the completed White turn and one
+`allows_Black_win_next_turn`. The additional `allows_Black_capture_forced_win`
+flag checks whether a Black placement/capture forces a win after every White
+reply. This bounded extension covers capture setups, not all two-turn threats.
+Immediate facts cover the completed White turn and one
 completed Black reply, including mandatory captures, reserve exhaustion and
 the captured-space prohibition. A placement can have several capture choices;
 its aggregate flags assume White chooses a winning/safe continuation when one
@@ -89,7 +92,10 @@ not a search for overall game strength or an override of the model's choice.
 False flags are omitted from candidate descriptions and declared once as
 `candidate_fact_defaults`, with explicit scope in the prompt. This avoids
 repeating three false values across up to 79 candidates. Original mode retains
-plain action descriptions. The helper and its bounded position-only cache live
+plain action descriptions. Boku builds decision requests in the existing background worker so deeper
+fact calculation leaves the GUI responsive. Prepared requests are recorded
+on the GUI thread; resets discard stale preparations before inference.
+The helpers and the bounded position-only reply cache live
 under `app/games/boku/`; the shared controller and tic-tac-toe are unchanged.
 
 Each coaching stage includes `RULES` from Boku’s implementation, the 80 cell-to-axial-coordinate mappings, alignment axes and player identities. History is reconstructed by replaying accepted placements and captures; it includes reserve accounting, eligible captures, the forbidden space and terminal state. The coach first diagnoses the loss, then revises the ordered strategy with history since the previous successful update. Long games can be summarized in ordered action segments with exact start/end checkpoints. Mandatory rules and geometry remain in every request; no history is silently dropped.

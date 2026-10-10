@@ -17,6 +17,7 @@ class SessionPolicy:
     prompt_choices: tuple[tuple[str, str], ...] = ()
     default_prompt = 'legacy'
     coaching: CoachingPolicy | None = None
+    prepare_decision_in_worker = False
 
     def validate_prompt(self, variant):
         choices = list(dict(self.prompt_choices))

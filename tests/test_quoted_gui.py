@@ -9,7 +9,7 @@ from app.games.tic_tac_toe.game import State, TicTacToe
 from app.games.tic_tac_toe.prompting import decision_request
 from app.inference.imajev_client import parse_reply
 from app.ui.window import Window
-from test_protocol import answer
+from test_protocol import INK, answer
 from test_session import Fake, make, wait_for
 
 
@@ -92,6 +92,9 @@ def test_gui_switch_applies_on_new_game_and_accepts_bare_id(qapp):
     window.resize(880, 690)
     window.show()
     wait_for(qapp, lambda: not c.busy and len(fake.calls) == 1)
+    c.set_pending(INK)
+    c.submit()
+    wait_for(qapp, lambda: not c.busy and c.state.revision == 2)
     window.prompt_selector.setCurrentIndex(window.prompt_selector.findData('quoted'))
     assert c.config.prompt_variant == 'legacy'
     assert 'Click New game' in window.prompt_label.text()

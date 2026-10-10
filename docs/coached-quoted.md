@@ -15,7 +15,7 @@ After the normal inference setup:
 uv run --locked --offline imajev-game --config config.coached-quoted.yaml
 ```
 
-Alternatively select **Coached quoted** in the GUI and click New game. Current games retain their mode, rule list and revision. Normal startup launches the pinned Imajev child, checks readiness and warms up. Closing waits for active work and stops owned processes. Port conflicts are visible; an existing listener is never silently attached to or terminated.
+Alternatively select **Coached quoted** in the GUI before your first move; the selection applies immediately on an empty new game, even during warm-up. After play begins, click New game to apply a different mode. Resumed games retain their saved settings. Entering coached mode before play snapshots the current rule list and revision; changing variety alone preserves that snapshot. Normal startup launches the pinned Imajev child, checks readiness and warms up. Closing waits for active work and stops owned processes. Port conflicts are visible; an existing listener is never silently attached to or terminated.
 
 For a separately managed service, use `--external-inference`. Shared coaching requires restarting that service with the updated local launcher so `/v1/status` reports `coaching: true`.
 

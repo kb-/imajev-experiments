@@ -141,12 +141,12 @@ class Window(QMainWindow):
         self.prompt_selector.addItem('Coached quoted', 'coached_quoted')
         self.prompt_selector.setCurrentIndex(self.prompt_selector.findData(controller.config.prompt_variant))
         self.prompt_selector.setAccessibleName('Move prompt')
-        self.prompt_selector.setToolTip('Choose a prompt, then click New game to apply it.')
+        self.prompt_selector.setToolTip('Choose a prompt before your first move. After play begins, click New game to apply changes.')
         side.addWidget(self.prompt_selector)
         self.prompt_label = self.label('', 'muted')
         self.prompt_label.setWordWrap(True)
         side.addWidget(self.prompt_label)
-        self.prompt_selector.currentIndexChanged.connect(self.refresh)
+        self.prompt_selector.currentIndexChanged.connect(self.configure_game)
         side.addWidget(self.label('MOVE VARIETY', 'eyebrow'))
         self.move_temperature = QDoubleSpinBox()
         self.move_temperature.setRange(0, 3)
@@ -155,12 +155,12 @@ class Window(QMainWindow):
         self.move_temperature.setSpecialValueText('Off · best move')
         self.move_temperature.setValue(controller.config.move_temperature)
         self.move_temperature.setAccessibleName('Computer move temperature')
-        self.move_temperature.setToolTip('0 chooses the best move. 1 samples from Imajev’s preferences. Higher values spread choices more evenly. Applies to new games.')
+        self.move_temperature.setToolTip('0 chooses the best move. 1 samples from Imajev’s preferences. Higher values spread choices more evenly. Applies immediately before your first move; otherwise on New game.')
         side.addWidget(self.move_temperature)
         self.variety_label = self.label('', 'muted')
         self.variety_label.setWordWrap(True)
         side.addWidget(self.variety_label)
-        self.move_temperature.valueChanged.connect(self.refresh)
+        self.move_temperature.valueChanged.connect(self.configure_game)
         side.addWidget(self.label('LOCAL MODEL', 'eyebrow'))
         self.model = QLabel()
         self.model.setWordWrap(True)
@@ -227,6 +227,14 @@ class Window(QMainWindow):
         self.canvas.finish_stroke()
         self.controller.submit()
 
+    def configure_game(self):
+        try:
+            self.controller.configure_unstarted_game(
+                self.prompt_selector.currentData(), self.move_temperature.value())
+        except (OSError, ValueError) as exc:
+            QMessageBox.warning(self, 'Cannot apply game settings', str(exc))
+        self.refresh()
+
     def new_game(self):
         if self.controller.coaching_failed or (self.controller.busy and self.controller.inflight and self.controller.inflight.purpose in ('coach', 'continue', 'shutdown')):
             return
@@ -251,7 +259,9 @@ class Window(QMainWindow):
         self.starter_label.setText('You started · X' if starter == c.game.human_player else 'Imajev started · O' if starter == c.game.computer_player else '')
         current_prompt = {'legacy': 'Original', 'quoted': 'Quoted', 'coached_quoted': 'Coached quoted'}[c.config.prompt_variant]
         pending = self.prompt_selector.currentData() != c.config.prompt_variant
-        self.prompt_label.setText(f'Playing: {current_prompt}. ' + ('Click New game to apply selection.' if pending else 'Selection applies to new games.'))
+        self.prompt_label.setText(f'Playing: {current_prompt}. ' + (
+            'Click New game to apply selection.' if pending else
+            'Choose a mode before your first move.' if c.can_configure_game else 'Selection applies to new games.'))
         self.prompt_selector.setEnabled(getattr(c.game, 'supports_prompt_variants', False))
         temperature = c.config.move_temperature
         pending_variety = self.move_temperature.value() != temperature

@@ -8,7 +8,7 @@ from app.core.session import SessionController
 from app.games.tic_tac_toe.game import TicTacToe
 from app.inference.imajev_client import parse_reply
 from app.ui.window import Window, format_question_history
-from test_protocol import answer
+from test_protocol import INK, answer
 from test_session import Fake, make, wait_for
 from test_tactics import sequence
 
@@ -175,6 +175,9 @@ def test_gui_temperature_applies_to_next_game(qapp):
     window.resize(880, 690)
     window.show()
     wait_for(qapp, lambda: not c.busy and len(fake.calls) == 1)
+    c.set_pending(INK)
+    c.submit()
+    wait_for(qapp, lambda: not c.busy and c.state.revision == 2)
     window.move_temperature.setValue(1.5)
     assert c.config.move_temperature == 0
     assert 'Click New game' in window.variety_label.text()

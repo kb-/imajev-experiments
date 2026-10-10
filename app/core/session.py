@@ -63,6 +63,28 @@ class SessionController(QObject):
     def coached(self):
         return self.config.prompt_variant == 'coached_quoted'
 
+    @property
+    def can_configure_game(self):
+        return (not self.stopping and not self.coaching_failed and not self.source_session_id
+                and self.game.revision(self.state) == 0
+                and self.phase in ('loading', 'human', 'error')
+                and (not self.busy or (self.inflight and self.inflight.purpose == 'startup')))
+
+    def configure_unstarted_game(self, prompt_variant, move_temperature):
+        """Apply choices before play without resetting ink, starter or warm-up."""
+        if not self.can_configure_game:
+            return False
+        if prompt_variant not in ('legacy', 'quoted', 'coached_quoted'):
+            raise ValueError('Move prompt must be legacy, quoted or coached_quoted.')
+        temperature = validate_move_temperature(move_temperature)
+        if prompt_variant != self.config.prompt_variant:
+            ledger = self.learning_store.ledger() if prompt_variant == 'coached_quoted' else {'revision': 0, 'strategy': []}
+            self.strategy, self.strategy_revision = ledger['strategy'].copy(), ledger['revision']
+            self.next_strategy = ledger
+        self.config = replace(self.config, prompt_variant=prompt_variant, move_temperature=temperature)
+        self._publish()
+        return True
+
     def _progress(self, message):
         self.message = message
         self.changed.emit()

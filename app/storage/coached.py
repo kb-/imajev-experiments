@@ -6,6 +6,7 @@ import uuid
 
 from app.storage.strategy import validate_strategy
 from app.storage.atomic import atomic_json
+from app.core.results import session_outcome
 
 
 class CoachedStore:
@@ -29,7 +30,8 @@ class CoachedStore:
 
     def save(self, record, game, state):
         atomic_json(self.root / 'sessions' / record['session_id'] / 'session.json', record)
-        outcome = game.outcome(state)
+        termination = record.get('termination')
+        outcome = session_outcome(game, state, termination, record['events'])
         if outcome.kind == 'ongoing':
             return
         path = self.root / 'games' / (record['session_id'] + '.json')
@@ -55,8 +57,23 @@ class CoachedStore:
             if event.get('rejection'):
                 turn['last_rejection'] = event['rejection'][:160]
         events = list(turns.values())
+        adjudication = {}
+        if termination:
+            evidence = [{key: event[key] for key in ('ticket', 'decision_attempt', 'rejection', 'reply')
+                         if key in event}
+                        for event in record['events']
+                        if event.get('ticket', {}).get('purpose') == 'decision'
+                        and event['ticket']['state_revision'] == game.revision(state)
+                        and event.get('rejection') and event.get('reply') and not event.get('error')][-4:]
+            # No transport/model provenance, screenshots or scores in coach evidence.
+            for event in evidence:
+                answer = event['reply'].get('answers', {}).get('move', {})
+                event['reply'] = {'answers': {'move': {key: answer[key] for key in ('choice', 'abstained') if key in answer}}}
+                event['rejection'] = event['rejection'][:160]
+            adjudication = {'termination': termination, 'forfeit_evidence': evidence}
         atomic_json(path, {'game_id': record['session_id'], 'game': game.id, 'completed_at': record['updated_at'],
                           **self.policy.history(game, state), 'outcome': outcome.kind, 'winner': outcome.winner,
+                          **adjudication,
                           'decisions': events, 'strategy_revision': record['coaching']['revision'],
                           'move_temperature': record.get('move_temperature', 0),
                           'strategy': record['coaching']['strategy']})

@@ -1,5 +1,6 @@
 """Factual loss context reconstructed from accepted moves, without tactical advice."""
 from app.games.tic_tac_toe.game import CELLS, WINNING_LINES, TicTacToe
+from app.core.results import FORFEIT_GUIDANCE, session_outcome
 
 
 def enrich_game(game, include_threats=False):
@@ -35,7 +36,10 @@ def enrich_game(game, include_threats=False):
                     O_winning_cells_after_reply=[CELLS[i] for i in winning_cells(reply_state.board, 'O')]
                     if reply_state else [])
         state = after
-    return dict(game, turns=turns)
+    outcome = session_outcome(rules, state, game.get('termination'), game.get('forfeit_evidence'))
+    if 'outcome' in game and (outcome.kind != game['outcome'] or outcome.winner != game['winner']):
+        raise ValueError('Tic-tac-toe coaching result does not match accepted actions and adjudication.')
+    return dict(game, turns=turns, final_position={'board': rows(state.board), 'player': state.next_player})
 
 
 def loss_context(request, include_threats=False):
@@ -43,7 +47,10 @@ def loss_context(request, include_threats=False):
                                     else 'loss' if game['winner'] == 'X' else 'win'))
              for game in request['games']]
     games[0] = enrich_game(games[0], include_threats)
-    return dict(request, games=games, coach_context=coaching_context(), winning_lines=[[CELLS[i] for i in line] for line in WINNING_LINES])
+    context = coaching_context()
+    if any(game.get('termination') for game in games):
+        context['instructions'] = {task: FORFEIT_GUIDANCE + text for task, text in context['instructions'].items()}
+    return dict(request, games=games, coach_context=context, winning_lines=[[CELLS[i] for i in line] for line in WINNING_LINES])
 
 
 BASIC_QUOTED_STRATEGY = ['win immediately', 'otherwise stop X winning next turn']

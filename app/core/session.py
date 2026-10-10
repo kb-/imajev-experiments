@@ -14,6 +14,8 @@ from app.storage.strategy import validate_strategy
 from app.inference.coach import diagnose_then_coach, shared_coach, prepared_transport
 from app.config import validate_move_temperature
 from app.core.move_sampling import select_move
+from app.core.results import (DECISION_RETRY_LIMIT, FORFEIT_MESSAGE, retry_progress,
+                              retry_forfeit, session_outcome)
 
 
 logger = logging.getLogger(__name__)
@@ -76,6 +78,14 @@ class SessionController(QObject):
     def instruction(self):
         return self.game.instruction_for(self.state)
 
+    @property
+    def outcome(self):
+        return session_outcome(self.game, self.state, self.termination)
+
+    @property
+    def win_message(self):
+        return FORFEIT_MESSAGE if self.termination else 'You won!'
+
     def select_game(self, game, alternate_starter=False):
         """Switch via a reset; the active ticket still gates GPU work."""
         if self.coaching_failed or (self.busy and self.inflight and self.inflight.purpose in ('coach', 'continue', 'shutdown')):
@@ -111,7 +121,7 @@ class SessionController(QObject):
         return True
 
     def _progress(self, message):
-        self.message = message
+        self.message = self.win_message + ' ' + message if self.termination and self.phase == 'coaching' else message
         self.changed.emit()
 
     def _diagnosis_ready(self, ticket, analysis):
@@ -145,6 +155,8 @@ class SessionController(QObject):
         self.events = []
         self.retry_purpose = None
         self.decision_attempt = 0
+        self.failed_decision_retries = 0
+        self.termination = None
         self.source_session_id = None
         self.last_move = 'No moves yet'
         self.diagnostics = ''
@@ -191,9 +203,18 @@ class SessionController(QObject):
                 description = next((item['description'] for item in event.get('offered_actions', []) if item['id'] == action), action)
                 self.last_move = f"{event.get('player', '')} · {description}"
                 break
-        self.decision_attempt = sum(event.get('ticket', {}).get('purpose') == 'decision'
-                                    and event.get('ticket', {}).get('state_revision') == self.game.revision(self.state)
-                                    and bool(event.get('rejection')) for event in self.events)
+        self.failed_decision_retries, self.decision_attempt = retry_progress(
+            self.events, self.game.revision(self.state))
+        progress = record.get('decision_retries')
+        expected_progress = {'version': 1, 'state_revision': self.game.revision(self.state),
+                             'failed': self.failed_decision_retries}
+        if progress is not None and (progress != expected_progress or not isinstance(progress, dict)
+                                     or any(type(value) is not int for value in progress.values())):
+            raise ValueError('Saved retry progress does not match decision events.')
+        self.termination = record.get('termination')
+        if self.termination is None and self.failed_decision_retries == DECISION_RETRY_LIMIT:
+            self.termination = retry_forfeit(self.game, self.state)
+        session_outcome(self.game, self.state, self.termination, self.events)
         self.phase = 'loading'
         self.message = 'Restoring saved game and warming up Imajev…'
         self._publish()
@@ -237,6 +258,9 @@ class SessionController(QObject):
     def _launch(self, purpose):
         if self.busy or self.stopping:
             return
+        if purpose == 'decision' and self.outcome.kind != 'ongoing':
+            self._after_move()
+            return
         actions = self.game.legal_actions(self.state)
         if purpose == 'decision' and len(actions) <= 1:
             if not actions and self.game.outcome(self.state).kind == 'ongoing':
@@ -246,6 +270,7 @@ class SessionController(QObject):
                 before = self.game.encode_state(self.state)
                 player = self.game.current_player(self.state)
                 self.state = self.game.apply_action(self.state, actions[0].id)
+                self.decision_attempt = self.failed_decision_retries = 0
                 self.last_move = f'{self.game.computer_player} · {actions[0].description} (forced move)'
                 self.events.append({'purpose': 'decision', 'forced_action': actions[0].id,
                                     'accepted_action': actions[0].id, 'player': player, 'state': before,
@@ -333,7 +358,7 @@ class SessionController(QObject):
             return
         if ticket.purpose == 'startup':
             self.ready = True
-            if self.game.current_player(self.state) == self.game.computer_player or self.game.outcome(self.state).kind != 'ongoing':
+            if self.game.current_player(self.state) == self.game.computer_player or self.outcome.kind != 'ongoing':
                 self._after_move()
             else:
                 self.phase, self.message = 'human', self.instruction
@@ -363,7 +388,7 @@ class SessionController(QObject):
                     self.diagnostics += f'\nTactical rule: {correction}; selected {selected}, committed {action}.'
                     logger.warning('tactical correction reason=%s proposed=%s committed=%s', correction, selected, action)
                 self.state = self.game.apply_action(self.state, action)
-                self.decision_attempt = 0
+                self.decision_attempt = self.failed_decision_retries = 0
             event['accepted_action'] = action
             description = next(a["description"] for a in event["offered_actions"] if a["id"] == action)
             self.last_move = f'{event["player"]} · {description}'
@@ -379,15 +404,27 @@ class SessionController(QObject):
                 self.phase, self.message = 'human', str(exc)
                 self._publish()
             else:
+                if event['decision_attempt'] > 0:
+                    self.failed_decision_retries += 1
+                event['failed_decision_retries'] = self.failed_decision_retries
+                if self.failed_decision_retries >= DECISION_RETRY_LIMIT:
+                    self.termination = retry_forfeit(self.game, self.state)
+                    self.retry_purpose = None
+                    self.diagnostics += '\n' + FORFEIT_MESSAGE
+                    logger.info('decision retry limit reached session=%s revision=%s',
+                                self.session_id, self.game.revision(self.state))
+                    self._after_move()
+                    return
                 self._error('decision', str(exc))
             return
         self._after_move()
 
     def _after_move(self):
-        result = self.game.outcome(self.state)
+        result = self.outcome
         if result.kind != 'ongoing':
             self.phase = 'over'
-            self.message = 'A draw. Nicely played.' if result.kind == 'draw' else ('You won!' if result.winner == self.game.human_player else 'Imajev wins. Try another game?')
+            self.retry_purpose = None
+            self.message = 'A draw. Nicely played.' if result.kind == 'draw' else (self.win_message if result.winner == self.game.human_player else 'Imajev wins. Try another game?')
             self._publish()
             if self.coached and result.winner == self.game.human_player and not self.learning_store.updated(self.session_id):
                 self._coach()
@@ -410,6 +447,8 @@ class SessionController(QObject):
         self.busy = True
         self.coaching_failed = False
         self.phase, self.message = 'coaching', 'Studying games…'
+        if self.termination:
+            self.message = self.win_message + ' ' + self.message
         ticket = Ticket(self.session_id, self.game.revision(self.state), str(uuid.uuid4()), 'coach')
         self.inflight = ticket
         self.coach_request = None
@@ -464,8 +503,8 @@ class SessionController(QObject):
         self.coaching_failed = bool(error)
         self.ready = not error
         self.phase = 'over'
-        self.message = ('You won! Coaching failed: ' + error + '. Retry coaching or continue with previous rules.' if error
-                        else 'You won! Strategy updated for the next game.')
+        self.message = (self.win_message + ' Coaching failed: ' + error + '. Retry coaching or continue with previous rules.' if error
+                        else self.win_message + ' Strategy updated for the next game.')
         self._publish()
 
     def continue_coaching(self):
@@ -485,7 +524,7 @@ class SessionController(QObject):
         self.busy, self.inflight, self.job = False, None, None
         self.coaching_failed = bool(error)
         self.ready = not error
-        self.message = str(error) if error else 'You won! Previous strategy retained. Ready for a new game.'
+        self.message = str(error) if error else self.win_message + ' Previous strategy retained. Ready for a new game.'
         self._publish()
 
     def begin_shutdown(self):
@@ -510,10 +549,16 @@ class SessionController(QObject):
     def _error(self, purpose, message):
         logger.warning('inference error purpose=%s: %s', purpose, message)
         self.phase, self.retry_purpose, self.message = 'error', purpose, message
+        if purpose == 'decision':
+            self.message += f' Failed retries: {self.failed_decision_retries}/{DECISION_RETRY_LIMIT}.'
         self._publish()
 
     def record(self):
         record = session_record(self.session_id, self.game, self.state, self.pending, self.events, self.config)
+        record['decision_retries'] = {'version': 1, 'state_revision': self.game.revision(self.state),
+                                      'failed': self.failed_decision_retries}
+        if self.termination:
+            record['termination'] = self.termination.copy()
         if self.coached:
             record['coaching'] = {'version': 1, 'strategy': self.strategy.copy(), 'revision': self.strategy_revision}
             if self.coach_diagnosis:

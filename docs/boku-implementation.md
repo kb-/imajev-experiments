@@ -107,7 +107,10 @@ retries. See the [forced-win experiment](evaluation/boku-forced-wins.md).
 Loss acknowledgement was tested and dropped after inconsistent model answers
 and reported false acknowledgements. The app offers no resignation action.
 An abstention preserves the board and waits for Retry; only the ordinary rules
-engine decides a terminal result. The [experiment report](evaluation/boku-loss-acknowledgement.md)
+engine decides a board victory. The shared [retry limit](retry-forfeit.md)
+separately awards a human win by forfeit after three rejected retries, retaining
+the unchanged board and explaining the cause to the coach.
+The [experiment report](evaluation/boku-loss-acknowledgement.md)
 preserves the evidence, limitations and exact refusal/retry comparison.
 
 False flags are omitted from candidate descriptions and declared once as

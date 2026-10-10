@@ -1,6 +1,7 @@
 """Boku coach knowledge and accepted-game replay. No tic-tac-toe assumptions."""
 from .game import Boku, RULES
 from .geometry import COORDINATES, AXES, CELLS
+from app.core.results import FORFEIT_GUIDANCE, session_outcome
 
 BASIC_QUOTED_STRATEGY = ['win immediately', 'otherwise prevent Black winning next turn']
 
@@ -53,7 +54,7 @@ def enrich_game(record):
         state = game.apply_action(state, move['action'])
         actions.append({'number': index + 1, **move,
                         **({'eligible_captures': list(before.capture_candidates)} if before.phase == 'capture' else {})})
-    outcome = game.outcome(state)
+    outcome = session_outcome(game, state, record.get('termination'), record.get('forfeit_evidence'))
     if outcome.kind != record['outcome'] or outcome.winner != record['winner']:
         raise ValueError('Boku coaching result does not match accepted actions.')
     segments = []
@@ -62,11 +63,16 @@ def enrich_game(record):
         end = min(start + 8, len(actions))
         segments.append({'game_id': record['game_id'], 'action_range': [start+1, end],
                          'start_position': checkpoint['position'], 'actions': actions[start:end],
-                         'end_position': checkpoints[i+1]['position'] if i+1 < len(checkpoints) else position(state)})
+                         'end_position': checkpoints[i+1]['position'] if i+1 < len(checkpoints) else position(state),
+                         **({'termination': record['termination'], 'forfeit_evidence': record['forfeit_evidence']}
+                            if record.get('termination') and i+1 == len(checkpoints) else {})})
     return dict(record, actions=actions, checkpoints=checkpoints, _segments=segments, final_position=position(state),
                 result_for_computer='draw' if outcome.kind == 'draw' else
                 'loss' if outcome.winner == game.human_player else 'win')
 
 
 def loss_context(request):
-    return dict(request, coach_context=coaching_context(), games=[enrich_game(g) for g in request['games']])
+    context = coaching_context()
+    if any(g.get('termination') for g in request['games']):
+        context['instructions'] = {task: FORFEIT_GUIDANCE + text for task, text in context['instructions'].items()}
+    return dict(request, coach_context=context, games=[enrich_game(g) for g in request['games']])

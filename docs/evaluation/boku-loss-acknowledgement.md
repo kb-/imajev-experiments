@@ -8,6 +8,11 @@ gameplay prompt is `boku-v5-forced-win-defence`: legal placements/captures plus
 the service's implicit unknown answer. Unknown pauses the turn for Retry;
 it does not declare a loss or trigger loss coaching.
 
+The later shared [retry limit](../retry-forfeit.md) ends a session after three
+rejected retries. That deterministic application rule records a forfeit, not
+a model judgement or a rules-engine board victory. A single abstention still
+does not end the game.
+
 ## Why it was dropped
 
 - A separate loss question answered **no** with 94.09% raw choice probability

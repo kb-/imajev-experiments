@@ -137,7 +137,11 @@ class _History:
         payload = {'task': 'summarize', key: items, 'included_game_ids': coverage,
                    'coach_context': self.request.get('coach_context', {})}
         try:
-            return [{'text': self.call(payload)['summary'], 'included_game_ids': coverage}]
+            forfeits = {entry['game_id']: entry for item in items for entry in
+                        ([{'game_id': item['game_id'], 'termination': item['termination']}]
+                         if item.get('termination') else item.get('forfeits', []))}
+            return [{'text': self.call(payload)['summary'], 'included_game_ids': coverage,
+                     **({'forfeits': list(forfeits.values())} if forfeits else {})}]
         except ContextBudget:
             if len(items) == 1:
                 if key == 'games' and items[0].get('_segments'):
@@ -152,7 +156,8 @@ class _History:
         summaries = self.summarize(game['_segments'], 'segments')
         # Summaries are ordered and all action segments are covered; keep the terminal board exact.
         return {k: game[k] for k in ('game_id', 'outcome', 'winner', 'starting_player',
-                                     'final_position', 'result_for_computer') if k in game} | {'evidence': summaries}
+                                     'final_position', 'result_for_computer', 'termination',
+                                     'forfeit_evidence') if k in game} | {'evidence': summaries}
 
     def update(self, request):
         try:

@@ -75,6 +75,11 @@ The last debug run rejected two correctly recognized E3 circles at effective sym
 
 ## Boku quoted candidate facts
 
+An Ollama vision-input trial on a completed Boku loss is documented in
+[Boku loss diagnosis with rendered board images](boku-vision-coach.md). Qwen3.8
+accepted four labeled board images but still named the wrong winning line and
+gave an unverified defensive suggestion; the experiment did not update rules.
+
 The `boku-v2-tactical-facts` prompt adds game-owned, capture-aware immediate
 win/block/danger evidence in Quoted and Coached quoted modes. Original remains
 unchanged. False flags are declared once and omitted per candidate to fit the

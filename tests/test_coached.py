@@ -7,7 +7,10 @@ import pytest
 from app.config import Config, load_config
 from app.core.session import SessionController
 from app.games.tic_tac_toe.game import TicTacToe
-from app.storage.coached import CoachedStore, BASIC_QUOTED_STRATEGY, validate_strategy
+from app.storage.coached import CoachedStore
+from app.games.tic_tac_toe.policy import Coaching as TicTacToeCoaching
+from app.games.tic_tac_toe.coaching import BASIC_QUOTED_STRATEGY
+from app.storage.strategy import validate_strategy
 from app.inference.coach import coach_pipeline, diagnose_then_coach, ContextBudget, parse_coach_output
 from app.ui.window import Window
 from test_session import Fake, wait_for
@@ -219,8 +222,8 @@ def test_adapter_restored_and_readout_preserved(monkeypatch,failure):
     engine=SimpleNamespace(processor=SimpleNamespace(tokenizer=Tokenizer()),model=Model(),device='fake',readout=object())
     readout=engine.readout
     if failure:
-        with pytest.raises(type(failure)): generate_strategy(engine,{'task':'update','games':[]})
-    else: assert generate_strategy(engine,{'task':'update','games':[]})['strategy']==['new']
+        with pytest.raises(type(failure)): generate_strategy(engine,{'messages':[{'role':'user','content':'Revise strategy.'}]})
+    else: assert generate_strategy(engine,{'messages':[{'role':'user','content':'Revise strategy.'}]})['response_text']=='{"strategy":["new"]}'
     assert events==['disabled','restored'] and engine.readout is readout
 
 
@@ -247,7 +250,7 @@ def test_atomic_commit_failure_does_not_consume_history(qapp,tmp_path,monkeypatc
     c=controller(qapp,tmp_path); c._coach=lambda:None
     play(c,['A1','A2','B1','B2','C1']); c._after_move()
     request=c.learning_store.request(c.session_id)
-    monkeypatch.setattr('app.storage.coached.os.replace',lambda *_: (_ for _ in ()).throw(OSError('disk failed')))
+    monkeypatch.setattr('app.storage.atomic.os.replace',lambda *_: (_ for _ in ()).throw(OSError('disk failed')))
     with pytest.raises(OSError):
         c.learning_store.commit(request,{'strategy':['new'],'included_game_ids':request['included_game_ids']})
     assert c.learning_store.ledger()['revision']==0
@@ -301,6 +304,8 @@ def test_coach_does_not_repair_content_or_discard_prose(text):
 def test_coach_prompt_focuses_on_evidence_and_preserves_context():
     from app.inference.coach import coach_messages
     request={'task':'update','previous_strategy':['win','block'],'games':[{'game_id':'loss','moves':[]}], 'included_game_ids':['loss']}
+    from app.games.tic_tac_toe.coaching import coaching_context
+    request['coach_context'] = coaching_context()
     messages=coach_messages(request)
     assert 'earliest avoidable mistake' in messages[0]['content']
     assert 'numbered list' in messages[0]['content']

@@ -12,7 +12,7 @@ import sys
 import uuid
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from app.inference.coach import coach_messages, parse_coach_output, ContextBudget
+from app.inference.coach import ContextBudget
 
 
 def _install_nf4_loader():
@@ -124,13 +124,15 @@ def generate_strategy(engine, request):
     import gc
     import torch
     tokenizer = engine.processor.tokenizer
-    if request.get('task', 'update') not in ('update', 'summarize', 'diagnose'):
-        raise ValueError('Unknown coaching task.')
-    messages = coach_messages(request)
+    messages = request.get('messages')
+    if (not isinstance(messages, list) or not messages or
+            any(not isinstance(m, dict) or m.get('role') not in ('system', 'user', 'assistant') or
+                not isinstance(m.get('content'), str) for m in messages)):
+        raise ValueError('Coaching protocol 2 requires chat messages; update the app and service together.')
     prompt = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True, enable_thinking=False)
     inputs = tokenizer(prompt, return_tensors='pt')
-    if inputs['input_ids'].shape[-1] > 3072:
-        raise ContextBudget('Coaching input exceeds 3072 tokens.')
+    if inputs['input_ids'].shape[-1] > 4096:
+        raise ContextBudget('Coaching input exceeds 4096 tokens.')
     inputs = {k: v.to(engine.device) for k, v in inputs.items()}
     output = tokens = None
     try:
@@ -140,8 +142,7 @@ def generate_strategy(engine, request):
                                           use_cache=True)
         tokens = output[0, inputs['input_ids'].shape[-1]:].tolist()
         text = tokenizer.decode(tokens, skip_special_tokens=True).strip()
-        result = parse_coach_output(text, request.get('task', 'update'), len(tokens) >= 512)
-        return dict(result, response_text=text, prompt=messages,
+        return dict(response_text=text, truncated=len(tokens) >= 512, prompt=messages,
                     usage={'input_tokens': inputs['input_ids'].shape[-1], 'output_tokens': len(tokens)})
     finally:
         del output, tokens, inputs
@@ -178,6 +179,7 @@ def main():
                 'busy': app.state.serving or app.state.lock.locked(),
                 'coaching': hasattr(getattr(app.state.backend, 'engine', None), 'model') and hasattr(app.state.backend.engine.model, 'disable_adapter'),
                 'runtime_id': runtime_id,
+                'coach_protocol': 2,
                 'provenance': manifest,
             }
 

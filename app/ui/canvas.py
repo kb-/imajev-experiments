@@ -29,7 +29,7 @@ class Canvas(QWidget):
         if not self.controller.editable:
             self.current = []
         self.setCursor(Qt.CursorShape.CrossCursor if self.controller.editable else Qt.CursorShape.ArrowCursor)
-        self.setToolTip(self.controller.game.instruction if self.controller.editable else f'Drawing disabled: {self.controller.message}')
+        self.setToolTip(self.controller.instruction if self.controller.editable else f'Drawing disabled: {self.controller.message}')
         self.update()
 
     def paintEvent(self, event):

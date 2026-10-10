@@ -1,6 +1,7 @@
 """Reproducible prompt variants and bounded tactical facts; no minimax imports."""
 from functools import lru_cache
-from app.storage.coached import BASIC_QUOTED_STRATEGY, validate_strategy
+from app.storage.strategy import validate_strategy
+from app.games.tic_tac_toe.coaching import BASIC_QUOTED_STRATEGY
 
 from app.games.tic_tac_toe.game import CELLS, WINNING_LINES, TicTacToe
 

@@ -7,9 +7,11 @@ import time
 
 from app.config import load_config
 from app.games.tic_tac_toe.coaching import loss_context
-from app.inference.coach import diagnose_then_coach
+from app.inference.coach import diagnose_then_coach, prepared_transport
 from app.inference.service_manager import ServiceManager
-from app.storage.coached import CoachedStore, atomic_json
+from app.storage.coached import CoachedStore
+from app.games.tic_tac_toe.policy import Coaching as TicTacToeCoaching
+from app.storage.atomic import atomic_json
 
 
 def main():
@@ -21,7 +23,7 @@ def main():
     parser.add_argument('--output', type=Path, required=True)
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=False)
-    ledger = CoachedStore(args.history).ledger()
+    ledger = CoachedStore(args.history, TicTacToeCoaching()).ledger()
     # Reproduce the original history window and prior rules, including consumed games.
     revision = next(r for r in ledger['revisions'] if r['trigger_game_id'] == args.game_id)
     request = loss_context(revision['request'], include_threats=args.threat_facts)
@@ -40,7 +42,7 @@ def main():
 
     try:
         result['response'] = manager.ollama(lambda invoke: diagnose_then_coach(
-            request, invoke, record, 7500,
+            request, prepared_transport(invoke, manager.progress), record, 7500,
             on_diagnosis=lambda response: print('DIAGNOSIS\n' + response['summary'], flush=True)))
         print('STRATEGY\n' + json.dumps(result['response']['strategy'], ensure_ascii=False), flush=True)
     except Exception as exc:

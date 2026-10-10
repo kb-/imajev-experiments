@@ -1,43 +1,25 @@
 """Ordered rules and completed history, isolated from old learning experiments."""
 from collections import Counter
 import json
-import os
 from pathlib import Path
 import uuid
 
-BASIC_QUOTED_STRATEGY = ['win immediately', 'otherwise stop X winning next turn']
-
-
-def validate_strategy(strategy):
-    if (not isinstance(strategy, list) or not 1 <= len(strategy) <= 12
-            or any(not isinstance(rule, str) or not rule.strip() or len(rule) > 160 for rule in strategy)
-            or len(json.dumps(strategy, ensure_ascii=False).encode()) > 2048):
-        raise ValueError('Strategy must contain 1–12 nonempty rules, at most 160 characters each and 2048 bytes overall.')
-    return [rule.strip() for rule in strategy]
-
-
-def atomic_json(path, value):
-    path = Path(path)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    temporary = path.with_name(path.name + '.' + uuid.uuid4().hex + '.tmp')
-    try:
-        temporary.write_text(json.dumps(value, ensure_ascii=False, indent=2, allow_nan=False), encoding='utf-8')
-        os.replace(temporary, path)
-    finally:
-        temporary.unlink(missing_ok=True)
+from app.storage.strategy import validate_strategy
+from app.storage.atomic import atomic_json
 
 
 class CoachedStore:
-    def __init__(self, root):
+    def __init__(self, root, policy):
         self.root = Path(root)
+        self.policy = policy
 
     def ledger(self):
         path = self.root / 'strategy.json'
         if not path.exists():
-            return {'version': 1, 'revision': 0, 'strategy': BASIC_QUOTED_STRATEGY.copy(),
+            return {'version': 1, 'game': self.policy.game_id, 'revision': 0, 'strategy': self.policy.initial_strategy.copy(),
                     'consumed_game_ids': [], 'revisions': []}
         ledger = json.loads(path.read_text())
-        if ledger.get('version') != 1:
+        if ledger.get('version') != 1 or ledger.get('game', self.policy.game_id) != self.policy.game_id:
             raise ValueError('Unsupported coached strategy ledger.')
         validate_strategy(ledger['strategy'])
         return ledger
@@ -73,9 +55,8 @@ class CoachedStore:
             if event.get('rejection'):
                 turn['last_rejection'] = event['rejection'][:160]
         events = list(turns.values())
-        atomic_json(path, {'game_id': record['session_id'], 'completed_at': record['updated_at'],
-                          'starting_player': state.starting_player, 'outcome': outcome.kind, 'winner': outcome.winner,
-                          'moves': [{'player': m.player, 'action': m.action} for m in state.history],
+        atomic_json(path, {'game_id': record['session_id'], 'game': game.id, 'completed_at': record['updated_at'],
+                          **self.policy.history(game, state), 'outcome': outcome.kind, 'winner': outcome.winner,
                           'decisions': events, 'strategy_revision': record['coaching']['revision'],
                           'move_temperature': record.get('move_temperature', 0),
                           'strategy': record['coaching']['strategy']})
@@ -84,10 +65,12 @@ class CoachedStore:
         ledger = self.ledger()
         consumed = set(ledger['consumed_game_ids'])
         games = [json.loads(p.read_text()) for p in (self.root / 'games').glob('*.json') if p.stem not in consumed]
-        games.sort(key=lambda g: (g['game_id'] != game_id, g['completed_at'], g['game_id']))
-        if not games or games[0]['game_id'] != game_id or games[0]['winner'] != 'X':
+        games = [g for g in games if g.get('game', self.policy.game_id) == self.policy.game_id]
+        games.sort(key=lambda g: (g['completed_at'], g['game_id']), reverse=True)
+        games.sort(key=lambda g: g['game_id'] != game_id)
+        if not games or games[0]['game_id'] != game_id or games[0]['winner'] != self.policy.human_player:
             raise ValueError('A saved, unconsumed human win is required for coaching.')
-        counts = Counter('draw' if g['outcome'] == 'draw' else 'loss' if g['winner'] == 'X' else 'win' for g in games)
+        counts = Counter('draw' if g['outcome'] == 'draw' else 'loss' if g['winner'] == self.policy.human_player else 'win' for g in games)
         return {'task': 'update', 'previous_strategy': ledger['strategy'], 'base_revision': ledger['revision'],
                 'trigger_game_id': game_id, 'statistics': dict(counts), 'games': games,
                 'included_game_ids': [g['game_id'] for g in games]}
@@ -119,7 +102,7 @@ class CoachedStore:
             raise ValueError('Coaching did not cover the complete history window.')
         revision = {'revision': ledger['revision'] + 1, 'strategy': strategy,
                     'trigger_game_id': request['trigger_game_id'], 'request': request, 'response': response}
-        ledger = {'version': 1, 'revision': revision['revision'], 'strategy': strategy,
+        ledger = {'version': 1, 'game': self.policy.game_id, 'revision': revision['revision'], 'strategy': strategy,
                   'consumed_game_ids': sorted(set(ledger['consumed_game_ids']) | set(request['included_game_ids'])),
                   'revisions': ledger['revisions'] + [revision]}
         atomic_json(self.root / 'strategy.json', ledger)

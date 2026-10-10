@@ -148,7 +148,6 @@ class ServiceManager:
         """Run the entire history pipeline within a single exclusive GPU swap."""
         if self.config.external_inference:
             raise RuntimeError('Ollama coaching requires managed Imajev process ownership.')
-        from app.inference.coach import coach_messages, parse_coach_output
         url = self.config.ollama_url.rstrip('/')
         with httpx.Client(timeout=300, trust_env=False) as client:
             self._ensure_ollama(client)
@@ -169,16 +168,14 @@ class ServiceManager:
             self.swap_pending = True
 
             def invoke(request):
-                self.progress('Diagnosing loss…' if request['task'] == 'diagnose'
-                              else 'Updating strategy…' if request['task'] == 'update' else 'Studying games…')
                 response = client.post(url + '/api/chat', json={'model': self.selected_model,
-                    'messages': coach_messages(request), 'stream': False, 'keep_alive': 0, 'think': False,
+                    'messages': request['messages'], 'stream': False, 'keep_alive': 0, 'think': False,
                     'options': {'temperature': 0, 'num_ctx': 8192, 'num_predict': 512}})
                 response.raise_for_status()
                 raw = response.json()
                 text = raw['message']['content']
-                result = parse_coach_output(text, request['task'], raw.get('done_reason') == 'length' or not raw.get('done', True))
-                return dict(result, response_text=text, prompt=coach_messages(request), model=self.selected_model,
+                return dict(response_text=text, truncated=raw.get('done_reason') == 'length' or not raw.get('done', True),
+                            prompt=request['messages'], model=self.selected_model,
                             provenance=provenance,
                             usage={k: raw.get(k) for k in ('prompt_eval_count', 'eval_count')},
                             timings={k: raw.get(k) for k in ('total_duration', 'load_duration', 'prompt_eval_duration', 'eval_duration')})

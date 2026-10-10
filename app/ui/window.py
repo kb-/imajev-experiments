@@ -94,6 +94,7 @@ class Window(QMainWindow):
             self.selector.addItem(game.name, game.id)
         self.selector.setCurrentIndex(self.selector.findData(controller.game.id))
         self.selector.setAccessibleName('Game selector')
+        self.selector.currentIndexChanged.connect(self.configure_selected_game)
         header.addWidget(self.selector)
         new = self.new_button = QPushButton('New game')
         new.clicked.connect(self.new_game)
@@ -120,13 +121,18 @@ class Window(QMainWindow):
         side.setContentsMargins(22, 18, 22, 18)
         side.setSpacing(10)
         self.panel_scroll.setWidget(side_content)
-        side.addWidget(self.label('TIC-TAC-TOE / 01', 'eyebrow'))
+        self.game_label = self.label('', 'eyebrow')
+        side.addWidget(self.game_label)
         self.phase_label = self.label('Your turn', 'phase')
         side.addWidget(self.phase_label)
         self.message = QLabel()
         self.message.setWordWrap(True)
         side.addWidget(self.message)
-        side.addWidget(self.label('YOU   X     /     IMAJEV   O', 'muted'))
+        self.players_label = self.label('', 'muted')
+        side.addWidget(self.players_label)
+        self.game_details = self.label('', 'muted')
+        self.game_details.setWordWrap(True)
+        side.addWidget(self.game_details)
         self.starter_label = self.label('', 'muted')
         side.addWidget(self.starter_label)
         side.addStretch()
@@ -134,11 +140,12 @@ class Window(QMainWindow):
         self.last = QLabel()
         self.last.setWordWrap(True)
         side.addWidget(self.last)
-        side.addWidget(self.label('MOVE PROMPT', 'eyebrow'))
+        self.prompt_heading = self.label('MOVE PROMPT', 'eyebrow')
+        side.addWidget(self.prompt_heading)
         self.prompt_selector = QComboBox()
-        self.prompt_selector.addItem('Original', 'legacy')
-        self.prompt_selector.addItem('Quoted', 'quoted')
-        self.prompt_selector.addItem('Coached quoted', 'coached_quoted')
+        self.prompt_game_id = controller.game.id
+        for key, label in controller.policy.prompt_choices:
+            self.prompt_selector.addItem(label, key)
         self.prompt_selector.setCurrentIndex(self.prompt_selector.findData(controller.config.prompt_variant))
         self.prompt_selector.setAccessibleName('Move prompt')
         self.prompt_selector.setToolTip('Choose a prompt before your first move. After play begins, click New game to apply changes.')
@@ -165,7 +172,7 @@ class Window(QMainWindow):
         self.model = QLabel()
         self.model.setWordWrap(True)
         side.addWidget(self.model)
-        self.tactics_label = self.label('Immediate wins and blocks enforced', 'muted')
+        self.tactics_label = self.label('', 'muted')
         self.tactics_label.setWordWrap(True)
         side.addWidget(self.tactics_label)
         self.strategy_label = QLabel()
@@ -235,14 +242,20 @@ class Window(QMainWindow):
             QMessageBox.warning(self, 'Cannot apply game settings', str(exc))
         self.refresh()
 
+    def configure_selected_game(self):
+        c = self.controller
+        if c.can_configure_game and self.selector.currentData() != c.game.id:
+            self.canvas.current = []
+            c.select_game(GAMES[self.selector.currentData()])
+        self.refresh()
+
     def new_game(self):
         if self.controller.coaching_failed or (self.controller.busy and self.controller.inflight and self.controller.inflight.purpose in ('coach', 'continue', 'shutdown')):
             return
         self.canvas.current = []
-        self.controller.game = GAMES[self.selector.currentData()]
         self.controller.config = replace(self.controller.config, prompt_variant=self.prompt_selector.currentData(),
                                          move_temperature=self.move_temperature.value())
-        self.controller.new_game(alternate_starter=True)
+        self.controller.select_game(GAMES[self.selector.currentData()], alternate_starter=True)
         if not self.controller.ready and not self.controller.busy:
             self.controller.start()
 
@@ -252,23 +265,47 @@ class Window(QMainWindow):
 
     def refresh(self):
         c = self.controller
+        if self.prompt_game_id != c.game.id:
+            self.prompt_selector.blockSignals(True)
+            self.move_temperature.blockSignals(True)
+            self.prompt_selector.clear()
+            for key, label in c.policy.prompt_choices:
+                self.prompt_selector.addItem(label, key)
+            self.prompt_selector.setCurrentIndex(self.prompt_selector.findData(c.config.prompt_variant))
+            self.move_temperature.setValue(c.config.move_temperature)
+            self.prompt_selector.blockSignals(False)
+            self.move_temperature.blockSignals(False)
+            self.prompt_game_id = c.game.id
+        self.game_label.setText(c.game.name.upper())
+        self.players_label.setText(f'YOU   {c.game.human_player}     /     IMAJEV   {c.game.computer_player}')
+        self.canvas.setAccessibleName(f'{c.game.name} drawing board. {c.instruction}')
+        details = c.policy.details(c.state)
+        self.game_details.setVisible(bool(details))
+        self.game_details.setText(details)
         phases = {'loading': 'Warming up', 'human': 'Your turn', 'recognising': 'Reading your ink',
                   'computer': 'Imajev’s turn', 'coaching': 'Studying games', 'over': 'Game complete', 'error': 'Needs attention'}
         self.phase_label.setText(c.message.rstrip('…') if c.phase == 'coaching' else phases[c.phase])
         starter = getattr(c.state, 'starting_player', None)
-        self.starter_label.setText('You started · X' if starter == c.game.human_player else 'Imajev started · O' if starter == c.game.computer_player else '')
-        current_prompt = {'legacy': 'Original', 'quoted': 'Quoted', 'coached_quoted': 'Coached quoted'}[c.config.prompt_variant]
+        self.starter_label.setText(f'You started · {c.game.human_player}' if starter == c.game.human_player else f'Imajev started · {c.game.computer_player}' if starter == c.game.computer_player else '')
+        current_prompt = dict(c.policy.prompt_choices).get(c.config.prompt_variant, c.config.prompt_variant)
         pending = self.prompt_selector.currentData() != c.config.prompt_variant
         self.prompt_label.setText(f'Playing: {current_prompt}. ' + (
             'Click New game to apply selection.' if pending else
             'Choose a mode before your first move.' if c.can_configure_game else 'Selection applies to new games.'))
-        self.prompt_selector.setEnabled(getattr(c.game, 'supports_prompt_variants', False))
+        supports_prompts = bool(c.policy.prompt_choices)
+        self.prompt_selector.setEnabled(supports_prompts)
+        for widget in (self.prompt_heading, self.prompt_selector, self.prompt_label):
+            widget.setVisible(supports_prompts)
+        pending_game = self.selector.currentData() != c.game.id
+        self.selector.setToolTip('Click New game to switch games.' if pending_game else 'Choose a game before your first move; otherwise click New game.')
         temperature = c.config.move_temperature
         pending_variety = self.move_temperature.value() != temperature
         variety = 'best move' if temperature == 0 else f'temperature {temperature:g}'
         self.variety_label.setText(f'Playing: {variety}. ' + (
             'Click New game to apply selection.' if pending_variety else '0 picks best; higher adds variety.'))
-        self.tactics_label.setVisible(c.config.tactical_guard and not c.coached)
+        tactics = c.policy.tactics_caption(c.config)
+        self.tactics_label.setText(tactics)
+        self.tactics_label.setVisible(bool(tactics))
         self.message.setText(c.message)
         self.message.setMinimumHeight(self.message.sizeHint().height())
         self.last.setText(c.last_move)

@@ -55,8 +55,14 @@ class TicTacToe:
     human_player = 'X'
     computer_player = 'O'
     instruction = 'Draw an X in one empty cell.'
-    supports_opening_suggestion = True
-    supports_prompt_variants = True
+
+    @property
+    def session_policy(self):
+        from .policy import Policy
+        return Policy()
+
+    def instruction_for(self, state):
+        return self.instruction
 
     def initial_state(self) -> State:
         return State()
@@ -181,7 +187,7 @@ class TicTacToe:
     def decision_request(self, state: State, actions: tuple[Action, ...], opening_suggestion: bool = True, prompt_variant: str = 'legacy', strategy: list[str] | None = None) -> dict:
         if prompt_variant in ('quoted', 'coached_quoted'):
             from .prompting import decision_request
-            from app.storage.coached import BASIC_QUOTED_STRATEGY
+            from .coaching import BASIC_QUOTED_STRATEGY
             rules = (BASIC_QUOTED_STRATEGY if strategy is None else strategy) if prompt_variant == 'coached_quoted' else None
             return decision_request(state, actions, 'quoted', rules)
         if prompt_variant != 'legacy':

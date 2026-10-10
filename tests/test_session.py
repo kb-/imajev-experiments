@@ -105,6 +105,9 @@ class TinyGame:
     human_player = 'person'
     computer_player = 'model'
     instruction = 'Make a mark.'
+    from app.core.game_policy import SessionPolicy
+    session_policy = SessionPolicy()
+    def instruction_for(self, state): return self.instruction
     def initial_state(self): return 0
     def revision(self, state): return state
     def current_player(self, state): return 'person' if state == 0 else 'model'

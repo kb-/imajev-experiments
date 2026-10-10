@@ -4,7 +4,7 @@ import time
 from PyQt6.QtWidgets import QApplication
 from app.config import Config
 from app.core.session import SessionController
-from app.games.tic_tac_toe.game import TicTacToe
+from app.core.registry import GAMES
 from app.inference.imajev_client import parse_reply
 from app.ui.window import Window
 
@@ -23,9 +23,10 @@ class DevelopmentFake:
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--screenshot', default='/tmp/imajev-window.png')
+    parser.add_argument('--game', choices=GAMES, default='tic_tac_toe')
     args = parser.parse_args()
     app = QApplication([])
-    controller = SessionController(TicTacToe(), DevelopmentFake(), Config())
+    controller = SessionController(GAMES[args.game], DevelopmentFake(), Config(game=args.game))
     window = Window(controller)
     window.show()
     deadline = time.monotonic() + 5

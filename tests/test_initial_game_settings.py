@@ -4,7 +4,9 @@ import pytest
 from app.config import Config
 from app.core.session import SessionController
 from app.games.tic_tac_toe.game import TicTacToe
-from app.storage.coached import CoachedStore, atomic_json
+from app.storage.coached import CoachedStore
+from app.games.tic_tac_toe.policy import Coaching as TicTacToeCoaching
+from app.storage.atomic import atomic_json
 from app.ui.window import Window
 from test_protocol import INK
 from test_session import Fake, wait_for
@@ -12,7 +14,7 @@ from test_session import Fake, wait_for
 
 def create_window(tmp_path, initial='coached_quoted'):
     root=tmp_path/'learning'
-    ledger=CoachedStore(root).ledger()
+    ledger=CoachedStore(root, TicTacToeCoaching()).ledger()
     ledger.update(revision=4,strategy=['win immediately','otherwise stop X winning next turn'])
     atomic_json(root/'strategy.json',ledger)
     client=Fake()

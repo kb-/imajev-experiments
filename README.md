@@ -1,6 +1,8 @@
 # Imajev Drawing Game
 
-A Python/PyQt6 desktop tic-tac-toe game. Draw an X with multiple mouse strokes, submit it to your local Imajev image service, and let the model choose O. The deterministic rules engine validates every action. Immediate O wins and single-cell blocks are enforced by the visible tactical guard, while Imajev proposes each computer move and chooses ordinary moves. Accepted handwriting stays on the board; ambiguity stays editable.
+A Python/PyQt6 desktop drawing game with tic-tac-toe and Boku. In tic-tac-toe, draw an X and let Imajev choose O; accepted handwriting stays on the board. In Boku, draw a circle to place a black stone, or an X to capture a highlighted white stone; accepted circles become shaded game stones. The deterministic rules engine validates every action, and ambiguous ink stays editable.
+
+Start Boku with `uv run --locked --offline imajev-game --config config.boku.yaml`, or choose it in the game selector before your first move. See [Boku rules and controls](docs/boku-implementation.md). Both games have their own Move prompt and Move variety selectors. Coached quoted learns an ordered strategy after losses, with separate histories and rules for each game; tactical assistance remains specific to tic-tac-toe.
 
 See the [implementation guide](docs/implementation.md) for architecture, turn flow, model prompting, retries, persistence, and explanatory Mermaid diagrams.
 
@@ -136,7 +138,9 @@ Select **Coached quoted**, then New game, or launch directly:
 uv run --locked --offline imajev-game --config config.coached-quoted.yaml
 ```
 
-It uses Quoted's board and candidate facts, initially with only `win immediately` and `otherwise stop X winning next turn`. Imajev follows the rules without tactical move corrections. After a loss only, the coach revises the rule list in descending priority order using all completed coached games since the last successful update. Draws and wins contribute history but do not trigger coaching; abstentions remain ordinary Retry decisions. Valid updates apply automatically to the next game and persist across restarts.
+In tic-tac-toe it uses Quoted's board and candidate facts, initially with only `win immediately` and `otherwise stop X winning next turn`. Imajev follows the rules without tactical move corrections. After a loss only, the coach revises the rule list in descending priority order using all completed coached games since the last successful update. Draws and wins contribute history but do not trigger coaching; abstentions remain ordinary Retry decisions. Valid updates apply automatically to the next game and persist across restarts.
+
+Boku offers Original, Quoted and Coached quoted too. Its quoted strategy begins with `win immediately` and `otherwise prevent Black winning next turn`. Coaching always includes the Boku rules, axial board geometry, placements and captures. Each game retains its own prompt and variety choices when switching games.
 
 Shared Qwen coaching is the default. Ollama is optional and requires an explicitly installed model and managed GPU swapping. Rules, revision and coaching Diagnostics appear inline. See [setup, storage and recovery](docs/coached-quoted.md).
 

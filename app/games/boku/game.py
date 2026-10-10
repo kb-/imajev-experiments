@@ -38,7 +38,7 @@ class Boku:
     name = 'Boku'
     human_player = 'Black'
     computer_player = 'White'
-    prompt_version = 'boku-v4-win-priority'
+    prompt_version = 'boku-v5-forced-win-defence'
     instruction = 'Draw a circle in one empty pocket, then Submit.'
 
     @property
@@ -195,10 +195,18 @@ class Boku:
             request['state']['immediate_White_win_actions'] = sorted(
                 action for action, facts in request['questions']['move']['criteria'].items()
                 if facts.get('wins_now', False))
+            facts = request['questions']['move']['criteria']
+            def dangerous(f):
+                return f.get('allows_Black_win_next_turn', False) or f.get('allows_Black_forced_win', False)
+            request['state']['White_defensive_actions'] = (
+                sorted(action for action, f in facts.items() if not dangerous(f))
+                if any(dangerous(f) for f in facts.values()) else [])
             request['questions']['move']['instructions'] += (
                 ' Compare the consequences of each legal action through completion of any mandatory capture. '
                 'Follow the ordered strategy; earlier rules override later rules. '
-                'If immediate_White_win_actions is nonempty, choose one action from that list before considering any other action.')
+                'If immediate_White_win_actions is nonempty, choose one action from that list before considering any other action. '
+                'Otherwise, if White_defensive_actions is nonempty, choose one action from that list. '
+                'These defensive actions avoid the checked immediate losses and forced-win setups; they do not guarantee safety beyond this horizon.')
         return request
 
     def retry_decision_request(self, state, actions, attempt, prompt_variant='legacy', strategy=None):

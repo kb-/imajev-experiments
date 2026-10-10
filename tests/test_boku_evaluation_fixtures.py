@@ -15,6 +15,8 @@ FIXTURES = Path(__file__).resolve().parents[1] / 'docs/evaluation/fixtures/boku'
     ('capture-trap-session.json', {25}),
     ('missed-win-session.json', {9, 25, 28, 29, 53}),
     ('winning-replay-session.json', {53}),
+    ('open-four-session.json', {25, 27}),
+    ('abstained-loss-session.json', {27, 29, 32}),
 ])
 def test_committed_sessions_replay_and_supply_experiment_inputs(name, revisions):
     game = Boku()

@@ -78,9 +78,10 @@ Original retains Boku’s existing full-state prompt. Quoted (the default) adds 
 
 Both quoted modes also provide Boku-specific candidate facts computed by the
 authoritative rules engine: `wins_now`, `blocks_Black_win_next_turn` and
-`allows_Black_win_next_turn`. The additional `allows_Black_capture_forced_win`
-flag checks whether a Black placement/capture forces a win after every White
-reply. This bounded extension covers capture setups, not all two-turn threats.
+`allows_Black_win_next_turn`. The additional `allows_Black_forced_win`
+flag checks whether a completed Black placement, with or without capture,
+forces a win after every complete White reply. This bounded extension covers
+ordinary open-four setups as well as capture traps.
 Immediate facts cover the completed White turn and one
 completed Black reply, including mandatory captures, reserve exhaustion and
 the captured-space prohibition. A placement can have several capture choices;
@@ -97,9 +98,21 @@ capture choices when capture is pending. All legal candidates remain available;
 Imajev still chooses the action. This representation corrected the recorded
 missed A1 win in the [prompt experiment](evaluation/boku-win-priority.md).
 
+`boku-v5-forced-win-defence` also names `White_defensive_actions` when at least
+one candidate permits a checked loss. Immediate wins take priority, then these
+defences. An empty list can mean no threat was found or every action loses;
+it is not a loss declaration. All legal actions remain available, including on
+retries. See the [forced-win experiment](evaluation/boku-forced-wins.md).
+
+Loss acknowledgement was tested and dropped after inconsistent model answers
+and reported false acknowledgements. The app offers no resignation action.
+An abstention preserves the board and waits for Retry; only the ordinary rules
+engine decides a terminal result. The [experiment report](evaluation/boku-loss-acknowledgement.md)
+preserves the evidence, limitations and exact refusal/retry comparison.
+
 False flags are omitted from candidate descriptions and declared once as
 `candidate_fact_defaults`, with explicit scope in the prompt. This avoids
-repeating three false values across up to 79 candidates. Original mode retains
+repeating four false values across up to 79 candidates. Original mode retains
 plain action descriptions. Boku builds decision requests in the existing background worker so deeper
 fact calculation leaves the GUI responsive. Prepared requests are recorded
 on the GUI thread; resets discard stale preparations before inference.

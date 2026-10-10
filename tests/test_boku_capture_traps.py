@@ -71,9 +71,9 @@ def test_app_prompt_contains_the_capture_trap_fact():
     state = before_trap()
     request = game.decision_request(state,game.legal_actions(state),prompt_variant='quoted')
     facts = request['questions']['move']['criteria']
-    assert request['state']['candidate_fact_defaults']['allows_Black_capture_forced_win'] is False
-    assert facts['place_D5']['allows_Black_capture_forced_win']
-    assert not any(facts[a].get('allows_Black_capture_forced_win')
+    assert request['state']['candidate_fact_defaults']['allows_Black_forced_win'] is False
+    assert facts['place_D5']['allows_Black_forced_win']
+    assert not any(facts[a].get('allows_Black_forced_win')
                    for a in ('place_B3','place_C4','place_F4'))
 
 
@@ -115,5 +115,5 @@ def test_prepared_request_is_recorded_before_answer_is_applied(qapp,tmp_path):
     c._launch('decision')
     wait_for(qapp,lambda:not c.busy)
     assert c.events[-1]['request'] == c.client.calls[-1]
-    assert c.events[-1]['request']['state']['candidate_fact_defaults']['allows_Black_capture_forced_win'] is False
+    assert c.events[-1]['request']['state']['candidate_fact_defaults']['allows_Black_forced_win'] is False
     assert c.state.revision == 2

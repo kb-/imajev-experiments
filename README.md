@@ -142,6 +142,9 @@ In tic-tac-toe it uses Quoted's board and candidate facts, initially with only `
 
 Boku offers Original, Quoted and Coached quoted too. Its quoted strategy begins with `win immediately` and `otherwise prevent Black winning next turn`. Coaching always includes the Boku rules, axial board geometry, placements and captures. Each game retains its own prompt and variety choices when switching games.
 
+Boku retains the v5 forced-win facts and normal Retry behavior. The experimental
+loss-acknowledgement option was dropped; see the [results and inconsistencies](docs/evaluation/boku-loss-acknowledgement.md).
+
 Shared Qwen coaching is the default. Ollama is optional and requires an explicitly installed model and managed GPU swapping. Rules, revision and coaching Diagnostics appear inline. See [setup, storage and recovery](docs/coached-quoted.md).
 
 Set `opponent.tactical_guard: false` to measure the model's unassisted play. Restart the app after changing the setting. `scripts/evaluate.py opponent` evaluates raw model choices; add `--with-tactical-guard` to measure the assisted gameplay policy. The records distinguish `model_proposed_action` from `accepted_action` and give the correction reason.

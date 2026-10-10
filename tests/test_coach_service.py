@@ -1,9 +1,10 @@
 import asyncio
+import io
 from dataclasses import replace
 from types import SimpleNamespace
 import threading
 import pytest
-from app.config import Config
+from app.config import Config, load_config
 from app.inference.service_manager import ServiceManager
 from scripts.serve_local import BusyGuard
 
@@ -17,20 +18,79 @@ def test_gpu_lock_covers_both_endpoints(path):
     assert sent[0]['status']==409
 
 
-def test_external_start_and_shutdown_never_launch(monkeypatch):
+@pytest.mark.parametrize('host', ['127.0.0.1', '[::1]'])
+def test_external_start_and_shutdown_never_launch(monkeypatch, host):
+    monkeypatch.setattr('app.inference.service_manager.socket.socket',lambda *_ ,**__: pytest.fail('External endpoint probed'))
     monkeypatch.setattr('app.inference.service_manager.subprocess.Popen',lambda *_ ,**__: pytest.fail('External process managed'))
-    manager=ServiceManager(replace(Config(),external_inference=True)); manager.start(); manager.shutdown()
+    manager=ServiceManager(replace(Config(),external_inference=True,endpoint=f'http://{host}:8765/v1/systemone')); manager.start(); manager.shutdown()
     assert manager.process is None
 
 
-def test_conflict_does_not_attach_or_kill(monkeypatch):
+@pytest.mark.parametrize('model', ['imajev-4b-nf4', 'imajev-2b'])
+@pytest.mark.parametrize('backend', ['shared', 'ollama'])
+def test_managed_ipv6_rejected_before_any_startup_work(monkeypatch, model, backend):
+    monkeypatch.setattr('app.inference.service_manager.socket.socket',lambda *_ ,**__: pytest.fail('IPv6 endpoint probed'))
+    monkeypatch.setattr('app.inference.service_manager.subprocess.Popen',lambda *_ ,**__: pytest.fail('Process launched'))
+    monkeypatch.setattr('app.inference.service_manager.httpx.Client',lambda *_ ,**__: pytest.fail('Ollama contacted'))
+    manager=ServiceManager(replace(Config(),expected_model=model,coach_backend=backend,coach_model='coach',
+                                   endpoint='http://[::1]:8765/v1/systemone'))
+    with pytest.raises(RuntimeError,match='IPv4 loopback only.*--external-inference for IPv6'):
+        manager.start()
+    assert manager.process is None and manager.log is None and manager.ollama_process is None
+
+
+def test_ipv6_config_allows_cli_external_override(tmp_path, monkeypatch):
+    path=tmp_path/'ipv6.yaml'
+    path.write_text('imajev:\n  endpoint: http://[::1]:8765/v1/systemone\n')
+    config=load_config(path)
+    assert not config.external_inference
+    monkeypatch.setattr('app.inference.service_manager.socket.socket',lambda *_ ,**__: pytest.fail('External endpoint probed'))
+    monkeypatch.setattr('app.inference.service_manager.subprocess.Popen',lambda *_ ,**__: pytest.fail('Process launched'))
+    # main() applies the command-line override after loading the YAML.
+    manager=ServiceManager(replace(config,external_inference=True))
+    manager.start()
+    assert manager.process is None
+
+
+@pytest.mark.parametrize('host', ['127.0.0.1', 'localhost'])
+def test_conflict_does_not_attach_or_kill(monkeypatch, host):
     class Probe:
         def __enter__(self): return self
         def __exit__(self,*_): pass
         def connect_ex(self,_): return 0
     monkeypatch.setattr('app.inference.service_manager.socket.socket',Probe)
     monkeypatch.setattr('app.inference.service_manager.subprocess.Popen',lambda *_ ,**__: pytest.fail('Launched on occupied port'))
-    with pytest.raises(RuntimeError,match='occupied'): ServiceManager(Config()).start()
+    with pytest.raises(RuntimeError,match='occupied'):
+        ServiceManager(replace(Config(),endpoint=f'http://{host}:8765/v1/systemone')).start()
+
+
+@pytest.mark.parametrize('host', ['127.0.0.1', 'localhost'])
+@pytest.mark.parametrize('model,launcher', [('imajev-4b-nf4','launch_inference_4b_nf4.sh'),
+                                         ('imajev-2b','launch_inference_2b.sh')])
+def test_managed_ipv4_launches_owned_service(monkeypatch, host, model, launcher):
+    probes=[]; launches=[]
+    class Probe:
+        def __enter__(self): return self
+        def __exit__(self,*_): pass
+        def connect_ex(self,address): probes.append(address); return 1
+    child=SimpleNamespace(poll=lambda:None)
+    log=io.StringIO()
+    def launch(command, **kwargs):
+        launches.append((command,kwargs))
+        return child
+    monkeypatch.setattr('app.inference.service_manager.socket.socket',Probe)
+    monkeypatch.setattr('app.inference.service_manager.subprocess.Popen',launch)
+    monkeypatch.setattr('app.inference.service_manager.open',lambda *_:log,raising=False)
+    manager=ServiceManager(replace(Config(),expected_model=model,endpoint=f'http://{host}:8765/v1/systemone'))
+    try:
+        manager.start(); manager.start()
+        assert probes==[(host,8765)] and len(launches)==1
+        command,options=launches[0]
+        assert command[0]=='bash' and command[1].endswith('/'+launcher)
+        assert options['start_new_session'] is True and options['stdout'] is log
+        assert manager.process is child
+    finally:
+        log.close()
 
 
 def test_owned_process_waits_for_exit_and_detects_failure(monkeypatch):

@@ -24,9 +24,11 @@ class ServiceManager:
             raise RuntimeError('Ollama unload is not confirmed. Retry coaching before restarting Imajev.')
         if self.config.external_inference:
             return
+        url = urlsplit(self.config.endpoint)
+        if url.hostname == '::1':
+            raise RuntimeError('Managed inference supports IPv4 loopback only. Use 127.0.0.1 or localhost, or --external-inference for IPv6.')
         if self.process is not None and self.process.poll() is None:
             return
-        url = urlsplit(self.config.endpoint)
         if url.port != 8765:
             raise RuntimeError('Managed service uses port 8765. Use --external-inference for other ports.')
         with socket.socket() as probe:

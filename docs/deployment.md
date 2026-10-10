@@ -4,6 +4,8 @@ The GUI and inference environments are separate. The supplied launcher uses the 
 
 For the complete first-time setup and everyday managed startup sequence, see [Run the complete app](../README.md#run-the-complete-app). This guide supplies deployment details and alternate profiles. The standard setup and launch scripts select NF4; `uv run imajev-game` manages a pinned service child by default. The explicit service commands below use `--external-inference` for the GUI.
 
+Managed inference requires an IPv4 loopback endpoint (`127.0.0.1` or `localhost`) on port 8765; the supplied launchers bind to `127.0.0.1`. An IPv6 endpoint such as `http://[::1]:8765/v1/systemone` requires `--external-inference` (or `imajev.external_inference: true`) and a separately managed service listening on IPv6. Managed mode rejects IPv6 with an actionable error before probing or launching any service.
+
 Pinned assets:
 
 | Asset | Revision |

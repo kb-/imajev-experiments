@@ -3,6 +3,7 @@ import json
 import httpx
 import pytest
 from app.config import Config, load_config
+from app.inference.opponents import from_imajev
 from app.inference.imajev_client import ImajevClient, InferenceError, parse_reply
 from app.games.tic_tac_toe.game import TicTacToe, State, geometry_matches
 from app.core.contracts import Stroke
@@ -63,10 +64,10 @@ def test_decision_does_not_use_handwriting_threshold():
     req = game.decision_request(state, game.legal_actions(state))
     raw = answer(req, {'move': 'place_B1'}, unknown=.9)
     reply = parse_reply(raw, req, 'imajev-2b')
-    assert game.decode_decision(state, reply) == 'place_B1'
+    assert game.decode_decision(state, from_imajev(reply)) == 'place_B1'
     raw['answers']['move']['abstained'] = True
     with pytest.raises(ValueError):
-        game.decode_decision(state, parse_reply(raw, req, 'imajev-2b'))
+        game.decode_decision(state, from_imajev(parse_reply(raw, req, 'imajev-2b')))
 
 
 def test_loopback_only(tmp_path):
@@ -89,6 +90,48 @@ def test_multipart_transport(monkeypatch):
     transport = httpx.MockTransport(handle)
     monkeypatch.setattr(httpx, 'Client', lambda **kw: real_client(transport=transport, **kw))
     assert ImajevClient(Config(expected_model='imajev-2b')).decide(request, b'png').answers['cell'].choice == 'A1'
+
+
+@pytest.mark.parametrize('already_running', [False, True])
+def test_recognition_waits_for_restarted_service_after_opponent(monkeypatch, already_running):
+    from app.inference.service_manager import ServiceManager
+    from types import SimpleNamespace
+
+    config = Config(expected_model='imajev-2b')
+    manager = ServiceManager(config)
+    manager.active_opponent = object()
+    if already_running:
+        manager.active_opponent = None
+        manager.process = SimpleNamespace(poll=lambda: None)
+    calls = []
+    ready = False
+
+    def prepare(_):
+        manager.active_opponent = None
+        manager.process = SimpleNamespace(poll=lambda: None)
+
+    monkeypatch.setattr(manager, 'prepare_imajev', prepare)
+    monkeypatch.setattr('app.inference.imajev_client.time.sleep', lambda _: None)
+    real_client = httpx.Client
+
+    def handle(req):
+        nonlocal ready
+        calls.append(req.url.path)
+        if req.url.path == '/v1/models':
+            if calls.count('/v1/models') == 1:
+                raise httpx.ConnectError('Service is loading', request=req)
+            ready = True
+            return httpx.Response(200, json={'loaded': True, 'model': 'imajev-2b', 'backend': 'torch'})
+        assert ready, 'Recognition sent before the reloaded service was ready'
+        if req.url.path == '/v1/status':
+            return httpx.Response(404)
+        return httpx.Response(200, json=answer(request, {'symbol': 'X', 'cell': 'A1'}))
+
+    monkeypatch.setattr(httpx, 'Client', lambda **kw: real_client(transport=httpx.MockTransport(handle), **kw))
+    client = ImajevClient(config)
+    client.manager = manager
+    assert client.decide(request, b'png').answers['cell'].choice == 'A1'
+    assert calls == ['/v1/models', '/v1/models', '/v1/status', '/v1/systemone']
 
 
 def test_busy_service_never_receives_retry_image(monkeypatch):

@@ -15,6 +15,7 @@ from app.games.tic_tac_toe.game import TicTacToe, CELLS
 from app.games.tic_tac_toe.coaching import enrich_game
 from app.inference.coach import shared_coach, coach_pipeline, prepared_transport
 from app.inference.imajev_client import ImajevClient
+from app.inference.opponents import create_opponent
 from app.inference.service_manager import ServiceManager
 from app.storage.coached import CoachedStore
 from app.games.tic_tac_toe.policy import Coaching as TicTacToeCoaching
@@ -39,7 +40,7 @@ def main():
     args=parser.parse_args(); args.output.mkdir(parents=True,exist_ok=False)
     app=QApplication([])
     config=replace(load_config(Path('config.coached-quoted.yaml')),coach_backend=args.backend,coach_model=args.model)
-    manager=ServiceManager(config); client=ImajevClient(config); client.manager=manager
+    manager=ServiceManager(config); client=ImajevClient(config); client.manager=manager; opponent=create_opponent(config,client,manager)
     from app.games.tic_tac_toe.coaching import coaching_context
     original=CoachedStore(args.history, TicTacToeCoaching()).request(args.game_id)
     original['coach_context'] = coaching_context()
@@ -51,8 +52,8 @@ def main():
         with (args.output/'coaching.jsonl').open('a') as stream: stream.write(json.dumps(stage,ensure_ascii=False)+'\n')
     def decide(state,rules,label):
         request=GAME.decision_request(state,GAME.legal_actions(state),prompt_variant='coached_quoted',strategy=rules)
-        before=time.monotonic(); reply=client.decide(request,observation_png(GAME.render(state,(),'decision'),768)); elapsed=time.monotonic()-before
-        answer=reply.answers['move']; choice='place_'+answer.choice
+        before=time.monotonic(); reply=opponent.choose_move(request,observation_png(GAME.render(state,(),'decision'),768)); elapsed=time.monotonic()-before
+        answer=reply; choice=GAME.decode_decision(state,reply)
         scores={a.id:oracle((after:=GAME.apply_action(state,a.id)).board,after.next_player) for a in GAME.legal_actions(state)}
         value={'choice':choice,'abstained':answer.abstained,'correct':not answer.abstained and scores[choice]==max(scores.values()),'seconds':elapsed}
         with (args.output/'calls.jsonl').open('a') as stream:

@@ -2,7 +2,7 @@ import json
 import random
 import pytest
 from app.config import Config, load_config
-from app.core.contracts import ChoiceAnswer, Reply
+from app.core.contracts import MoveResult
 from app.core.move_sampling import select_move
 from app.core.session import SessionController
 from app.games.tic_tac_toe.game import TicTacToe
@@ -19,7 +19,7 @@ class NoSampling:
 
 
 def reply(weights, abstained=False):
-    return Reply('test', {'move': ChoiceAnswer(max(weights, key=weights.get), weights, .4, abstained)}, {})
+    return MoveResult(max(weights, key=weights.get), 'test', {}, probabilities=weights, unknown_probability=.4, abstained=abstained)
 
 
 def test_default_and_configured_temperature(tmp_path):

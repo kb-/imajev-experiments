@@ -1,6 +1,7 @@
 import json
 import sys
 import pytest
+from app.config import Config
 from app.games.tic_tac_toe.game import State, TicTacToe
 from test_session import Fake
 import scripts.evaluate as evaluator
@@ -41,3 +42,14 @@ def test_cli_evaluates_configured_prompt_and_reports_it(qapp, monkeypatch, tmp_p
     else:
         assert report['failed_or_abstained'] == 0
         assert report['results'][0]['model_proposed'].startswith('place_')
+
+
+def test_recognition_evaluation_retains_strict_reply_contract(qapp, tmp_path):
+    from test_protocol import INK
+    from dataclasses import asdict
+    path = tmp_path / 'drawings.json'
+    path.write_text(json.dumps({'version': 1, 'samples': [{'id': 'drawing', 'participant': 'test',
+        'split': 'heldout', 'strokes': [asdict(stroke) for stroke in INK], 'valid_x': True, 'cell': 'A1'}]}))
+    result = evaluator.recognition(path, 'heldout', Fake(), Config())
+    assert result['results'][0]['accepted'] == 'place_A1'
+    assert result['results'][0]['reply']['answers']['symbol']['choice'] == 'X'

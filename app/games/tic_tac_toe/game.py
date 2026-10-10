@@ -1,6 +1,6 @@
 from dataclasses import asdict, dataclass, replace
 import math
-from app.core.contracts import Action, Outcome, Reply, Scene, Stroke
+from app.core.contracts import MoveResult, Action, Outcome, Reply, Scene, Stroke
 
 CELLS = tuple(f'{col}{row}' for row in range(1, 4) for col in 'ABC')
 WINNING_LINES = ((0, 1, 2), (3, 4, 5), (6, 7, 8), (0, 3, 6), (1, 4, 7), (2, 5, 8), (0, 4, 8), (2, 4, 6))
@@ -258,14 +258,16 @@ class TicTacToe:
                 f'Return {candidate} as your choice instead of abstaining.')
         return request
 
-    def decode_decision(self, state: State, reply: Reply) -> str:
-        answer = reply.answers['move']
+    def decode_decision(self, state: State, reply: MoveResult) -> str:
+        answer = reply
+        if answer.rejection:
+            raise ValueError(answer.rejection)
         if answer.abstained:
-            raise ValueError('Imajev abstained while choosing O. Retry will ask a different question.')
+            raise ValueError('The opponent abstained while choosing O. Retry will ask a different question.')
         from .prompting import normalize_choice
         choice = normalize_choice(answer.choice)
         if choice not in {a.id for a in self.legal_actions(state)}:
-            raise ValueError('Imajev selected an invalid move. Retry the computer turn.')
+            raise ValueError('The opponent selected an invalid move. Retry the computer turn.')
         return choice
 
     def encode_state(self, state: State) -> dict:

@@ -15,7 +15,8 @@ import time
 from PyQt6.QtWidgets import QApplication
 from app.config import load_config
 from app.games.boku.game import Boku
-from app.inference.imajev_client import ImajevClient, InferenceError
+from app.inference.imajev_client import InferenceError
+from app.inference.opponents import create_opponent, role_metadata, named_result
 from app.storage.atomic import atomic_json
 from app.ui.rendering import observation_png
 
@@ -63,7 +64,7 @@ def variant(original, arm, lost, previous=None):
     if arm == 'multi_turn':
         if previous is None:
             raise ValueError('A previous evaluation is required for the multi-turn arm.')
-        answer = previous.answers['has_lost']
+        answer = named_result(previous, 'has_lost')
         request['state'].update(has_lost=('unknown' if answer.abstained else answer.choice == 'yes'),
                                 has_lost_scope=LOSS_SCOPE,
                                 has_lost_source="Imajev's preceding evaluation; not an engine adjudication.")
@@ -96,13 +97,14 @@ def main():
         cases.append(('A1_wins', old['events'][0]))
         old = json.loads((FIXTURES / 'missed-win-session.json').read_text())
         cases.append(('E5_defends', next(e for e in old['events'] if e['ticket']['state_revision'] == 9)))
-    client = ImajevClient(replace(load_config(args.config), external_inference=True))
-    result = {'source': str(FIXTURES / 'abstained-loss-session.json'), 'rows': [], 'error': None}
+    config = replace(load_config(args.config), external_inference=True)
+    client = create_opponent(config)
+    result = {'inference_protocol': 2, 'inference': role_metadata(config), 'source': str(FIXTURES / 'abstained-loss-session.json'), 'rows': [], 'error': None}
     def call(request, png):
         deadline = time.monotonic() + 180
         while True:
             try:
-                return client.decide(request, png)
+                return client.choose_move(request, png)
             except InferenceError as exc:
                 if 'previous GPU request' not in str(exc) or time.monotonic() > deadline:
                     raise
@@ -131,7 +133,7 @@ def main():
                 reply = call(request, png)
                 if arm == 'batched_evaluation':
                     previous = reply
-                answer = reply.answers['move']
+                answer = reply
                 selected = answer.choice
                 legal = selected in facts
                 if answer.abstained:
@@ -152,7 +154,7 @@ def main():
                        'request': request, 'reply': reply.raw, 'seconds': time.monotonic() - then}
                 evaluated = reply if arm == 'batched_evaluation' else previous if arm == 'multi_turn' else None
                 if evaluated is not None:
-                    diagnosis = evaluated.answers['has_lost']
+                    diagnosis = named_result(evaluated, 'has_lost')
                     row['loss_evaluation_correct'] = not diagnosis.abstained and (diagnosis.choice == 'yes') == lost
                 if evaluation:
                     row['previous_evaluation'] = evaluation

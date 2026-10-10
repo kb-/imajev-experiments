@@ -229,3 +229,9 @@ logs/
 
 # Persistent coached quoted rules and game history
 learning/coached-quoted/
+
+# Manually installed opponent weights and compiled Decision 2.0 runtime
+/models/
+/runtimes/decision2/
+
+/runtimes/llama_cpp/

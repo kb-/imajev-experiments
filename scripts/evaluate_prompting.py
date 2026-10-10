@@ -28,7 +28,7 @@ from app.games.tic_tac_toe.game import CELLS, TicTacToe
 from app.games.tic_tac_toe.prompting import (
     ARMS, VERSION, candidate_facts, decision_request, fork_cells, normalize_choice, winning_cells,
 )
-from app.inference.imajev_client import ImajevClient
+from app.inference.opponents import create_opponent, metadata, role_metadata
 from app.ui.rendering import observation_png
 from scripts.evaluate import oracle, timings
 
@@ -156,7 +156,7 @@ def score_answer(state, answer):
     truth = targets(state)
     choice = normalize_choice(answer['choice'])
     legal = choice in {a.id for a in GAME.legal_actions(state)}
-    accepted = legal and not answer['abstained']
+    accepted = legal and not answer['abstained'] and not answer.get('rejection')
     return {**truth, 'action': choice, 'legal': legal, 'accepted': accepted,
             'ranked_optimal': legal and choice in truth['optimal'],
             'accepted_optimal': accepted and choice in truth['optimal'],
@@ -166,37 +166,17 @@ def score_answer(state, answer):
 
 class OwnedService:
     def __init__(self, config, output):
-        self.config, self.output, self.process, self.log = config, output, None, None
+        from app.inference.service_manager import ServiceManager
+        self.manager = ServiceManager(config)
 
     def __enter__(self):
-        parts = urlsplit(self.config.endpoint)
-        if parts.hostname != '127.0.0.1' or parts.port != 8765 or self.config.expected_model != 'imajev-4b-nf4':
-            raise ValueError('This fixed protocol requires the local NF4 service on 127.0.0.1:8765.')
-        with socket.socket() as probe:
-            if probe.connect_ex((parts.hostname, parts.port)) == 0:
-                raise RuntimeError('Port 8765 is occupied; the experiment will not attach or terminate its owner.')
-        self.log = (self.output / 'service.log').open('a')
-        try:
-            self.process = subprocess.Popen(['bash', str(ROOT / 'scripts/launch_inference_4b_nf4.sh')],
-                                            cwd=ROOT, stdout=self.log, stderr=subprocess.STDOUT,
-                                            start_new_session=True)
-        except BaseException:
-            self.log.close()
-            raise
+        if self.manager.config.opponent_settings.backend == 'imajev':
+            settings = self.manager.config.opponent_settings
+            self.manager.prepare_imajev(replace(self.manager.config, endpoint=settings.endpoint, expected_model=settings.model))
         return self
 
     def __exit__(self, *_):
-        try:
-            if self.process and self.process.poll() is None:
-                os.killpg(self.process.pid, signal.SIGTERM)
-                try:
-                    self.process.wait(timeout=30)
-                except subprocess.TimeoutExpired:
-                    os.killpg(self.process.pid, signal.SIGKILL)
-                    self.process.wait(timeout=10)
-        finally:
-            if self.log:
-                self.log.close()
+        self.manager.shutdown()
 
 
 class Trial:
@@ -239,12 +219,13 @@ class Trial:
                 raise ValueError('Checkpoint request/image mismatch.')
             return row
         started = time.monotonic()
-        reply = self.client.decide(request, png, timeout=self.config.request_timeout)
+        reply = self.client.choose_move(request, png, timeout=self.config.request_timeout)
         elapsed = time.monotonic() - started
-        answer = reply.answers['move']
+        answer = reply
         value = {'choice': answer.choice, 'abstained': answer.abstained,
                  'unknown_probability': answer.unknown_probability,
-                 'probabilities': dict(answer.probabilities)}
+                 'probabilities': dict(answer.probabilities) if answer.probabilities is not None else None,
+                 'rejection': answer.rejection}
         row = {'label': label, 'arm': arm, 'order': order, 'seconds': elapsed,
                'state_sha256': state_hash, 'board': state.board, 'starter': state.starting_player,
                'request_sha256': request_hash, 'image_sha256': image_hash,
@@ -316,7 +297,7 @@ class Trial:
 def summarize(rows):
     return {'n': len(rows), 'accepted_optimal': sum(r['score']['accepted_optimal'] for r in rows),
             'ranked_optimal': sum(r['score']['ranked_optimal'] for r in rows),
-            'abstentions': sum(r['answer']['abstained'] for r in rows),
+            'abstentions': sum(bool(r['answer']['abstained']) for r in rows),
             'illegal': sum(not r['score']['legal'] for r in rows),
             'wins_available': sum(bool(r['score']['wins']) for r in rows),
             'missed_wins': sum(r['score']['missed_win'] for r in rows),
@@ -453,6 +434,7 @@ def render_report(summary, dataset, output):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--config', type=Path, default=ROOT / 'config.yaml')
     parser.add_argument('--output', type=Path, default=ROOT / 'logs/prompting-strategy-experiment')
     parser.add_argument('--previous', type=Path, default=DEFAULT_PREVIOUS)
     parser.add_argument('--seed', type=int, default=SEED)
@@ -463,16 +445,17 @@ def main():
     output.mkdir(parents=True, exist_ok=True)
     (output / 'images').mkdir(exist_ok=True)
     app = QApplication.instance() or QApplication([])
-    config = load_config(ROOT / 'config.yaml')
+    config = load_config(args.config)
     config = replace(config, request_timeout=180)
     source_files = [Path(__file__), ROOT / 'app/games/tic_tac_toe/prompting.py',
                     ROOT / 'app/games/tic_tac_toe/game.py', ROOT / 'scripts/evaluate.py',
-                    ROOT / 'app/inference/imajev_client.py', ROOT / 'scripts/serve_local.py',
+                    ROOT / 'app/inference/imajev_client.py', ROOT / 'app/inference/opponents.py',
+                    ROOT / 'app/inference/service_manager.py', ROOT / 'scripts/serve_local.py',
                     ROOT / 'scripts/launch_inference_4b_nf4.sh', ROOT / 'app/ui/rendering.py']
-    protocol = {'version': VERSION, 'seed': args.seed, 'arms': ARMS,
-                'config_sha256': digest((ROOT / 'config.yaml').read_bytes()),
+    protocol = {'version': VERSION + ':opponent-v2', 'seed': args.seed, 'arms': ARMS,
+                'config_sha256': digest(args.config.read_bytes()),
                 'code_sha256': {str(p.relative_to(ROOT)): digest(p.read_bytes()) for p in source_files},
-                'runtime': json.loads((ROOT / '.inference/runtime-manifest-4b-nf4.json').read_text()),
+                'inference': role_metadata(config),
                 'previous_sha256': digest(args.previous.read_bytes()),
                 'rotations': 4, 'thinking': 'off', 'request_timeout_seconds': 180,
                 'selection': 'accepted optimal, wins, blocks, abstentions, nonloss games, game aborts, latency',
@@ -517,10 +500,11 @@ def main():
     thread = threading.Thread(target=monitor, daemon=True)
     thread.start()
     started = time.monotonic()
-    client = ImajevClient(config)
+    client = create_opponent(config)
     trial = Trial(client, config, output)
     try:
-        with OwnedService(config, output):
+        with OwnedService(config, output) as service:
+            client.manager = service.manager
             state = GAME.initial_state_for_player('O')
             warmup = client.warmup(decision_request(state, GAME.legal_actions(state), 'raw'),
                                    observation_png(GAME.render(state, (), 'decision'), config.observation_size))

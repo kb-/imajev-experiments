@@ -5,7 +5,8 @@ import logging
 import json
 import random
 from PyQt6.QtCore import QObject, QThreadPool, pyqtSignal
-from app.core.contracts import Stroke, Ticket
+from app.core.contracts import Stroke, Ticket, MoveResult
+from app.inference.opponents import create_opponent, metadata, role_metadata
 from app.inference.jobs import Job
 from app.storage.session_store import SessionStore, session_record
 from app.ui.rendering import observation_png
@@ -27,9 +28,10 @@ class SessionController(QObject):
     diagnosis_ready = pyqtSignal(object, object)
     request_ready = pyqtSignal(object, object)
 
-    def __init__(self, game, client, config, parent=None):
+    def __init__(self, game, client, config, parent=None, opponent=None):
         super().__init__(parent)
         self.game, self.client, self.config = game, client, config
+        self.opponent = opponent or create_opponent(config, client)
         self.policy = game.session_policy
         self.game_preferences = {}
         self.move_rng = random.Random()
@@ -84,7 +86,7 @@ class SessionController(QObject):
 
     @property
     def win_message(self):
-        return FORFEIT_MESSAGE if self.termination else 'You won!'
+        return FORFEIT_MESSAGE.replace('Imajev', self.config.opponent_name) if self.termination else 'You won!'
 
     def select_game(self, game, alternate_starter=False):
         """Switch via a reset; the active ticket still gates GPU work."""
@@ -112,6 +114,8 @@ class SessionController(QObject):
             return False
         self.policy.validate_prompt(prompt_variant)
         temperature = validate_move_temperature(move_temperature)
+        if self.config.opponent_settings.protocol == 'chat' and temperature:
+            raise ValueError('Chat opponents supply no move distribution; use zero move variety.')
         if prompt_variant != self.config.prompt_variant:
             ledger = self.learning_store.ledger() if prompt_variant == 'coached_quoted' and self.policy.coaching is not None else {'revision': 0, 'strategy': []}
             self.strategy, self.strategy_revision = ledger['strategy'].copy(), ledger['revision']
@@ -134,7 +138,7 @@ class SessionController(QObject):
         if ticket != self.active or ticket != self.inflight or self.stopping:
             return
         self.events[-1]['request'] = request
-        self.message = 'Imajev is choosing…'
+        self.message = self.config.opponent_name + ' is choosing…'
         self._publish()
 
     def new_game(self, alternate_starter=False):
@@ -168,6 +172,8 @@ class SessionController(QObject):
 
     def restore(self, path: Path):
         record = json.loads(path.read_text(encoding='utf-8'))
+        if record.get('inference') is not None and record['inference'] != json.loads(json.dumps(role_metadata(self.config))):
+            raise ValueError('Saved inference roles differ from this configuration; select the matching --config.')
         if record.get('version') != 1 or record.get('state', {}).get('game') != self.game.id:
             raise ValueError('This session record does not match the selected game.')
         prompt_variant = self.policy.restore_prompt(record)
@@ -290,7 +296,7 @@ class SessionController(QObject):
                    if purpose == 'decision' else self.game.recognition_request(state, drawing))
         png = observation_png(self.game.render(state, drawing, render_purpose), self.config.observation_size)
         self.phase = {'recognition': 'recognising', 'decision': 'computer', 'startup': 'loading'}[purpose]
-        self.message = {'recognition': 'Reading your move…', 'decision': 'Imajev is choosing…', 'startup': 'Connecting and warming up Imajev…'}[purpose]
+        self.message = {'recognition': 'Reading your move…', 'decision': self.config.opponent_name + ' is choosing…', 'startup': 'Connecting and warming up Imajev…'}[purpose]
         if prepare_in_worker:
             self.message = 'Checking move consequences…'
         self.busy, self.active, self.inflight, self.retry_purpose = True, ticket, ticket, None
@@ -301,6 +307,7 @@ class SessionController(QObject):
                  'decision_attempt': self.decision_attempt if purpose == 'decision' else None}
         if purpose == 'decision':
             event['move_temperature'] = self.config.move_temperature
+            event['opponent'] = role_metadata(self.config)['opponent']
         if purpose == 'decision':
             event.update(self.policy.decision_metadata(self.game, self.config, self.strategy_revision))
         try:
@@ -308,7 +315,8 @@ class SessionController(QObject):
         except OSError as exc:
             self.storage_error = f'Could not save observation: {exc}'
         self.events.append(event)
-        method = self.client.warmup if purpose == 'startup' else self.client.decide
+        self.opponent.manager = self.service_manager
+        method = self.opponent.choose_move if purpose == 'decision' else self.client.warmup if purpose == 'startup' else self.client.decide
         def operation():
             prepared = request
             if prepare_in_worker:
@@ -346,7 +354,15 @@ class SessionController(QObject):
         event = self.events[-1]
         event.update(seconds=seconds, error=error, reply=dict(reply.raw) if reply else None)
         self.diagnostics = f'{ticket.purpose.title()} · {seconds:.2f} s\n'
-        if reply:
+        if isinstance(reply, MoveResult):
+            event['move_result'] = metadata(reply)
+            event['model_proposed_choice'] = reply.choice
+            self.diagnostics += f'Model: {reply.model}\nChoice: {reply.choice}'
+            if reply.probabilities is not None:
+                self.diagnostics += f'\nPreference: {reply.probabilities.get(reply.choice)}'
+            if reply.rejection:
+                self.diagnostics += '\n' + reply.rejection
+        elif reply:
             logger.debug('model answers request=%s model=%s answers=%s', ticket.request_id, reply.model, json.dumps(reply.raw.get('answers', {}), allow_nan=False))
             for question, answer in reply.answers.items():
                 logger.info('model answer question=%s choice=%s probability=%.4f unknown=%.4f effective=%.4f abstained=%s',
@@ -424,7 +440,7 @@ class SessionController(QObject):
         if result.kind != 'ongoing':
             self.phase = 'over'
             self.retry_purpose = None
-            self.message = 'A draw. Nicely played.' if result.kind == 'draw' else (self.win_message if result.winner == self.game.human_player else 'Imajev wins. Try another game?')
+            self.message = 'A draw. Nicely played.' if result.kind == 'draw' else (self.win_message if result.winner == self.game.human_player else self.config.opponent_name + ' wins. Try another game?')
             self._publish()
             if self.coached and result.winner == self.game.human_player and not self.learning_store.updated(self.session_id):
                 self._coach()

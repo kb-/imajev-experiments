@@ -12,6 +12,7 @@ from app.core.session import SessionController
 from app.games.boku.game import Boku, State
 from app.games.boku.geometry import AXES, CELLS, CENTERS, DIRECTIONS, SPACING, geometry_matches, neighbor, recognition_view
 from app.inference.imajev_client import parse_reply
+from app.inference.opponents import from_imajev
 from app.ui.rendering import observation_png
 from app.ui.window import Window
 from test_protocol import answer
@@ -190,12 +191,12 @@ def test_decisions_retries_sampling_and_bounded_history():
     actions = game.legal_actions(state)
     request = game.decision_request(state,actions)
     assert len(request['questions']['move']['criteria']) == 80
-    response = parse_reply(answer(request,{'move':'place_F5'}),request,'imajev-2b')
+    response = from_imajev(parse_reply(answer(request,{'move':'place_F5'}),request,'imajev-2b'))
     assert select_move(game,state,response,.5,random.Random(1))[1] == 'place_F5'
     retry = game.retry_decision_request(state,actions,1)
     assert retry['state'] == request['state'] and retry['questions']['move']['criteria'] == request['questions']['move']['criteria']
     with pytest.raises(ValueError,match='abstained'):
-        game.decode_decision(state,replace(response,answers={'move':replace(response.answers['move'],abstained=True)}))
+        game.decode_decision(state,replace(response,abstained=True))
     capture = capture_state()
     capture_request = game.decision_request(capture,game.legal_actions(capture))
     choices = capture_request['questions']['move']['criteria']

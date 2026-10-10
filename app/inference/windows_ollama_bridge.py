@@ -11,8 +11,8 @@ import subprocess
 from urllib.parse import urlsplit
 
 POWERSHELL = Path('/mnt/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe')
-PATHS = {'/api/ps', '/api/tags', '/api/chat', '/api/generate', '/api/show'}
-MAX_REQUEST_BYTES = 8 * 1024 * 1024
+PATHS = {'/api/ps', '/api/tags', '/api/chat', '/api/generate', '/api/show', '/api/version', '/v1/systemone'}
+MAX_REQUEST_BYTES = 32 * 1024 * 1024
 
 
 def forward(method, path, body, port):

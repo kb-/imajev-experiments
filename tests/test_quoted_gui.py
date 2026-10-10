@@ -8,6 +8,7 @@ from app.core.session import SessionController
 from app.games.tic_tac_toe.game import State, TicTacToe
 from app.games.tic_tac_toe.prompting import decision_request
 from app.inference.imajev_client import parse_reply
+from app.inference.opponents import from_imajev
 from app.ui.window import Window
 from test_protocol import INK, answer
 from test_session import Fake, make, wait_for
@@ -82,7 +83,7 @@ def test_quoted_rejects_occupied_cell():
     old = game.decision_request(game.initial_state_for_player('O'), game.legal_actions(game.initial_state_for_player('O')), prompt_variant='quoted')
     reply = parse_reply(answer(old, {'move': 'A1'}), old, 'imajev-2b')
     with pytest.raises(ValueError, match='invalid move'):
-        game.decode_decision(state, reply)
+        game.decode_decision(state, from_imajev(reply))
 
 
 def test_gui_switch_applies_on_new_game_and_accepts_bare_id(qapp):

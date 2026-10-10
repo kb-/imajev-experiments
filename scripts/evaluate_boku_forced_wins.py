@@ -11,7 +11,8 @@ from PyQt6.QtWidgets import QApplication
 from app.config import load_config
 from app.games.boku.game import Boku, State
 from app.games.boku.geometry import CELLS
-from app.inference.imajev_client import ImajevClient, InferenceError
+from app.inference.imajev_client import InferenceError
+from app.inference.opponents import create_opponent, role_metadata, named_result
 from app.storage.atomic import atomic_json
 from app.ui.rendering import observation_png
 
@@ -46,8 +47,9 @@ def main():
                       next_player='White', reserves=(34, 1))
         cases += [('win_requires_capture', state, None),
                   ('winning_capture', game.apply_action(state, 'place_F5'), None)]
-    client = ImajevClient(replace(load_config(args.config), external_inference=True))
-    result = {'source': str(FIXTURES / 'open-four-session.json'), 'rows': [], 'error': None}
+    config = replace(load_config(args.config), external_inference=True)
+    client = create_opponent(config)
+    result = {'inference_protocol': 2, 'inference': role_metadata(config), 'source': str(FIXTURES / 'open-four-session.json'), 'rows': [], 'error': None}
     try:
         for name, state, baseline in cases:
             then = time.monotonic()
@@ -66,7 +68,7 @@ def main():
                 deadline = then + 180
                 while True:
                     try:
-                        reply = client.decide(request, observation_png(game.render(state, (), 'decision')))
+                        reply = client.choose_move(request, observation_png(game.render(state, (), 'decision')))
                         break
                     except InferenceError as exc:
                         if 'previous GPU request' not in str(exc) or time.monotonic() > deadline:

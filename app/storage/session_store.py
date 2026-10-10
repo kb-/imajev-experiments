@@ -30,7 +30,9 @@ class SessionStore:
 
 
 def session_record(session_id, game, state, pending, events, config):
+    from app.inference.opponents import role_metadata
     return {'version': 1, 'session_id': session_id, 'updated_at': datetime.now(timezone.utc).isoformat(),
+            'inference': role_metadata(config),
             'upstream_commit': UPSTREAM_COMMIT, 'adapter_version': ADAPTER_VERSION,
             'expected_model': config.expected_model, 'recognition_threshold': config.threshold,
             **game.session_policy.metadata(config, config.prompt_variant == 'coached_quoted'),

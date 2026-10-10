@@ -16,6 +16,7 @@ from app.config import load_config
 from app.core.contracts import Stroke
 from app.games.tic_tac_toe.game import State, TicTacToe
 from app.inference.imajev_client import ImajevClient, InferenceError
+from app.inference.opponents import create_opponent, metadata, role_metadata
 from app.ui.rendering import observation_png
 
 game = TicTacToe()
@@ -113,7 +114,8 @@ def opponent(client, config, limit, tactical_guard=False):
             if len(actions) == 1:
                 selected = actions[0].id
             else:
-                reply = client.decide(game.decision_request(state, actions, opening_suggestion=config.opening_suggestion, prompt_variant=config.prompt_variant), observation_png(game.render(state, (), 'decision'), config.observation_size))
+                reply = client.choose_move(game.decision_request(state, actions, opening_suggestion=config.opening_suggestion, prompt_variant=config.prompt_variant), observation_png(game.render(state, (), 'decision'), config.observation_size))
+                proposed = reply.choice
                 selected = game.decode_decision(state, reply)
             proposed = selected
             if tactical_guard:
@@ -125,7 +127,8 @@ def opponent(client, config, limit, tactical_guard=False):
         results.append({'state': game.encode_state(state), 'model_proposed': proposed, 'selected': selected, 'tactical_correction': correction, 'optimal': sorted(optimal),
                         'agreement': selected in optimal, 'missed_win': bool(wins) and selected not in wins,
                         'missed_necessary_block': bool(threats and blocks and not wins) and selected not in blocks,
-                        'error': error, 'reply': dict(reply.raw) if reply else None})
+                        'error': error, 'raw_proposal': reply.choice if reply else None,
+                        'move_result': metadata(reply) if reply else None, 'reply': dict(reply.raw) if reply else None})
         print(f'{len(results)}: {selected or error}', flush=True)
     completed = [r for r in results if not r['error']]
     return {'mode': 'opponent', 'prompt_variant': config.prompt_variant, 'opening_suggestion': config.opening_suggestion, 'tactical_guard': tactical_guard, 'states': len(results), 'failed_or_abstained': len(results)-len(completed),
@@ -153,21 +156,22 @@ def main():
     app = QApplication.instance() or QApplication([])
     config = load_config(args.config)
     client = ImajevClient(config)
+    opponent_client = create_opponent(config, client)
     started = time.monotonic()
     try:
         warmup = client.warmup(game.recognition_request(State(), ()), observation_png(game.render(State(), (), 'recognition'), config.observation_size))
         if args.mode == 'recognition':
             report = recognition(args.corpus, args.split, client, config)
         elif args.mode == 'opponent':
-            report = opponent(client, config, args.limit, args.with_tactical_guard)
+            report = opponent(opponent_client, config, args.limit, args.with_tactical_guard)
         else:
             state = game.apply_action(State(), 'place_A1')
-            reply = client.decide(game.decision_request(state, game.legal_actions(state), opening_suggestion=config.opening_suggestion, prompt_variant=config.prompt_variant), observation_png(game.render(state, (), 'decision'), config.observation_size))
+            reply = opponent_client.choose_move(game.decision_request(state, game.legal_actions(state), opening_suggestion=config.opening_suggestion, prompt_variant=config.prompt_variant), observation_png(game.render(state, (), 'decision'), config.observation_size))
             game.apply_action(state, game.decode_decision(state, reply))
             report = {'mode': 'contract', 'prompt_variant': config.prompt_variant, 'opening_suggestion': config.opening_suggestion, 'passed': True, 'recognition_reply': dict(warmup.raw), 'decision_reply': dict(reply.raw)}
     except (InferenceError, ValueError, OSError, KeyError, TypeError) as exc:
         parser.exit(1, f'Evaluation failed: {exc}\n')
-    report.update(model=config.expected_model, threshold=config.threshold, total_seconds=time.monotonic()-started,
+    report.update(inference_protocol=2, inference=role_metadata(config), model=config.opponent_settings.model, threshold=config.threshold, total_seconds=time.monotonic()-started,
                   warmup_reply=dict(warmup.raw), hardware_metrics='Measure peak VRAM/RAM externally on the target service host.')
     args.output.write_text(json.dumps(report, indent=2, allow_nan=False), encoding='utf-8')
     print(f'Saved report: {args.output}')

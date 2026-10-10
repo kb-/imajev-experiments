@@ -162,7 +162,7 @@ class Window(QMainWindow):
         self.move_temperature.setSpecialValueText('Off · best move')
         self.move_temperature.setValue(controller.config.move_temperature)
         self.move_temperature.setAccessibleName('Computer move temperature')
-        self.move_temperature.setToolTip('0 chooses the best move. 1 samples from Imajev’s preferences. Higher values spread choices more evenly. Applies immediately before your first move; otherwise on New game.')
+        self.move_temperature.setToolTip('0 chooses the best move. 1 samples from the opponent’s reported preferences. Higher values spread choices more evenly. Applies immediately before your first move; otherwise on New game.')
         side.addWidget(self.move_temperature)
         self.variety_label = self.label('', 'muted')
         self.variety_label.setWordWrap(True)
@@ -283,10 +283,10 @@ class Window(QMainWindow):
         self.game_details.setVisible(bool(details))
         self.game_details.setText(details)
         phases = {'loading': 'Warming up', 'human': 'Your turn', 'recognising': 'Reading your ink',
-                  'computer': 'Imajev’s turn', 'coaching': 'Studying games', 'over': 'Game complete', 'error': 'Needs attention'}
+                  'computer': c.config.opponent_name + '’s turn', 'coaching': 'Studying games', 'over': 'Game complete', 'error': 'Needs attention'}
         self.phase_label.setText(c.message.rstrip('…') if c.phase == 'coaching' else phases[c.phase])
         starter = getattr(c.state, 'starting_player', None)
-        self.starter_label.setText(f'You started · {c.game.human_player}' if starter == c.game.human_player else f'Imajev started · {c.game.computer_player}' if starter == c.game.computer_player else '')
+        self.starter_label.setText(f'You started · {c.game.human_player}' if starter == c.game.human_player else f'{c.config.opponent_name} started · {c.game.computer_player}' if starter == c.game.computer_player else '')
         current_prompt = dict(c.policy.prompt_choices).get(c.config.prompt_variant, c.config.prompt_variant)
         pending = self.prompt_selector.currentData() != c.config.prompt_variant
         self.prompt_label.setText(f'Playing: {current_prompt}. ' + (
@@ -299,6 +299,7 @@ class Window(QMainWindow):
         pending_game = self.selector.currentData() != c.game.id
         self.selector.setToolTip('Click New game to switch games.' if pending_game else 'Choose a game before your first move; otherwise click New game.')
         temperature = c.config.move_temperature
+        self.move_temperature.setEnabled(c.config.opponent_settings.protocol != 'chat')
         pending_variety = self.move_temperature.value() != temperature
         variety = 'best move' if temperature == 0 else f'temperature {temperature:g}'
         self.variety_label.setText(f'Playing: {variety}. ' + (
@@ -311,7 +312,7 @@ class Window(QMainWindow):
         self.last.setText(c.last_move)
         self.last.setMinimumHeight(self.last.sizeHint().height())
         status = 'Working' if c.busy else ('Attention needed' if c.phase == 'error' else ('Ready' if c.ready else 'Connecting'))
-        self.model.setText(f'{c.config.expected_model} · {status}')
+        self.model.setText(f'Recognition: {c.config.expected_model}\nOpponent: {c.config.opponent_settings.model} · {status}')
         self.model.setMinimumHeight(self.model.sizeHint().height())
         self.new_button.setEnabled(not c.coaching_failed and not (c.busy and c.inflight and c.inflight.purpose in ('coach', 'continue', 'shutdown')))
         self.continue_button.setVisible(c.coaching_failed)
@@ -337,7 +338,9 @@ class Window(QMainWindow):
         log_info = f'\nMouse diagnostics: {c.log_path}' if getattr(c, 'log_path', None) else ''
         coach_info = c.coach_diagnostics or (json.dumps(c.coach_request, ensure_ascii=False, indent=2) if c.coach_request else '')
         diagnosis = '\n\nCOACH DIAGNOSIS\n' + c.coach_diagnosis if c.coach_diagnosis else ''
-        summary = c.diagnostics + diagnosis + ('\n\nCOACHING\n' + coach_info if coach_info else '') + ('\n' + c.storage_error if c.storage_error else '') + log_info
+        roles = (f'Recognition: {c.config.expected_model} · imajev\n'
+                 f'Opponent: {c.config.opponent_settings.model} · {c.config.opponent_settings.backend}\n\n')
+        summary = roles + c.diagnostics + diagnosis + ('\n\nCOACHING\n' + coach_info if coach_info else '') + ('\n' + c.storage_error if c.storage_error else '') + log_info
         self.diag.setPlainText(summary + '\n\nQUESTIONS ASKED (NEWEST FIRST)\n' + format_question_history(c.events))
 
     def export(self):

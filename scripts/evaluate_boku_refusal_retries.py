@@ -14,7 +14,8 @@ import time
 from PyQt6.QtWidgets import QApplication
 from app.config import load_config
 from app.games.boku.game import Boku
-from app.inference.imajev_client import ImajevClient, InferenceError
+from app.inference.imajev_client import InferenceError
+from app.inference.opponents import create_opponent, role_metadata, named_result
 from app.storage.atomic import atomic_json
 from app.ui.rendering import observation_png
 
@@ -36,9 +37,10 @@ def main():
     request = game.decision_request(state, actions, prompt_variant='quoted')
     if json.loads(json.dumps(request)) != event['request']:
         raise ValueError('Current prompt differs from the saved v5 refusal; refusing a misleading replay.')
-    client = ImajevClient(replace(load_config(args.config), external_inference=True))
+    config = replace(load_config(args.config), external_inference=True)
+    client = create_opponent(config)
     png = observation_png(game.render(state, (), 'decision'))
-    result = {'source': str(SOURCE), 'prompt_version': game.prompt_version,
+    result = {'inference_protocol': 2, 'inference': role_metadata(config), 'source': str(SOURCE), 'prompt_version': game.prompt_version,
               'rows': [], 'error': None}
     try:
         for attempt in (0, 1, 2):
@@ -48,13 +50,13 @@ def main():
             deadline = started + 180
             while True:
                 try:
-                    reply = client.decide(request, png)
+                    reply = client.choose_move(request, png)
                     break
                 except InferenceError as exc:
                     if 'previous GPU request' not in str(exc) or time.monotonic() > deadline:
                         raise
                     time.sleep(1)
-            answer = reply.answers['move']
+            answer = reply
             row = {'attempt': attempt, 'request': request, 'reply': reply.raw,
                    'choice': answer.choice, 'abstained': answer.abstained,
                    'unknown_probability': answer.unknown_probability,

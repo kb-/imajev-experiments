@@ -25,6 +25,9 @@ class Fake:
         self.gate.set()
         self.calls = []
         self.error = None
+    def choose_move(self, request, image, timeout=None):
+        from app.inference.opponents import from_imajev
+        return from_imajev(self.decide(request, image))
     def warmup(self, request, image):
         return self.decide(request, image)
     def decide(self, request, image):

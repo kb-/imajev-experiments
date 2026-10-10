@@ -22,11 +22,13 @@ def probe_model(game, state, result, config_path):
     os.environ.setdefault('QT_QPA_PLATFORM', 'offscreen')
     from PyQt6.QtWidgets import QApplication
     from app.config import load_config
-    from app.inference.imajev_client import ImajevClient, InferenceError
+    from app.inference.imajev_client import InferenceError
+    from app.inference.opponents import create_opponent, role_metadata
     from app.ui.rendering import observation_png
     app = QApplication.instance() or QApplication([])
     config = replace(load_config(config_path), external_inference=True)
-    client = ImajevClient(config)
+    client = create_opponent(config)
+    result.update(inference_protocol=2, inference=role_metadata(config))
     request = game.decision_request(state, game.legal_actions(state), prompt_variant='quoted')
     flag = 'allows_Black_capture_forced_win'
     request['state']['candidate_fact_defaults'][flag] = False
@@ -48,7 +50,7 @@ def probe_model(game, state, result, config_path):
         deadline = then+180
         while True:
             try:
-                reply = client.decide(request, observation_png(game.render(state, (), 'decision')))
+                reply = client.choose_move(request, observation_png(game.render(state, (), 'decision')))
                 break
             except InferenceError as exc:
                 if 'previous GPU request' not in str(exc) or time.monotonic() > deadline:

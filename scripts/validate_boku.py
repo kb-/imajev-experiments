@@ -12,6 +12,7 @@ from app.core.contracts import Stroke
 from app.games.boku.game import Boku
 from app.games.boku.geometry import CENTERS, SPACING
 from app.inference.imajev_client import ImajevClient
+from app.inference.opponents import create_opponent
 from app.inference.service_manager import ServiceManager
 from app.ui.rendering import observation_png
 
@@ -35,6 +36,7 @@ def main():
     manager = ServiceManager(config)
     client = ImajevClient(config)
     client.manager = manager
+    opponent = create_opponent(config, client, manager)
     game = Boku()
     results = []
     def recognize(state, cell, symbol):
@@ -55,9 +57,9 @@ def main():
     def decide(state):
         request = game.decision_request(state,game.legal_actions(state))
         started = time.monotonic()
-        response = client.decide(request,observation_png(game.render(state,(),'decision')))
+        response = opponent.choose_move(request,observation_png(game.render(state,(),'decision')))
         row = {'purpose':'decision','phase':state.phase,'seconds':time.monotonic()-started,'request_bytes':len(json.dumps(request)),
-               'choice':response.answers['move'].choice,'abstained':response.answers['move'].abstained}
+               'choice':response.choice,'abstained':response.abstained}
         results.append(row)
         return game.apply_action(state,game.decode_decision(state,response))
 

@@ -12,7 +12,8 @@ from app.config import load_config
 from app.games.boku.game import Boku, State
 from app.games.boku.geometry import CELLS
 from app.games.boku.tactics import completions
-from app.inference.imajev_client import ImajevClient, InferenceError
+from app.inference.imajev_client import InferenceError
+from app.inference.opponents import create_opponent, role_metadata, named_result
 from app.storage.atomic import atomic_json
 from app.ui.rendering import observation_png
 
@@ -48,8 +49,9 @@ def main():
         for action, name in ((None,'win_requires_capture'),('place_F5','winning_capture_choice')):
             probe = game.apply_action(state,action) if action else state
             cases.append((name,probe,game.decision_request(probe,game.legal_actions(probe),prompt_variant='quoted')))
-    client = ImajevClient(replace(load_config(args.config),external_inference=True))
-    result = {'instruction':WIN_INSTRUCTION,'source':str(args.session),'rows':[],'error':None}
+    config = replace(load_config(args.config), external_inference=True)
+    client = create_opponent(config)
+    result = {'inference_protocol': 2, 'inference': role_metadata(config), 'instruction':WIN_INSTRUCTION,'source':str(args.session),'rows':[],'error':None}
     try:
         for name, state, original in cases:
             # Reproduce the pre-integration baseline even for newly built controls.
@@ -78,7 +80,7 @@ def main():
                 then=time.monotonic();deadline=then+180
                 while True:
                     try:
-                        reply=client.decide(request,observation_png(game.render(state,(),'decision')))
+                        reply=client.choose_move(request,observation_png(game.render(state,(),'decision')))
                         break
                     except InferenceError as exc:
                         if 'previous GPU request' not in str(exc) or time.monotonic()>deadline:

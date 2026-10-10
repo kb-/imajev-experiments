@@ -203,7 +203,9 @@ Automatic saving is optional. With `diagnostics.save_sessions: true`, each sessi
 
 The top-level record includes model and adapter identifiers, the recognition threshold, opponent settings, canonical state, pending ink, and event history. Completed transitions and request lifecycle updates publish the session. Editing pending ink emits a UI update; it does not immediately save every pointer movement.
 
-Export creates a standalone JSON file with embedded observation images. Resume replays and validates the saved accepted history, checks it against the stored board, restores pending ink and events, and creates a new session with `source_session_id`. It warms the service before continuing; a restored O turn resumes automatically. A completed restored game stays completed. Resume uses the current configuration rather than automatically restoring saved opponent settings.
+Export creates a standalone JSON file with embedded observation images. Resume replays and validates the saved accepted history, checks it against the stored board, restores pending ink and events, and creates a new session with `source_session_id` (coached games retain their logical ID). It warms the service before continuing; a restored O turn resumes automatically. A completed restored game stays completed. Resume restores the move-prompt variant and move temperature, defaulting to Original and temperature zero for older records; other opponent settings use the current configuration.
+
+Mode and **Move variety** changes apply immediately to an unplayed new game, including during startup warm-up, while preserving its session ID, starter and ink. They wait for New game during recognition or decision inference, after accepted play, or on resumed games. Entering coached mode snapshots the strategy; variety changes alone preserve it. The optional **Move variety** control follows this same policy. Temperature zero retains Imajev's top choice. For positive temperature `T`, `select_move` validates the original decision, decodes each candidate with the game's authoritative legality check, aggregates equivalent action IDs and samples with weights proportional to `p ** (1 / T)`. A log-space calculation keeps small positive temperatures stable. Zero-probability and unknown choices are excluded. Abstentions remain errors; recognition and forced moves do not sample. Each decision records its temperature, unchanged raw reply, original top choice, sampling distribution and sampled action. Existing tactical corrections run after sampling. Completed coached summaries retain the temperature and sampled actions so losses can be distinguished from the model's original proposals. Sampling changes selected moves, not the model's reasoning, prompt or calibration.
 
 ```sh
 uv run --locked imajev-game --debug-input
@@ -218,6 +220,7 @@ uv run --locked imajev-game --resume sessions/SESSION_ID/session.json --debug-in
 | `game.default` | `tic_tac_toe` | Registered game |
 | `opponent.tactical_guard` | `true` | Commit-time immediate-win/block correction |
 | `opponent.opening_suggestion` | `true` | Guidance on the first O move and its retries |
+| `opponent.move_temperature` | `0` | Move sampling: 0 picks best; 1 uses model probabilities; higher values up to 3 add variety |
 | `imajev.expected_model` | `imajev-4b-nf4` | Required response model ID |
 | `imajev.request_timeout_seconds` | `45` | Inference request timeout |
 | `imajev.startup_timeout_seconds` | `300` | Readiness and image warm-up budget |
@@ -240,3 +243,55 @@ Implement the `Game` protocol in `app/core/contracts.py` and register the implem
 Games can optionally implement `initial_state_for_player(player)` to support alternating starters. The UI requests alternation with `new_game(alternate_starter=True)`; direct controller resets default to the human starter.
 
 The controller is tested with a small second game, but the current window still contains tic-tac-toe-specific labels and instructions. Adding a production game also requires adapting those UI elements and providing its own rule, rendering, protocol, and lifecycle coverage.
+
+
+## Coached quoted and service ownership
+
+[Coached quoted](coached-quoted.md) adds a third move-prompt choice. It retains Quoted's candidate facts but replaces its full strategy with a persistent ordered list, initially only win and block. Each game snapshots the list and revision, including on resume. Coached play disables commit-time tactical corrections. Retry rephrases the decision while preserving the rule list; abstentions do not request coaching.
+
+Only an Imajev loss launches a background coaching job. The coach diagnoses the triggering loss first, then receives that explanation in a separate request to revise the ordered rules. The diagnosis appears immediately in inline Diagnostics and survives a failed revision or resume. The compact window contains every completed coached game since the last successful update, including draws and wins. Oversized windows use batch summaries with coverage recorded at each stage. The final request retains the complete triggering loss. A validated ordered rule list (normalized from numbered text or JSON) and consumed history IDs are committed in one atomic ledger update under an interprocess lock. The logical game ID prevents duplicate successful updates after restore.
+
+```mermaid
+sequenceDiagram
+    participant GUI as Qt controller
+    participant Store as CoachedStore
+    participant Service as Imajev service
+    participant Base as Qwen base LM
+    GUI->>Store: Save completed human win
+    GUI->>Service: POST /v1/coach (diagnose triggering loss)
+    Service->>Base: Disable adapter under lock; diagnose; restore adapter
+    Base-->>GUI: Loss diagnosis
+    GUI->>GUI: Display diagnosis in inline Diagnostics
+    GUI->>Service: POST /v1/coach (diagnosis, rules and history)
+    Service->>Service: Acquire inference lock
+    Service->>Base: Disable PEFT adapter; generate numbered rules
+    Base-->>Service: Ordered rule list
+    Service->>Service: Restore adapter; release caches and lock
+    Service-->>GUI: Rules, usage and provenance
+    GUI->>Service: Readiness and image warm-up
+    GUI->>Store: Atomic revision + consumed game IDs
+    GUI->>GUI: Enable New game with updated rules
+```
+
+Normal app startup now launches the pinned child through ServiceManager; `--external-inference` retains separate-service operation. Startup, coaching, recovery and shutdown run in the controller's serialized worker pool. Window close hides the UI, waits for active work, then shuts down owned processes in a background job. An occupied port is an error, never implicit attachment. The busy gate covers both inference and coaching endpoints, including requests that outlive a client timeout.
+
+```mermaid
+sequenceDiagram
+    participant GUI as Background coaching job
+    participant Manager as ServiceManager
+    participant Imajev as Owned Imajev child
+    participant Ollama as Selected Ollama model
+    GUI->>Manager: Coach history window
+    Manager->>Ollama: Check installed model and unrelated loaded models
+    Manager->>Imajev: Stop process group and wait for exit
+    Manager->>Ollama: Chat, stream=false, keep_alive=0
+    Note over Manager,Ollama: Diagnosis, summary and update stages use this swap
+    Ollama-->>GUI: Diagnosis for inline Diagnostics
+    Ollama-->>Manager: Ordered rules
+    Manager->>Ollama: Explicit unload; confirm via /api/ps
+    Manager->>Imajev: Restart pinned child
+    GUI->>Imajev: Readiness and image warm-up
+    GUI->>GUI: Validate and apply next-game strategy
+```
+
+Ollama requires process ownership. An unconfirmed unload blocks restart and Continue. Failures retain the old rules and unconsumed history, with Retry coaching and Continue offered inline. No unrelated process or Ollama model is terminated. The selected model must already be installed; gameplay downloads nothing. Shared coaching is the default and never falls back to Ollama automatically.

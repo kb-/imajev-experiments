@@ -7,9 +7,12 @@ imajev:
   request_timeout_seconds: 45
   startup_timeout_seconds: 300
 opponent:
-  prompt_variant: quoted
-  move_temperature: 0
-  tactical_guard: true
+  prompt_variant: coached_quoted
+learning:
+  coach_backend: ollama
+  model: qwen3.6:latest
+  ollama_url: http://127.0.0.1:11434
+  directory: learning/coached-quoted
 recognition:
   min_effective_probability: 0.85
 canvas:

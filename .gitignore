@@ -226,3 +226,6 @@ inference/.venv/
 
 # Local pointer diagnostics
 logs/
+
+# Persistent coached quoted rules and game history
+learning/coached-quoted/

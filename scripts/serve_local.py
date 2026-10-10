@@ -11,6 +11,9 @@ from pathlib import Path
 import sys
 import uuid
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from app.inference.coach import coach_messages, parse_coach_output, ContextBudget
+
 
 def _install_nf4_loader():
     """Patch the pinned TorchDecision loader for CUDA-only bitsandbytes NF4 inference."""
@@ -100,7 +103,7 @@ class BusyGuard:
         self.app, self.state = app, state
 
     async def __call__(self, scope, receive, send):
-        is_inference = scope['type'] == 'http' and scope['method'] == 'POST' and scope['path'] == '/v1/systemone'
+        is_inference = scope['type'] == 'http' and scope['method'] == 'POST' and scope['path'] in ('/v1/systemone', '/v1/coach')
         if not is_inference:
             return await self.app(scope, receive, send)
         if self.state.serving or self.state.lock.locked():
@@ -114,6 +117,37 @@ class BusyGuard:
         finally:
             self.state.serving = False
 
+
+
+def generate_strategy(engine, request):
+    """Generate with the base LM; PEFT restores its adapter on every exit."""
+    import gc
+    import torch
+    tokenizer = engine.processor.tokenizer
+    if request.get('task', 'update') not in ('update', 'summarize', 'diagnose'):
+        raise ValueError('Unknown coaching task.')
+    messages = coach_messages(request)
+    prompt = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True, enable_thinking=False)
+    inputs = tokenizer(prompt, return_tensors='pt')
+    if inputs['input_ids'].shape[-1] > 3072:
+        raise ContextBudget('Coaching input exceeds 3072 tokens.')
+    inputs = {k: v.to(engine.device) for k, v in inputs.items()}
+    output = tokens = None
+    try:
+        with engine.model.disable_adapter(), torch.inference_mode():
+            output = engine.model.generate(**inputs, do_sample=False, max_new_tokens=512,
+                                          pad_token_id=tokenizer.pad_token_id if tokenizer.pad_token_id is not None else tokenizer.eos_token_id,
+                                          use_cache=True)
+        tokens = output[0, inputs['input_ids'].shape[-1]:].tolist()
+        text = tokenizer.decode(tokens, skip_special_tokens=True).strip()
+        result = parse_coach_output(text, request.get('task', 'update'), len(tokens) >= 512)
+        return dict(result, response_text=text, prompt=messages,
+                    usage={'input_tokens': inputs['input_ids'].shape[-1], 'output_tokens': len(tokens)})
+    finally:
+        del output, tokens, inputs
+        gc.collect()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
 
 def main():
     root = Path.cwd()
@@ -142,13 +176,31 @@ def main():
         def status():
             return {
                 'busy': app.state.serving or app.state.lock.locked(),
+                'coaching': hasattr(getattr(app.state.backend, 'engine', None), 'model') and hasattr(app.state.backend.engine.model, 'disable_adapter'),
                 'runtime_id': runtime_id,
                 'provenance': manifest,
             }
 
-        # Upstream mounts a catch-all playground, so move our route ahead of it.
-        route = app.router.routes.pop()
-        app.router.routes.insert(0, route)
+        from fastapi import HTTPException
+
+        @app.post('/v1/coach')
+        def coach(request: dict):
+            engine = getattr(app.state.backend, 'engine', None)
+            if engine is None or not hasattr(engine.model, 'disable_adapter'):
+                raise HTTPException(503, 'Shared coaching requires an unmerged PEFT PyTorch model.')
+            try:
+                with app.state.lock:
+                    result = generate_strategy(engine, request)
+                return dict(result, model=app.state.backend.model, provenance=manifest)
+            except ContextBudget as exc:
+                raise HTTPException(422, {'code': 'context_budget', 'message': str(exc)}) from exc
+            except Exception as exc:
+                raise HTTPException(500, str(exc)) from exc
+
+        # Upstream mounts a catch-all playground.
+        for _ in range(2):
+            route = app.router.routes.pop()
+            app.router.routes.insert(0, route)
         return app
 
     module.create_app = create_app

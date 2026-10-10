@@ -238,6 +238,8 @@ The test suite covers reachable-board rules, recognition/protocol checks, tactic
 
 ## Adding another game
 
+The [Boku implementation plan](boku-implementation.md) describes the next production game, including realistic stones, click input, capture phases, and the integration changes below.
+
 Implement the `Game` protocol in `app/core/contracts.py` and register the implementation in `app/core/registry.py`. The controller expects the game to supply states, legal actions, outcomes, scenes, model requests, answer validation, and state serialization. Optional capabilities such as `retry_decision_request`, `tactical_choice`, and `supports_opening_suggestion` are discovered separately.
 
 Games can optionally implement `initial_state_for_player(player)` to support alternating starters. The UI requests alternation with `new_game(alternate_starter=True)`; direct controller resets default to the human starter.

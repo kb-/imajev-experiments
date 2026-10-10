@@ -89,6 +89,14 @@ exists, and `capture_options` supplies each individual branch. The subsequent
 capture request evaluates its own choices. This is bounded tactical evidence,
 not a search for overall game strength or an override of the model's choice.
 
+Both quoted modes also name the winning legal actions in
+`immediate_White_win_actions`, derived from the same `wins_now` facts without
+additional search. The question explicitly prioritizes that list. It is empty
+when no immediate win exists, remains present on retries, and identifies winning
+capture choices when capture is pending. All legal candidates remain available;
+Imajev still chooses the action. This representation corrected the recorded
+missed A1 win in the [prompt experiment](evaluation/boku-win-priority.md).
+
 False flags are omitted from candidate descriptions and declared once as
 `candidate_fact_defaults`, with explicit scope in the prompt. This avoids
 repeating three false values across up to 79 candidates. Original mode retains

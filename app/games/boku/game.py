@@ -38,7 +38,7 @@ class Boku:
     name = 'Boku'
     human_player = 'Black'
     computer_player = 'White'
-    prompt_version = 'boku-v3-capture-traps'
+    prompt_version = 'boku-v4-win-priority'
     instruction = 'Draw a circle in one empty pocket, then Submit.'
 
     @property
@@ -192,9 +192,13 @@ class Boku:
             request['state']['candidate_fact_defaults'] = FACT_DEFAULTS.copy()
             request['state']['candidate_fact_scope'] = FACT_SCOPE
             request['questions']['move']['criteria'] = candidate_facts(state, actions)
+            request['state']['immediate_White_win_actions'] = sorted(
+                action for action, facts in request['questions']['move']['criteria'].items()
+                if facts.get('wins_now', False))
             request['questions']['move']['instructions'] += (
                 ' Compare the consequences of each legal action through completion of any mandatory capture. '
-                'Follow the ordered strategy; earlier rules override later rules.')
+                'Follow the ordered strategy; earlier rules override later rules. '
+                'If immediate_White_win_actions is nonempty, choose one action from that list before considering any other action.')
         return request
 
     def retry_decision_request(self, state, actions, attempt, prompt_variant='legacy', strategy=None):

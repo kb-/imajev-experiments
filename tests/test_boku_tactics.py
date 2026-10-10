@@ -33,6 +33,8 @@ def test_logged_loss_has_only_one_block_and_retries_retain_facts(mode):
     assert set(facts) == {a.id for a in actions}
     retry = game.retry_decision_request(state,actions,1,prompt_variant=mode)
     assert retry['questions']['move']['criteria'] == facts
+    assert request['state']['immediate_White_win_actions'] == []
+    assert retry['state']['immediate_White_win_actions'] == []
     assert game.encode_state(state) == before
     # Facts inform scoring; the app still accepts a legal, tactically bad choice.
     from app.core.contracts import ChoiceAnswer, Reply
@@ -55,7 +57,8 @@ def test_capture_choices_can_differ_in_whether_they_prevent_a_win():
     assert not black_winning_replies(replace(removed,history=(),revision=0))
 
 
-def test_wins_are_checked_after_mandatory_capture_and_before_reserve_draw():
+@pytest.mark.parametrize('mode', ['quoted', 'coached_quoted'])
+def test_wins_are_checked_after_mandatory_capture_and_before_reserve_draw(mode):
     state = position(white=('F1','F2','F3','F4','I5'),black=('G5','H5'),reserves=(34,1))
     after = game.apply_action(state,'place_F5')
     assert after.phase == 'capture' and game.outcome(after).kind == 'ongoing'
@@ -63,6 +66,11 @@ def test_wins_are_checked_after_mandatory_capture_and_before_reserve_draw():
     assert facts['wins_now'] and not facts.get('allows_Black_win_next_turn',False)
     assert facts['capture_options'] == {'capture_G5':{'wins_now':True},'capture_H5':{'wins_now':True}}
     assert all(f['wins_now'] for f in candidate_facts(after,game.legal_actions(after)).values())
+    for probe, wins in ((state, ['place_F5']), (after, ['capture_G5', 'capture_H5'])):
+        request = game.decision_request(probe,game.legal_actions(probe),prompt_variant=mode)
+        retry = game.retry_decision_request(probe,game.legal_actions(probe),1,prompt_variant=mode)
+        assert request['state']['immediate_White_win_actions'] == wins
+        assert retry['state']['immediate_White_win_actions'] == wins
     opponent = position(black=('F1','F2','F3','F4','I5'),white=('G5','H5'),reserves=(1,34))
     opponent = replace(opponent,next_player='Black')
     assert 'place_F5' in black_winning_replies(opponent)
@@ -81,3 +89,17 @@ def test_original_mode_retains_plain_descriptions():
     request = game.decision_request(state,game.legal_actions(state),prompt_variant='legacy')
     assert all(isinstance(f,str) for f in request['questions']['move']['criteria'].values())
     assert 'candidate_fact_defaults' not in request['state']
+    assert 'immediate_White_win_actions' not in request['state']
+    assert 'immediate_White_win_actions' not in request['questions']['move']['instructions']
+
+
+@pytest.mark.parametrize('mode', ['quoted', 'coached_quoted'])
+def test_missed_A1_win_is_named_without_removing_other_choices(mode):
+    state = position(white=('B2','C3','D4','E5'),black=('F6',))
+    actions = game.legal_actions(state)
+    for request in (game.decision_request(state,actions,prompt_variant=mode),
+                    game.retry_decision_request(state,actions,1,prompt_variant=mode)):
+        assert request['state']['immediate_White_win_actions'] == ['place_A1']
+        assert set(request['questions']['move']['criteria']) == {a.id for a in actions}
+        assert ('If immediate_White_win_actions is nonempty, choose one action from that list '
+                'before considering any other action.') in request['questions']['move']['instructions']

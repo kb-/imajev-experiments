@@ -23,7 +23,7 @@ ARMS = ('baseline','explicit_win_priority','prefix_win_priority','named_wins','p
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--session', type=Path, default=Path('sessions/2fce6e24-d68e-407d-b817-cdd50e448937/session.json'))
+    parser.add_argument('--session', type=Path, default=Path('docs/evaluation/fixtures/boku/missed-win-session.json'))
     parser.add_argument('--config', type=Path, default=Path('config.boku.yaml'))
     parser.add_argument('--output', type=Path, default=Path('logs/boku-win-priority.json'))
     parser.add_argument('--controls', action='store_true')

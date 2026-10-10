@@ -7,7 +7,7 @@ for the requested replay; the strategy ledger remains unchanged.
 ## Question and scope
 
 At action revision 25 of session
-`015e9e8c-b396-44c2-b431-fc059e97bb85`, White chose D5. Black could then place
+[`015e9e8c`](fixtures/boku/capture-trap-session.json), White chose D5. Black could then place
 B3, capture D3, and win at D3 on its following turn. White could not replace
 the captured blocker because D3 was forbidden during White's intervening turn.
 Existing immediate-win facts did not see this setup.
@@ -61,7 +61,8 @@ D3. Using the existing application immediate facts, Imajev chose **F4**, then
 **capture E4**. The rules engine confirmed no immediate Black winning reply
 remained. This verifies that the model can realize the defensive continuation
 on this fixture, rather than merely selecting a candidate labeled safe.
-Requests, replies and timings are in `logs/boku-capture-traps-followup.json`.
+Requests, replies and timings are in
+[boku-capture-traps-followup.json](fixtures/boku/boku-capture-traps-followup.json).
 
 ## Reproduction and artifacts
 
@@ -76,10 +77,13 @@ QT_QPA_PLATFORM=offscreen .venv/bin/python -m pytest -q
 ```
 
 The model probe requires an explicitly running service. It starts/stops no
-processes and does not modify saved games. Saved source sessions and JSON/log
-artifacts remain local. Full rule results are in
-`logs/boku-capture-traps-all.json`; prompt/result pairs are in
-`logs/boku-capture-traps-model.json`.
+processes and does not modify saved games. Compact source sessions and recorded results are committed under
+[fixtures/boku](fixtures/boku/README.md). Full rule results are in
+[boku-capture-traps-all.json](fixtures/boku/boku-capture-traps-all.json);
+prompt/result pairs are in
+[boku-capture-traps-model.json](fixtures/boku/boku-capture-traps-model.json).
+The commands write new measurements to ignored `logs/`. Model re-runs use
+the current application prompt; archived requests preserve the original experiment.
 
 ## Integration implications
 
@@ -102,7 +106,7 @@ trap from general safety.
 The integrated suite passes **280 tests**, and both offscreen GUI smoke checks
 pass. The replay starts at revision 25 before White's D5 decision.
 
-The integrated debug replay in session `2fce6e24-d68e-407d-b817-cdd50e448937` selected
+The integrated debug replay in [session `2fce6e24`](fixtures/boku/missed-win-session.json) selected
 **C4** instead of D5 (raw probability 50.28%, unknown 2.47%). The recorded
 request marks D5 with `allows_Black_capture_forced_win: true` and leaves C4
 unflagged. End-to-end preparation/inference took 25.05 seconds;

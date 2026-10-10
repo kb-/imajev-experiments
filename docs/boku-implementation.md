@@ -128,7 +128,8 @@ QT_QPA_PLATFORM=offscreen uv run --locked --offline python -m scripts.validate_b
 With an existing inference service, `python -m scripts.validate_boku_tactics`
 probes the recorded E5 block, a maximum-candidate opening and a mandatory
 capture. It does not change the GUI game or manage processes. Results are
-written to `logs/boku-tactical-facts.json`.
+written to `logs/boku-tactical-facts.json`. The recorded evaluation is available
+in [boku-tactical-facts.json](evaluation/fixtures/boku/boku-tactical-facts.json).
 
 The live probe uses synthetic circle/X ink, makes White placement and capture decisions, checks replay, records timings and effective recognition scores, and shuts down its own service. Use `--external-inference` only for an explicitly separately managed service. It does not measure human handwriting reliability or Boku playing strength. Current live measurements are recorded in `docs/evaluation/boku.md`.
 

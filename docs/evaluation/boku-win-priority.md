@@ -7,7 +7,7 @@ modify the running GUI, its strategy ledger or production prompt builder.
 ## Missed win and controlled comparison
 
 Use the saved revision-53 decision from session
-`2fce6e24-d68e-407d-b817-cdd50e448937`. After Black F6, White can win with A1,
+[`2fce6e24`](fixtures/boku/missed-win-session.json). After Black F6, White can win with A1,
 completing A1–B2–C3–D4–E5. The rules engine independently verifies A1 is the
 only winning legal action. Its existing candidate already has `wins_now: true`,
 and the strategy begins `win immediately`. The model instead chose B5.
@@ -69,8 +69,8 @@ QT_QPA_PLATFORM=offscreen .venv/bin/python -m scripts.evaluate_boku_win_priority
 
 Each output saves requests, raw replies, independently verified winning
 actions, chosen actions, pass/fail and latency. The script starts or stops no
-process and changes no saved game. Source sessions and raw outputs remain
-local under ignored directories. These cases are a small development set,
+process and changes no saved game. Compact source sessions and recorded outputs are
+committed under [fixtures/boku](fixtures/boku/README.md). These cases are a small development set,
 not a general accuracy or playing-strength measurement.
 
 ## Integration
@@ -90,5 +90,11 @@ Verification: **283 tests passed**, and both Boku and tic-tac-toe offscreen GUI
 smoke checks passed. The debug app resumed the real revision-53 position after
 Black F6 with the new prompt. Imajev chose A1 (95.36% raw choice probability)
 in 8.72 seconds and the rules engine confirmed a White win. The replay record
-is `sessions/4cca755c-7a1f-44d5-ada7-47a7ca1f356a/session.json`; the source game
-was preserved.
+is [winning-replay-session.json](fixtures/boku/winning-replay-session.json);
+the source game was preserved.
+
+Recorded comparisons: [baseline and explicit priority](fixtures/boku/boku-win-priority.json),
+[alternative representations](fixtures/boku/boku-win-priority-screen-2.json),
+and [named-action controls](fixtures/boku/boku-win-priority-named-controls.json).
+The commands above write fresh results to ignored `logs/`; the committed files
+preserve the measurements reported here.

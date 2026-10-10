@@ -1,0 +1,268 @@
+{
+  "session": "docs/evaluation/fixtures/boku/capture-trap-session.json",
+  "revision": 25,
+  "state": {
+    "version": 1,
+    "game": "boku",
+    "board": [
+      "",
+      "",
+      "",
+      "",
+      "",
+      "Black",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "Black",
+      "White",
+      "",
+      "Black",
+      "",
+      "",
+      "White",
+      "White",
+      "White",
+      "Black",
+      "",
+      "White",
+      "Black",
+      "",
+      "Black",
+      "Black",
+      "Black",
+      "Black",
+      "White",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "Black",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "White",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    "next_player": "White",
+    "phase": "placement",
+    "capture_candidates": [],
+    "forbidden": null,
+    "reserves": [
+      26,
+      29
+    ],
+    "history": [
+      {
+        "action": "place_E3",
+        "player": "Black",
+        "drawing": []
+      },
+      {
+        "action": "place_D2",
+        "player": "White",
+        "drawing": []
+      },
+      {
+        "action": "place_E2",
+        "player": "Black",
+        "drawing": []
+      },
+      {
+        "action": "place_D1",
+        "player": "White",
+        "drawing": []
+      },
+      {
+        "action": "place_E1",
+        "player": "Black",
+        "drawing": []
+      },
+      {
+        "action": "place_D3",
+        "player": "White",
+        "drawing": []
+      },
+      {
+        "action": "place_D4",
+        "player": "Black",
+        "drawing": []
+      },
+      {
+        "action": "place_D5",
+        "player": "White",
+        "drawing": []
+      },
+      {
+        "action": "place_E4",
+        "player": "Black",
+        "drawing": []
+      },
+      {
+        "action": "place_E5",
+        "player": "White",
+        "drawing": []
+      },
+      {
+        "action": "place_C5",
+        "player": "Black",
+        "drawing": []
+      },
+      {
+        "action": "place_D6",
+        "player": "White",
+        "drawing": []
+      },
+      {
+        "action": "place_F5",
+        "player": "Black",
+        "drawing": []
+      },
+      {
+        "action": "capture_E5",
+        "player": "Black",
+        "drawing": []
+      },
+      {
+        "action": "place_G5",
+        "player": "White",
+        "drawing": []
+      },
+      {
+        "action": "capture_E4",
+        "player": "White",
+        "drawing": []
+      },
+      {
+        "action": "place_D7",
+        "player": "Black",
+        "drawing": []
+      },
+      {
+        "action": "capture_D5",
+        "player": "Black",
+        "drawing": []
+      },
+      {
+        "action": "place_E4",
+        "player": "White",
+        "drawing": []
+      },
+      {
+        "action": "place_C2",
+        "player": "Black",
+        "drawing": []
+      },
+      {
+        "action": "capture_E4",
+        "player": "Black",
+        "drawing": []
+      },
+      {
+        "action": "place_C3",
+        "player": "White",
+        "drawing": []
+      },
+      {
+        "action": "place_E4",
+        "player": "Black",
+        "drawing": []
+      },
+      {
+        "action": "place_E5",
+        "player": "White",
+        "drawing": []
+      },
+      {
+        "action": "place_B1",
+        "player": "Black",
+        "drawing": []
+      }
+    ],
+    "revision": 25,
+    "starting_player": "Black"
+  },
+  "rows": [
+    {
+      "action": "place_B3",
+      "allows_Black_capture_forced_win": false,
+      "branches": [
+        {
+          "White_capture": null,
+          "witness": null
+        }
+      ],
+      "seconds": 0.002877099992474541
+    },
+    {
+      "action": "place_D5",
+      "allows_Black_capture_forced_win": true,
+      "branches": [
+        {
+          "White_capture": null,
+          "witness": {
+            "Black_placement": "place_B3",
+            "Black_capture": "capture_D3",
+            "threatened_winning_actions": [
+              "place_D3"
+            ],
+            "White_forbidden": "D3",
+            "White_reply_actions_checked": 61,
+            "White_reply_completions_checked": 61
+          }
+        }
+      ],
+      "seconds": 0.24137803699704818
+    }
+  ],
+  "error": null,
+  "seconds": 0.24519128701649606,
+  "reply_cache": {
+    "hits": 0,
+    "misses": 63,
+    "maxsize": 256,
+    "currsize": 63
+  }
+}

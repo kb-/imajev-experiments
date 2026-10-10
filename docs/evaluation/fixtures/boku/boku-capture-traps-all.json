@@ -1,0 +1,1470 @@
+{
+  "session": "docs/evaluation/fixtures/boku/capture-trap-session.json",
+  "revision": 25,
+  "state": {
+    "version": 1,
+    "game": "boku",
+    "board": [
+      "",
+      "",
+      "",
+      "",
+      "",
+      "Black",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "Black",
+      "White",
+      "",
+      "Black",
+      "",
+      "",
+      "White",
+      "White",
+      "White",
+      "Black",
+      "",
+      "White",
+      "Black",
+      "",
+      "Black",
+      "Black",
+      "Black",
+      "Black",
+      "White",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "Black",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "White",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ],
+    "next_player": "White",
+    "phase": "placement",
+    "capture_candidates": [],
+    "forbidden": null,
+    "reserves": [
+      26,
+      29
+    ],
+    "history": [
+      {
+        "action": "place_E3",
+        "player": "Black",
+        "drawing": []
+      },
+      {
+        "action": "place_D2",
+        "player": "White",
+        "drawing": []
+      },
+      {
+        "action": "place_E2",
+        "player": "Black",
+        "drawing": []
+      },
+      {
+        "action": "place_D1",
+        "player": "White",
+        "drawing": []
+      },
+      {
+        "action": "place_E1",
+        "player": "Black",
+        "drawing": []
+      },
+      {
+        "action": "place_D3",
+        "player": "White",
+        "drawing": []
+      },
+      {
+        "action": "place_D4",
+        "player": "Black",
+        "drawing": []
+      },
+      {
+        "action": "place_D5",
+        "player": "White",
+        "drawing": []
+      },
+      {
+        "action": "place_E4",
+        "player": "Black",
+        "drawing": []
+      },
+      {
+        "action": "place_E5",
+        "player": "White",
+        "drawing": []
+      },
+      {
+        "action": "place_C5",
+        "player": "Black",
+        "drawing": []
+      },
+      {
+        "action": "place_D6",
+        "player": "White",
+        "drawing": []
+      },
+      {
+        "action": "place_F5",
+        "player": "Black",
+        "drawing": []
+      },
+      {
+        "action": "capture_E5",
+        "player": "Black",
+        "drawing": []
+      },
+      {
+        "action": "place_G5",
+        "player": "White",
+        "drawing": []
+      },
+      {
+        "action": "capture_E4",
+        "player": "White",
+        "drawing": []
+      },
+      {
+        "action": "place_D7",
+        "player": "Black",
+        "drawing": []
+      },
+      {
+        "action": "capture_D5",
+        "player": "Black",
+        "drawing": []
+      },
+      {
+        "action": "place_E4",
+        "player": "White",
+        "drawing": []
+      },
+      {
+        "action": "place_C2",
+        "player": "Black",
+        "drawing": []
+      },
+      {
+        "action": "capture_E4",
+        "player": "Black",
+        "drawing": []
+      },
+      {
+        "action": "place_C3",
+        "player": "White",
+        "drawing": []
+      },
+      {
+        "action": "place_E4",
+        "player": "Black",
+        "drawing": []
+      },
+      {
+        "action": "place_E5",
+        "player": "White",
+        "drawing": []
+      },
+      {
+        "action": "place_B1",
+        "player": "Black",
+        "drawing": []
+      }
+    ],
+    "revision": 25,
+    "starting_player": "Black"
+  },
+  "rows": [
+    {
+      "action": "place_A1",
+      "allows_Black_capture_forced_win": true,
+      "branches": [
+        {
+          "White_capture": null,
+          "witness": {
+            "Black_placement": "place_B3",
+            "Black_capture": "capture_D3",
+            "threatened_winning_actions": [
+              "place_D3"
+            ],
+            "White_forbidden": "D3",
+            "White_reply_actions_checked": 61,
+            "White_reply_completions_checked": 61
+          }
+        }
+      ],
+      "seconds": 0.2330459099903237
+    },
+    {
+      "action": "place_A2",
+      "allows_Black_capture_forced_win": true,
+      "branches": [
+        {
+          "White_capture": null,
+          "witness": {
+            "Black_placement": "place_B3",
+            "Black_capture": "capture_D3",
+            "threatened_winning_actions": [
+              "place_D3"
+            ],
+            "White_forbidden": "D3",
+            "White_reply_actions_checked": 61,
+            "White_reply_completions_checked": 61
+          }
+        }
+      ],
+      "seconds": 0.24181892900378443
+    },
+    {
+      "action": "place_A3",
+      "allows_Black_capture_forced_win": true,
+      "branches": [
+        {
+          "White_capture": null,
+          "witness": {
+            "Black_placement": "place_B3",
+            "Black_capture": "capture_D3",
+            "threatened_winning_actions": [
+              "place_D3"
+            ],
+            "White_forbidden": "D3",
+            "White_reply_actions_checked": 61,
+            "White_reply_completions_checked": 61
+          }
+        }
+      ],
+      "seconds": 0.22321836100309156
+    },
+    {
+      "action": "place_A4",
+      "allows_Black_capture_forced_win": true,
+      "branches": [
+        {
+          "White_capture": null,
+          "witness": {
+            "Black_placement": "place_B3",
+            "Black_capture": "capture_D3",
+            "threatened_winning_actions": [
+              "place_D3"
+            ],
+            "White_forbidden": "D3",
+            "White_reply_actions_checked": 61,
+            "White_reply_completions_checked": 61
+          }
+        }
+      ],
+      "seconds": 0.23730046200216748
+    },
+    {
+      "action": "place_A5",
+      "allows_Black_capture_forced_win": true,
+      "branches": [
+        {
+          "White_capture": null,
+          "witness": {
+            "Black_placement": "place_B3",
+            "Black_capture": "capture_D3",
+            "threatened_winning_actions": [
+              "place_D3"
+            ],
+            "White_forbidden": "D3",
+            "White_reply_actions_checked": 61,
+            "White_reply_completions_checked": 61
+          }
+        }
+      ],
+      "seconds": 0.23700674998690374
+    },
+    {
+      "action": "place_B2",
+      "allows_Black_capture_forced_win": true,
+      "branches": [
+        {
+          "White_capture": null,
+          "witness": {
+            "Black_placement": "place_B3",
+            "Black_capture": "capture_D3",
+            "threatened_winning_actions": [
+              "place_D3"
+            ],
+            "White_forbidden": "D3",
+            "White_reply_actions_checked": 61,
+            "White_reply_completions_checked": 61
+          }
+        }
+      ],
+      "seconds": 0.2662486280023586
+    },
+    {
+      "action": "place_B3",
+      "allows_Black_capture_forced_win": false,
+      "branches": [
+        {
+          "White_capture": null,
+          "witness": null
+        }
+      ],
+      "seconds": 0.0028603819955606014
+    },
+    {
+      "action": "place_B4",
+      "allows_Black_capture_forced_win": true,
+      "branches": [
+        {
+          "White_capture": null,
+          "witness": {
+            "Black_placement": "place_B3",
+            "Black_capture": "capture_D3",
+            "threatened_winning_actions": [
+              "place_D3"
+            ],
+            "White_forbidden": "D3",
+            "White_reply_actions_checked": 61,
+            "White_reply_completions_checked": 61
+          }
+        }
+      ],
+      "seconds": 0.23065974601195194
+    },
+    {
+      "action": "place_B5",
+      "allows_Black_capture_forced_win": true,
+      "branches": [
+        {
+          "White_capture": null,
+          "witness": {
+            "Black_placement": "place_B3",
+            "Black_capture": "capture_D3",
+            "threatened_winning_actions": [
+              "place_D3"
+            ],
+            "White_forbidden": "D3",
+            "White_reply_actions_checked": 61,
+            "White_reply_completions_checked": 61
+          }
+        }
+      ],
+      "seconds": 0.212921060010558
+    },
+    {
+      "action": "place_B6",
+      "allows_Black_capture_forced_win": true,
+      "branches": [
+        {
+          "White_capture": null,
+          "witness": {
+            "Black_placement": "place_B3",
+            "Black_capture": "capture_D3",
+            "threatened_winning_actions": [
+              "place_D3"
+            ],
+            "White_forbidden": "D3",
+            "White_reply_actions_checked": 61,
+            "White_reply_completions_checked": 61
+          }
+        }
+      ],
+      "seconds": 0.23561145600979216
+    },
+    {
+      "action": "place_C1",
+      "allows_Black_capture_forced_win": true,
+      "branches": [
+        {
+          "White_capture": null,
+          "witness": {
+            "Black_placement": "place_B3",
+            "Black_capture": "capture_D3",
+            "threatened_winning_actions": [
+              "place_D3"
+            ],
+            "White_forbidden": "D3",
+            "White_reply_actions_checked": 61,
+            "White_reply_completions_checked": 61
+          }
+        }
+      ],
+      "seconds": 0.23770225601037964
+    },
+    {
+      "action": "place_C4",
+      "allows_Black_capture_forced_win": false,
+      "branches": [
+        {
+          "White_capture": null,
+          "witness": null
+        }
+      ],
+      "seconds": 0.0868520519870799
+    },
+    {
+      "action": "place_C6",
+      "allows_Black_capture_forced_win": true,
+      "branches": [
+        {
+          "White_capture": null,
+          "witness": {
+            "Black_placement": "place_B3",
+            "Black_capture": "capture_D3",
+            "threatened_winning_actions": [
+              "place_D3"
+            ],
+            "White_forbidden": "D3",
+            "White_reply_actions_checked": 61,
+            "White_reply_completions_checked": 61
+          }
+        }
+      ],
+      "seconds": 0.2341732030035928
+    },
+    {
+      "action": "place_C7",
+      "allows_Black_capture_forced_win": true,
+      "branches": [
+        {
+          "White_capture": null,
+          "witness": {
+            "Black_placement": "place_B3",
+            "Black_capture": "capture_D3",
+            "threatened_winning_actions": [
+              "place_D3"
+            ],
+            "White_forbidden": "D3",
+            "White_reply_actions_checked": 61,
+            "White_reply_completions_checked": 61
+          }
+        }
+      ],
+      "seconds": 0.22736593798617832
+    },
+    {
+      "action": "place_D5",
+      "allows_Black_capture_forced_win": true,
+      "branches": [
+        {
+          "White_capture": null,
+          "witness": {
+            "Black_placement": "place_B3",
+            "Black_capture": "capture_D3",
+            "threatened_winning_actions": [
+              "place_D3"
+            ],
+            "White_forbidden": "D3",
+            "White_reply_actions_checked": 61,
+            "White_reply_completions_checked": 61
+          }
+        }
+      ],
+      "seconds": 0.23106795098283328
+    },
+    {
+      "action": "place_D8",
+      "allows_Black_capture_forced_win": true,
+      "branches": [
+        {
+          "White_capture": null,
+          "witness": {
+            "Black_placement": "place_B3",
+            "Black_capture": "capture_D3",
+            "threatened_winning_actions": [
+              "place_D3"
+            ],
+            "White_forbidden": "D3",
+            "White_reply_actions_checked": 61,
+            "White_reply_completions_checked": 61
+          }
+        }
+      ],
+      "seconds": 0.23365799101884477
+    },
+    {
+      "action": "place_E6",
+      "allows_Black_capture_forced_win": true,
+      "branches": [
+        {
+          "White_capture": null,
+          "witness": {
+            "Black_placement": "place_B3",
+            "Black_capture": "capture_D3",
+            "threatened_winning_actions": [
+              "place_D3"
+            ],
+            "White_forbidden": "D3",
+            "White_reply_actions_checked": 61,
+            "White_reply_completions_checked": 61
+          }
+        }
+      ],
+      "seconds": 0.22767368899076246
+    },
+    {
+      "action": "place_E7",
+      "allows_Black_capture_forced_win": true,
+      "branches": [
+        {
+          "White_capture": null,
+          "witness": {
+            "Black_placement": "place_B3",
+            "Black_capture": "capture_D3",
+            "threatened_winning_actions": [
+              "place_D3"
+            ],
+            "White_forbidden": "D3",
+            "White_reply_actions_checked": 61,
+            "White_reply_completions_checked": 61
+          }
+        }
+      ],
+      "seconds": 0.24152434599818662
+    },
+    {
+      "action": "place_E8",
+      "allows_Black_capture_forced_win": true,
+      "branches": [
+        {
+          "White_capture": null,
+          "witness": {
+            "Black_placement": "place_B3",
+            "Black_capture": "capture_D3",
+            "threatened_winning_actions": [
+              "place_D3"
+            ],
+            "White_forbidden": "D3",
+            "White_reply_actions_checked": 61,
+            "White_reply_completions_checked": 61
+          }
+        }
+      ],
+      "seconds": 0.2369596719800029
+    },
+    {
+      "action": "place_E9",
+      "allows_Black_capture_forced_win": true,
+      "branches": [
+        {
+          "White_capture": null,
+          "witness": {
+            "Black_placement": "place_B3",
+            "Black_capture": "capture_D3",
+            "threatened_winning_actions": [
+              "place_D3"
+            ],
+            "White_forbidden": "D3",
+            "White_reply_actions_checked": 61,
+            "White_reply_completions_checked": 61
+          }
+        }
+      ],
+      "seconds": 0.22951055300654843
+    },
+    {
+      "action": "place_F1",
+      "allows_Black_capture_forced_win": true,
+      "branches": [
+        {
+          "White_capture": null,
+          "witness": {
+            "Black_placement": "place_B3",
+            "Black_capture": "capture_D3",
+            "threatened_winning_actions": [
+              "place_D3"
+            ],
+            "White_forbidden": "D3",
+            "White_reply_actions_checked": 61,
+            "White_reply_completions_checked": 61
+          }
+        }
+      ],
+      "seconds": 0.21555270798853599
+    },
+    {
+      "action": "place_F2",
+      "allows_Black_capture_forced_win": true,
+      "branches": [
+        {
+          "White_capture": null,
+          "witness": {
+            "Black_placement": "place_B3",
+            "Black_capture": "capture_D3",
+            "threatened_winning_actions": [
+              "place_D3"
+            ],
+            "White_forbidden": "D3",
+            "White_reply_actions_checked": 61,
+            "White_reply_completions_checked": 61
+          }
+        }
+      ],
+      "seconds": 0.2372202849946916
+    },
+    {
+      "action": "place_F3",
+      "allows_Black_capture_forced_win": true,
+      "branches": [
+        {
+          "White_capture": null,
+          "witness": {
+            "Black_placement": "place_B3",
+            "Black_capture": "capture_D3",
+            "threatened_winning_actions": [
+              "place_D3"
+            ],
+            "White_forbidden": "D3",
+            "White_reply_actions_checked": 61,
+            "White_reply_completions_checked": 61
+          }
+        }
+      ],
+      "seconds": 0.2515603659849148
+    },
+    {
+      "action": "place_F4",
+      "allows_Black_capture_forced_win": false,
+      "branches": [
+        {
+          "White_capture": null,
+          "witness": null
+        }
+      ],
+      "seconds": 0.06225245300447568
+    },
+    {
+      "action": "place_F6",
+      "allows_Black_capture_forced_win": true,
+      "branches": [
+        {
+          "White_capture": null,
+          "witness": {
+            "Black_placement": "place_B3",
+            "Black_capture": "capture_D3",
+            "threatened_winning_actions": [
+              "place_D3"
+            ],
+            "White_forbidden": "D3",
+            "White_reply_actions_checked": 61,
+            "White_reply_completions_checked": 61
+          }
+        }
+      ],
+      "seconds": 0.24810085698845796
+    },
+    {
+      "action": "place_F7",
+      "allows_Black_capture_forced_win": true,
+      "branches": [
+        {
+          "White_capture": null,
+          "witness": {
+            "Black_placement": "place_B3",
+            "Black_capture": "capture_D3",
+            "threatened_winning_actions": [
+              "place_D3"
+            ],
+            "White_forbidden": "D3",
+            "White_reply_actions_checked": 61,
+            "White_reply_completions_checked": 61
+          }
+        }
+      ],
+      "seconds": 0.26101683601154946
+    },
+    {
+      "action": "place_F8",
+      "allows_Black_capture_forced_win": true,
+      "branches": [
+        {
+          "White_capture": null,
+          "witness": {
+            "Black_placement": "place_B3",
+            "Black_capture": "capture_D3",
+            "threatened_winning_actions": [
+              "place_D3"
+            ],
+            "White_forbidden": "D3",
+            "White_reply_actions_checked": 61,
+            "White_reply_completions_checked": 61
+          }
+        }
+      ],
+      "seconds": 0.24813545899814926
+    },
+    {
+      "action": "place_F9",
+      "allows_Black_capture_forced_win": true,
+      "branches": [
+        {
+          "White_capture": null,
+          "witness": {
+            "Black_placement": "place_B3",
+            "Black_capture": "capture_D3",
+            "threatened_winning_actions": [
+              "place_D3"
+            ],
+            "White_forbidden": "D3",
+            "White_reply_actions_checked": 61,
+            "White_reply_completions_checked": 61
+          }
+        }
+      ],
+      "seconds": 0.2772463940200396
+    },
+    {
+      "action": "place_F10",
+      "allows_Black_capture_forced_win": true,
+      "branches": [
+        {
+          "White_capture": null,
+          "witness": {
+            "Black_placement": "place_B3",
+            "Black_capture": "capture_D3",
+            "threatened_winning_actions": [
+              "place_D3"
+            ],
+            "White_forbidden": "D3",
+            "White_reply_actions_checked": 61,
+            "White_reply_completions_checked": 61
+          }
+        }
+      ],
+      "seconds": 0.2359882910095621
+    },
+    {
+      "action": "place_G1",
+      "allows_Black_capture_forced_win": true,
+      "branches": [
+        {
+          "White_capture": null,
+          "witness": {
+            "Black_placement": "place_B3",
+            "Black_capture": "capture_D3",
+            "threatened_winning_actions": [
+              "place_D3"
+            ],
+            "White_forbidden": "D3",
+            "White_reply_actions_checked": 61,
+            "White_reply_completions_checked": 61
+          }
+        }
+      ],
+      "seconds": 0.24038103298516944
+    },
+    {
+      "action": "place_G2",
+      "allows_Black_capture_forced_win": true,
+      "branches": [
+        {
+          "White_capture": null,
+          "witness": {
+            "Black_placement": "place_B3",
+            "Black_capture": "capture_D3",
+            "threatened_winning_actions": [
+              "place_D3"
+            ],
+            "White_forbidden": "D3",
+            "White_reply_actions_checked": 61,
+            "White_reply_completions_checked": 61
+          }
+        }
+      ],
+      "seconds": 0.2324603909801226
+    },
+    {
+      "action": "place_G3",
+      "allows_Black_capture_forced_win": true,
+      "branches": [
+        {
+          "White_capture": null,
+          "witness": {
+            "Black_placement": "place_B3",
+            "Black_capture": "capture_D3",
+            "threatened_winning_actions": [
+              "place_D3"
+            ],
+            "White_forbidden": "D3",
+            "White_reply_actions_checked": 61,
+            "White_reply_completions_checked": 61
+          }
+        }
+      ],
+      "seconds": 0.28448559300159104
+    },
+    {
+      "action": "place_G4",
+      "allows_Black_capture_forced_win": true,
+      "branches": [
+        {
+          "White_capture": null,
+          "witness": {
+            "Black_placement": "place_B3",
+            "Black_capture": "capture_D3",
+            "threatened_winning_actions": [
+              "place_D3"
+            ],
+            "White_forbidden": "D3",
+            "White_reply_actions_checked": 61,
+            "White_reply_completions_checked": 61
+          }
+        }
+      ],
+      "seconds": 0.24229907500557601
+    },
+    {
+      "action": "place_G6",
+      "allows_Black_capture_forced_win": true,
+      "branches": [
+        {
+          "White_capture": null,
+          "witness": {
+            "Black_placement": "place_B3",
+            "Black_capture": "capture_D3",
+            "threatened_winning_actions": [
+              "place_D3"
+            ],
+            "White_forbidden": "D3",
+            "White_reply_actions_checked": 61,
+            "White_reply_completions_checked": 61
+          }
+        }
+      ],
+      "seconds": 0.24048374500125647
+    },
+    {
+      "action": "place_G7",
+      "allows_Black_capture_forced_win": true,
+      "branches": [
+        {
+          "White_capture": null,
+          "witness": {
+            "Black_placement": "place_B3",
+            "Black_capture": "capture_D3",
+            "threatened_winning_actions": [
+              "place_D3"
+            ],
+            "White_forbidden": "D3",
+            "White_reply_actions_checked": 61,
+            "White_reply_completions_checked": 61
+          }
+        }
+      ],
+      "seconds": 0.24333024700172246
+    },
+    {
+      "action": "place_G8",
+      "allows_Black_capture_forced_win": true,
+      "branches": [
+        {
+          "White_capture": null,
+          "witness": {
+            "Black_placement": "place_B3",
+            "Black_capture": "capture_D3",
+            "threatened_winning_actions": [
+              "place_D3"
+            ],
+            "White_forbidden": "D3",
+            "White_reply_actions_checked": 61,
+            "White_reply_completions_checked": 61
+          }
+        }
+      ],
+      "seconds": 0.24387137099984102
+    },
+    {
+      "action": "place_G9",
+      "allows_Black_capture_forced_win": true,
+      "branches": [
+        {
+          "White_capture": null,
+          "witness": {
+            "Black_placement": "place_B3",
+            "Black_capture": "capture_D3",
+            "threatened_winning_actions": [
+              "place_D3"
+            ],
+            "White_forbidden": "D3",
+            "White_reply_actions_checked": 61,
+            "White_reply_completions_checked": 61
+          }
+        }
+      ],
+      "seconds": 0.25520932499784976
+    },
+    {
+      "action": "place_H1",
+      "allows_Black_capture_forced_win": true,
+      "branches": [
+        {
+          "White_capture": null,
+          "witness": {
+            "Black_placement": "place_B3",
+            "Black_capture": "capture_D3",
+            "threatened_winning_actions": [
+              "place_D3"
+            ],
+            "White_forbidden": "D3",
+            "White_reply_actions_checked": 61,
+            "White_reply_completions_checked": 61
+          }
+        }
+      ],
+      "seconds": 0.25035141297848895
+    },
+    {
+      "action": "place_H2",
+      "allows_Black_capture_forced_win": true,
+      "branches": [
+        {
+          "White_capture": null,
+          "witness": {
+            "Black_placement": "place_B3",
+            "Black_capture": "capture_D3",
+            "threatened_winning_actions": [
+              "place_D3"
+            ],
+            "White_forbidden": "D3",
+            "White_reply_actions_checked": 61,
+            "White_reply_completions_checked": 61
+          }
+        }
+      ],
+      "seconds": 0.23359915797482245
+    },
+    {
+      "action": "place_H3",
+      "allows_Black_capture_forced_win": true,
+      "branches": [
+        {
+          "White_capture": null,
+          "witness": {
+            "Black_placement": "place_B3",
+            "Black_capture": "capture_D3",
+            "threatened_winning_actions": [
+              "place_D3"
+            ],
+            "White_forbidden": "D3",
+            "White_reply_actions_checked": 61,
+            "White_reply_completions_checked": 61
+          }
+        }
+      ],
+      "seconds": 0.24584787798812613
+    },
+    {
+      "action": "place_H4",
+      "allows_Black_capture_forced_win": true,
+      "branches": [
+        {
+          "White_capture": null,
+          "witness": {
+            "Black_placement": "place_B3",
+            "Black_capture": "capture_D3",
+            "threatened_winning_actions": [
+              "place_D3"
+            ],
+            "White_forbidden": "D3",
+            "White_reply_actions_checked": 61,
+            "White_reply_completions_checked": 61
+          }
+        }
+      ],
+      "seconds": 0.25112736099981703
+    },
+    {
+      "action": "place_H5",
+      "allows_Black_capture_forced_win": true,
+      "branches": [
+        {
+          "White_capture": null,
+          "witness": {
+            "Black_placement": "place_B3",
+            "Black_capture": "capture_D3",
+            "threatened_winning_actions": [
+              "place_D3"
+            ],
+            "White_forbidden": "D3",
+            "White_reply_actions_checked": 61,
+            "White_reply_completions_checked": 61
+          }
+        }
+      ],
+      "seconds": 0.24874994400306605
+    },
+    {
+      "action": "place_H6",
+      "allows_Black_capture_forced_win": true,
+      "branches": [
+        {
+          "White_capture": null,
+          "witness": {
+            "Black_placement": "place_B3",
+            "Black_capture": "capture_D3",
+            "threatened_winning_actions": [
+              "place_D3"
+            ],
+            "White_forbidden": "D3",
+            "White_reply_actions_checked": 61,
+            "White_reply_completions_checked": 61
+          }
+        }
+      ],
+      "seconds": 0.2541406870004721
+    },
+    {
+      "action": "place_H7",
+      "allows_Black_capture_forced_win": true,
+      "branches": [
+        {
+          "White_capture": null,
+          "witness": {
+            "Black_placement": "place_B3",
+            "Black_capture": "capture_D3",
+            "threatened_winning_actions": [
+              "place_D3"
+            ],
+            "White_forbidden": "D3",
+            "White_reply_actions_checked": 61,
+            "White_reply_completions_checked": 61
+          }
+        }
+      ],
+      "seconds": 0.2464037050085608
+    },
+    {
+      "action": "place_H8",
+      "allows_Black_capture_forced_win": true,
+      "branches": [
+        {
+          "White_capture": null,
+          "witness": {
+            "Black_placement": "place_B3",
+            "Black_capture": "capture_D3",
+            "threatened_winning_actions": [
+              "place_D3"
+            ],
+            "White_forbidden": "D3",
+            "White_reply_actions_checked": 61,
+            "White_reply_completions_checked": 61
+          }
+        }
+      ],
+      "seconds": 0.25617219699779525
+    },
+    {
+      "action": "place_I1",
+      "allows_Black_capture_forced_win": true,
+      "branches": [
+        {
+          "White_capture": null,
+          "witness": {
+            "Black_placement": "place_B3",
+            "Black_capture": "capture_D3",
+            "threatened_winning_actions": [
+              "place_D3"
+            ],
+            "White_forbidden": "D3",
+            "White_reply_actions_checked": 61,
+            "White_reply_completions_checked": 61
+          }
+        }
+      ],
+      "seconds": 0.25926346000051126
+    },
+    {
+      "action": "place_I2",
+      "allows_Black_capture_forced_win": true,
+      "branches": [
+        {
+          "White_capture": null,
+          "witness": {
+            "Black_placement": "place_B3",
+            "Black_capture": "capture_D3",
+            "threatened_winning_actions": [
+              "place_D3"
+            ],
+            "White_forbidden": "D3",
+            "White_reply_actions_checked": 61,
+            "White_reply_completions_checked": 61
+          }
+        }
+      ],
+      "seconds": 0.23945726797683164
+    },
+    {
+      "action": "place_I3",
+      "allows_Black_capture_forced_win": true,
+      "branches": [
+        {
+          "White_capture": null,
+          "witness": {
+            "Black_placement": "place_B3",
+            "Black_capture": "capture_D3",
+            "threatened_winning_actions": [
+              "place_D3"
+            ],
+            "White_forbidden": "D3",
+            "White_reply_actions_checked": 61,
+            "White_reply_completions_checked": 61
+          }
+        }
+      ],
+      "seconds": 0.24587315900134854
+    },
+    {
+      "action": "place_I4",
+      "allows_Black_capture_forced_win": true,
+      "branches": [
+        {
+          "White_capture": null,
+          "witness": {
+            "Black_placement": "place_B3",
+            "Black_capture": "capture_D3",
+            "threatened_winning_actions": [
+              "place_D3"
+            ],
+            "White_forbidden": "D3",
+            "White_reply_actions_checked": 61,
+            "White_reply_completions_checked": 61
+          }
+        }
+      ],
+      "seconds": 0.23891509900568053
+    },
+    {
+      "action": "place_I5",
+      "allows_Black_capture_forced_win": true,
+      "branches": [
+        {
+          "White_capture": null,
+          "witness": {
+            "Black_placement": "place_B3",
+            "Black_capture": "capture_D3",
+            "threatened_winning_actions": [
+              "place_D3"
+            ],
+            "White_forbidden": "D3",
+            "White_reply_actions_checked": 61,
+            "White_reply_completions_checked": 61
+          }
+        }
+      ],
+      "seconds": 0.2562005679938011
+    },
+    {
+      "action": "place_I6",
+      "allows_Black_capture_forced_win": true,
+      "branches": [
+        {
+          "White_capture": null,
+          "witness": {
+            "Black_placement": "place_B3",
+            "Black_capture": "capture_D3",
+            "threatened_winning_actions": [
+              "place_D3"
+            ],
+            "White_forbidden": "D3",
+            "White_reply_actions_checked": 61,
+            "White_reply_completions_checked": 61
+          }
+        }
+      ],
+      "seconds": 0.2513277890102472
+    },
+    {
+      "action": "place_I7",
+      "allows_Black_capture_forced_win": true,
+      "branches": [
+        {
+          "White_capture": null,
+          "witness": {
+            "Black_placement": "place_B3",
+            "Black_capture": "capture_D3",
+            "threatened_winning_actions": [
+              "place_D3"
+            ],
+            "White_forbidden": "D3",
+            "White_reply_actions_checked": 61,
+            "White_reply_completions_checked": 61
+          }
+        }
+      ],
+      "seconds": 0.25468764500692487
+    },
+    {
+      "action": "place_J1",
+      "allows_Black_capture_forced_win": true,
+      "branches": [
+        {
+          "White_capture": null,
+          "witness": {
+            "Black_placement": "place_B3",
+            "Black_capture": "capture_D3",
+            "threatened_winning_actions": [
+              "place_D3"
+            ],
+            "White_forbidden": "D3",
+            "White_reply_actions_checked": 61,
+            "White_reply_completions_checked": 61
+          }
+        }
+      ],
+      "seconds": 0.252613714983454
+    },
+    {
+      "action": "place_J2",
+      "allows_Black_capture_forced_win": true,
+      "branches": [
+        {
+          "White_capture": null,
+          "witness": {
+            "Black_placement": "place_B3",
+            "Black_capture": "capture_D3",
+            "threatened_winning_actions": [
+              "place_D3"
+            ],
+            "White_forbidden": "D3",
+            "White_reply_actions_checked": 61,
+            "White_reply_completions_checked": 61
+          }
+        }
+      ],
+      "seconds": 0.25033363001421094
+    },
+    {
+      "action": "place_J3",
+      "allows_Black_capture_forced_win": true,
+      "branches": [
+        {
+          "White_capture": null,
+          "witness": {
+            "Black_placement": "place_B3",
+            "Black_capture": "capture_D3",
+            "threatened_winning_actions": [
+              "place_D3"
+            ],
+            "White_forbidden": "D3",
+            "White_reply_actions_checked": 61,
+            "White_reply_completions_checked": 61
+          }
+        }
+      ],
+      "seconds": 0.23540337799931876
+    },
+    {
+      "action": "place_J4",
+      "allows_Black_capture_forced_win": true,
+      "branches": [
+        {
+          "White_capture": null,
+          "witness": {
+            "Black_placement": "place_B3",
+            "Black_capture": "capture_D3",
+            "threatened_winning_actions": [
+              "place_D3"
+            ],
+            "White_forbidden": "D3",
+            "White_reply_actions_checked": 61,
+            "White_reply_completions_checked": 61
+          }
+        }
+      ],
+      "seconds": 0.2503668680146802
+    },
+    {
+      "action": "place_J5",
+      "allows_Black_capture_forced_win": true,
+      "branches": [
+        {
+          "White_capture": null,
+          "witness": {
+            "Black_placement": "place_B3",
+            "Black_capture": "capture_D3",
+            "threatened_winning_actions": [
+              "place_D3"
+            ],
+            "White_forbidden": "D3",
+            "White_reply_actions_checked": 61,
+            "White_reply_completions_checked": 61
+          }
+        }
+      ],
+      "seconds": 0.2731491440208629
+    },
+    {
+      "action": "place_J6",
+      "allows_Black_capture_forced_win": true,
+      "branches": [
+        {
+          "White_capture": null,
+          "witness": {
+            "Black_placement": "place_B3",
+            "Black_capture": "capture_D3",
+            "threatened_winning_actions": [
+              "place_D3"
+            ],
+            "White_forbidden": "D3",
+            "White_reply_actions_checked": 61,
+            "White_reply_completions_checked": 61
+          }
+        }
+      ],
+      "seconds": 0.23447765401215293
+    },
+    {
+      "action": "place_K1",
+      "allows_Black_capture_forced_win": true,
+      "branches": [
+        {
+          "White_capture": null,
+          "witness": {
+            "Black_placement": "place_B3",
+            "Black_capture": "capture_D3",
+            "threatened_winning_actions": [
+              "place_D3"
+            ],
+            "White_forbidden": "D3",
+            "White_reply_actions_checked": 61,
+            "White_reply_completions_checked": 61
+          }
+        }
+      ],
+      "seconds": 0.24853463299223222
+    },
+    {
+      "action": "place_K2",
+      "allows_Black_capture_forced_win": true,
+      "branches": [
+        {
+          "White_capture": null,
+          "witness": {
+            "Black_placement": "place_B3",
+            "Black_capture": "capture_D3",
+            "threatened_winning_actions": [
+              "place_D3"
+            ],
+            "White_forbidden": "D3",
+            "White_reply_actions_checked": 61,
+            "White_reply_completions_checked": 61
+          }
+        }
+      ],
+      "seconds": 0.27976136101642624
+    },
+    {
+      "action": "place_K3",
+      "allows_Black_capture_forced_win": true,
+      "branches": [
+        {
+          "White_capture": null,
+          "witness": {
+            "Black_placement": "place_B3",
+            "Black_capture": "capture_D3",
+            "threatened_winning_actions": [
+              "place_D3"
+            ],
+            "White_forbidden": "D3",
+            "White_reply_actions_checked": 61,
+            "White_reply_completions_checked": 61
+          }
+        }
+      ],
+      "seconds": 0.2873853609780781
+    },
+    {
+      "action": "place_K4",
+      "allows_Black_capture_forced_win": true,
+      "branches": [
+        {
+          "White_capture": null,
+          "witness": {
+            "Black_placement": "place_B3",
+            "Black_capture": "capture_D3",
+            "threatened_winning_actions": [
+              "place_D3"
+            ],
+            "White_forbidden": "D3",
+            "White_reply_actions_checked": 61,
+            "White_reply_completions_checked": 61
+          }
+        }
+      ],
+      "seconds": 0.23958070599474013
+    },
+    {
+      "action": "place_K5",
+      "allows_Black_capture_forced_win": true,
+      "branches": [
+        {
+          "White_capture": null,
+          "witness": {
+            "Black_placement": "place_B3",
+            "Black_capture": "capture_D3",
+            "threatened_winning_actions": [
+              "place_D3"
+            ],
+            "White_forbidden": "D3",
+            "White_reply_actions_checked": 61,
+            "White_reply_completions_checked": 61
+          }
+        }
+      ],
+      "seconds": 0.25940477100084536
+    }
+  ],
+  "error": null,
+  "seconds": 14.903348171006655,
+  "reply_cache": {
+    "hits": 230,
+    "misses": 3591,
+    "maxsize": 256,
+    "currsize": 256
+  }
+}

@@ -1,0 +1,1454 @@
+{
+  "setup": [
+    "White C4",
+    "Black B3",
+    "Black capture D3"
+  ],
+  "rows": [
+    {
+      "expected": "place_F4",
+      "selected": "place_F4",
+      "request": {
+        "state": {
+          "game": "boku",
+          "board": {
+            "A1": "",
+            "A2": "",
+            "A3": "",
+            "A4": "",
+            "A5": "",
+            "B1": "Black",
+            "B2": "",
+            "B3": "Black",
+            "B4": "",
+            "B5": "",
+            "B6": "",
+            "C1": "",
+            "C2": "Black",
+            "C3": "White",
+            "C4": "White",
+            "C5": "Black",
+            "C6": "",
+            "C7": "",
+            "D1": "White",
+            "D2": "White",
+            "D3": "",
+            "D4": "Black",
+            "D5": "",
+            "D6": "White",
+            "D7": "Black",
+            "D8": "",
+            "E1": "Black",
+            "E2": "Black",
+            "E3": "Black",
+            "E4": "Black",
+            "E5": "White",
+            "E6": "",
+            "E7": "",
+            "E8": "",
+            "E9": "",
+            "F1": "",
+            "F2": "",
+            "F3": "",
+            "F4": "",
+            "F5": "Black",
+            "F6": "",
+            "F7": "",
+            "F8": "",
+            "F9": "",
+            "F10": "",
+            "G1": "",
+            "G2": "",
+            "G3": "",
+            "G4": "",
+            "G5": "White",
+            "G6": "",
+            "G7": "",
+            "G8": "",
+            "G9": "",
+            "H1": "",
+            "H2": "",
+            "H3": "",
+            "H4": "",
+            "H5": "",
+            "H6": "",
+            "H7": "",
+            "H8": "",
+            "I1": "",
+            "I2": "",
+            "I3": "",
+            "I4": "",
+            "I5": "",
+            "I6": "",
+            "I7": "",
+            "J1": "",
+            "J2": "",
+            "J3": "",
+            "J4": "",
+            "J5": "",
+            "J6": "",
+            "K1": "",
+            "K2": "",
+            "K3": "",
+            "K4": "",
+            "K5": ""
+          },
+          "coordinates": {
+            "A1": [
+              5,
+              0
+            ],
+            "A2": [
+              6,
+              0
+            ],
+            "A3": [
+              7,
+              0
+            ],
+            "A4": [
+              8,
+              0
+            ],
+            "A5": [
+              9,
+              0
+            ],
+            "B1": [
+              4,
+              1
+            ],
+            "B2": [
+              5,
+              1
+            ],
+            "B3": [
+              6,
+              1
+            ],
+            "B4": [
+              7,
+              1
+            ],
+            "B5": [
+              8,
+              1
+            ],
+            "B6": [
+              9,
+              1
+            ],
+            "C1": [
+              3,
+              2
+            ],
+            "C2": [
+              4,
+              2
+            ],
+            "C3": [
+              5,
+              2
+            ],
+            "C4": [
+              6,
+              2
+            ],
+            "C5": [
+              7,
+              2
+            ],
+            "C6": [
+              8,
+              2
+            ],
+            "C7": [
+              9,
+              2
+            ],
+            "D1": [
+              2,
+              3
+            ],
+            "D2": [
+              3,
+              3
+            ],
+            "D3": [
+              4,
+              3
+            ],
+            "D4": [
+              5,
+              3
+            ],
+            "D5": [
+              6,
+              3
+            ],
+            "D6": [
+              7,
+              3
+            ],
+            "D7": [
+              8,
+              3
+            ],
+            "D8": [
+              9,
+              3
+            ],
+            "E1": [
+              1,
+              4
+            ],
+            "E2": [
+              2,
+              4
+            ],
+            "E3": [
+              3,
+              4
+            ],
+            "E4": [
+              4,
+              4
+            ],
+            "E5": [
+              5,
+              4
+            ],
+            "E6": [
+              6,
+              4
+            ],
+            "E7": [
+              7,
+              4
+            ],
+            "E8": [
+              8,
+              4
+            ],
+            "E9": [
+              9,
+              4
+            ],
+            "F1": [
+              0,
+              5
+            ],
+            "F2": [
+              1,
+              5
+            ],
+            "F3": [
+              2,
+              5
+            ],
+            "F4": [
+              3,
+              5
+            ],
+            "F5": [
+              4,
+              5
+            ],
+            "F6": [
+              5,
+              5
+            ],
+            "F7": [
+              6,
+              5
+            ],
+            "F8": [
+              7,
+              5
+            ],
+            "F9": [
+              8,
+              5
+            ],
+            "F10": [
+              9,
+              5
+            ],
+            "G1": [
+              0,
+              6
+            ],
+            "G2": [
+              1,
+              6
+            ],
+            "G3": [
+              2,
+              6
+            ],
+            "G4": [
+              3,
+              6
+            ],
+            "G5": [
+              4,
+              6
+            ],
+            "G6": [
+              5,
+              6
+            ],
+            "G7": [
+              6,
+              6
+            ],
+            "G8": [
+              7,
+              6
+            ],
+            "G9": [
+              8,
+              6
+            ],
+            "H1": [
+              0,
+              7
+            ],
+            "H2": [
+              1,
+              7
+            ],
+            "H3": [
+              2,
+              7
+            ],
+            "H4": [
+              3,
+              7
+            ],
+            "H5": [
+              4,
+              7
+            ],
+            "H6": [
+              5,
+              7
+            ],
+            "H7": [
+              6,
+              7
+            ],
+            "H8": [
+              7,
+              7
+            ],
+            "I1": [
+              0,
+              8
+            ],
+            "I2": [
+              1,
+              8
+            ],
+            "I3": [
+              2,
+              8
+            ],
+            "I4": [
+              3,
+              8
+            ],
+            "I5": [
+              4,
+              8
+            ],
+            "I6": [
+              5,
+              8
+            ],
+            "I7": [
+              6,
+              8
+            ],
+            "J1": [
+              0,
+              9
+            ],
+            "J2": [
+              1,
+              9
+            ],
+            "J3": [
+              2,
+              9
+            ],
+            "J4": [
+              3,
+              9
+            ],
+            "J5": [
+              4,
+              9
+            ],
+            "J6": [
+              5,
+              9
+            ],
+            "K1": [
+              0,
+              10
+            ],
+            "K2": [
+              1,
+              10
+            ],
+            "K3": [
+              2,
+              10
+            ],
+            "K4": [
+              3,
+              10
+            ],
+            "K5": [
+              4,
+              10
+            ]
+          },
+          "current_player": "White",
+          "phase": "placement",
+          "reserves": {
+            "Black": 25,
+            "White": 29
+          },
+          "forbidden": "D3",
+          "rules": "Black starts. Players place one stone on an empty space. Five or more adjacent stones in a straight line on any of the three hexagonal axes wins. A placement sandwiching exactly two enemy stones between friendly endpoints requires removing exactly one eligible enemy stone, even with multiple sandwiches. Return it to its owner. The opponent cannot use the removed space on their next placement. Complete capture before checking a win; otherwise an exhausted reserve or a full board without a winner draws. Each player has 36 stones.",
+          "pending_placement": null,
+          "recent_turns": [
+            {
+              "player": "White",
+              "place": "D6"
+            },
+            {
+              "player": "Black",
+              "place": "F5",
+              "capture": "E5"
+            },
+            {
+              "player": "White",
+              "place": "G5",
+              "capture": "E4"
+            },
+            {
+              "player": "Black",
+              "place": "D7",
+              "capture": "D5"
+            },
+            {
+              "player": "White",
+              "place": "E4"
+            },
+            {
+              "player": "Black",
+              "place": "C2",
+              "capture": "E4"
+            },
+            {
+              "player": "White",
+              "place": "C3"
+            },
+            {
+              "player": "Black",
+              "place": "E4"
+            },
+            {
+              "player": "White",
+              "place": "E5"
+            },
+            {
+              "player": "Black",
+              "place": "B1"
+            },
+            {
+              "player": "White",
+              "place": "C4"
+            },
+            {
+              "player": "Black",
+              "place": "B3",
+              "capture": "D3"
+            }
+          ],
+          "strategy": [
+            "win immediately",
+            "otherwise prevent Black winning next turn"
+          ],
+          "candidate_fact_defaults": {
+            "wins_now": false,
+            "blocks_Black_win_next_turn": false,
+            "allows_Black_win_next_turn": false
+          },
+          "candidate_fact_scope": "Omitted candidate fact flags are false. Facts include completed mandatory captures. Placement flags assume White chooses its best eligible capture: wins_now means a winning completion exists; allows_Black_win_next_turn means every completion allows a Black win; blocks_Black_win_next_turn means Black currently threatens a win and a safe completion exists. capture_options gives the facts for each individual capture choice. These facts cover only immediate wins and one Black reply, not longer-term strength."
+        },
+        "questions": {
+          "move": {
+            "type": "choice",
+            "instructions": "Choose the strongest legal placement for White. The symbolic board is authoritative. Compare the consequences of each legal action through completion of any mandatory capture. Follow the ordered strategy; earlier rules override later rules.",
+            "criteria": {
+              "place_A1": {
+                "allows_Black_win_next_turn": true
+              },
+              "place_A2": {
+                "allows_Black_win_next_turn": true
+              },
+              "place_A3": {
+                "allows_Black_win_next_turn": true
+              },
+              "place_A4": {
+                "allows_Black_win_next_turn": true
+              },
+              "place_A5": {
+                "allows_Black_win_next_turn": true
+              },
+              "place_B2": {
+                "allows_Black_win_next_turn": true
+              },
+              "place_B4": {
+                "allows_Black_win_next_turn": true
+              },
+              "place_B5": {
+                "allows_Black_win_next_turn": true
+              },
+              "place_B6": {
+                "allows_Black_win_next_turn": true
+              },
+              "place_C1": {
+                "allows_Black_win_next_turn": true
+              },
+              "place_C6": {
+                "allows_Black_win_next_turn": true
+              },
+              "place_C7": {
+                "allows_Black_win_next_turn": true
+              },
+              "place_D5": {
+                "allows_Black_win_next_turn": true
+              },
+              "place_D8": {
+                "allows_Black_win_next_turn": true
+              },
+              "place_E6": {
+                "allows_Black_win_next_turn": true
+              },
+              "place_E7": {
+                "allows_Black_win_next_turn": true
+              },
+              "place_E8": {
+                "allows_Black_win_next_turn": true
+              },
+              "place_E9": {
+                "allows_Black_win_next_turn": true
+              },
+              "place_F1": {
+                "allows_Black_win_next_turn": true
+              },
+              "place_F2": {
+                "allows_Black_win_next_turn": true
+              },
+              "place_F3": {
+                "allows_Black_win_next_turn": true
+              },
+              "place_F4": {
+                "blocks_Black_win_next_turn": true,
+                "capture_options": {
+                  "capture_D4": {
+                    "allows_Black_win_next_turn": true
+                  },
+                  "capture_E4": {
+                    "blocks_Black_win_next_turn": true
+                  }
+                }
+              },
+              "place_F6": {
+                "allows_Black_win_next_turn": true
+              },
+              "place_F7": {
+                "allows_Black_win_next_turn": true
+              },
+              "place_F8": {
+                "allows_Black_win_next_turn": true
+              },
+              "place_F9": {
+                "allows_Black_win_next_turn": true
+              },
+              "place_F10": {
+                "allows_Black_win_next_turn": true
+              },
+              "place_G1": {
+                "allows_Black_win_next_turn": true
+              },
+              "place_G2": {
+                "allows_Black_win_next_turn": true
+              },
+              "place_G3": {
+                "allows_Black_win_next_turn": true
+              },
+              "place_G4": {
+                "allows_Black_win_next_turn": true
+              },
+              "place_G6": {
+                "allows_Black_win_next_turn": true
+              },
+              "place_G7": {
+                "allows_Black_win_next_turn": true
+              },
+              "place_G8": {
+                "allows_Black_win_next_turn": true
+              },
+              "place_G9": {
+                "allows_Black_win_next_turn": true
+              },
+              "place_H1": {
+                "allows_Black_win_next_turn": true
+              },
+              "place_H2": {
+                "allows_Black_win_next_turn": true
+              },
+              "place_H3": {
+                "allows_Black_win_next_turn": true
+              },
+              "place_H4": {
+                "allows_Black_win_next_turn": true
+              },
+              "place_H5": {
+                "allows_Black_win_next_turn": true
+              },
+              "place_H6": {
+                "allows_Black_win_next_turn": true
+              },
+              "place_H7": {
+                "allows_Black_win_next_turn": true
+              },
+              "place_H8": {
+                "allows_Black_win_next_turn": true
+              },
+              "place_I1": {
+                "allows_Black_win_next_turn": true
+              },
+              "place_I2": {
+                "allows_Black_win_next_turn": true
+              },
+              "place_I3": {
+                "allows_Black_win_next_turn": true
+              },
+              "place_I4": {
+                "allows_Black_win_next_turn": true
+              },
+              "place_I5": {
+                "allows_Black_win_next_turn": true
+              },
+              "place_I6": {
+                "allows_Black_win_next_turn": true
+              },
+              "place_I7": {
+                "allows_Black_win_next_turn": true
+              },
+              "place_J1": {
+                "allows_Black_win_next_turn": true
+              },
+              "place_J2": {
+                "allows_Black_win_next_turn": true
+              },
+              "place_J3": {
+                "allows_Black_win_next_turn": true
+              },
+              "place_J4": {
+                "allows_Black_win_next_turn": true
+              },
+              "place_J5": {
+                "allows_Black_win_next_turn": true
+              },
+              "place_J6": {
+                "allows_Black_win_next_turn": true
+              },
+              "place_K1": {
+                "allows_Black_win_next_turn": true
+              },
+              "place_K2": {
+                "allows_Black_win_next_turn": true
+              },
+              "place_K3": {
+                "allows_Black_win_next_turn": true
+              },
+              "place_K4": {
+                "allows_Black_win_next_turn": true
+              },
+              "place_K5": {
+                "allows_Black_win_next_turn": true
+              }
+            }
+          }
+        }
+      },
+      "reply": {
+        "model": "imajev-4b-nf4",
+        "answers": {
+          "move": {
+            "type": "choice",
+            "choice": "place_F4",
+            "probabilities": {
+              "place_A1": 0.002070862046868292,
+              "place_A2": 0.0017881675921071578,
+              "place_A3": 0.0022474719429274896,
+              "place_A4": 0.0026897908053271674,
+              "place_A5": 0.00418423355597921,
+              "place_B2": 0.023309349994489432,
+              "place_B4": 0.00569517991722736,
+              "place_B5": 0.002778722140570985,
+              "place_B6": 0.002381898601339783,
+              "place_C1": 0.005511106745859473,
+              "place_C6": 0.004423776398491418,
+              "place_C7": 0.004853701432546063,
+              "place_D5": 0.05106957454773363,
+              "place_D8": 0.0035637918342915145,
+              "place_E6": 0.006082364797234833,
+              "place_E7": 0.0031334858033578885,
+              "place_E8": 0.0038884959643514395,
+              "place_E9": 0.0033468906261165513,
+              "place_F1": 0.004665000792128153,
+              "place_F2": 0.004222292126158512,
+              "place_F3": 0.007443971159169217,
+              "place_F4": 0.780411787554622,
+              "place_F6": 0.005473210653291908,
+              "place_F7": 0.0035832500978202186,
+              "place_F8": 0.003723863209882678,
+              "place_F9": 0.004127509295217828,
+              "place_F10": 0.002364439896712234,
+              "place_G1": 0.001624792471978794,
+              "place_G2": 0.0022725093870282044,
+              "place_G3": 0.0019959254744692013,
+              "place_G4": 0.0030313126230660835,
+              "place_G6": 0.002547756986734778,
+              "place_G7": 0.0025563621185904174,
+              "place_G8": 0.0018183185404251631,
+              "place_G9": 0.002776754360972059,
+              "place_H1": 0.0027239293701179015,
+              "place_H2": 0.0012927322000212509,
+              "place_H3": 0.0010760006626784095,
+              "place_H4": 0.0014336622600530852,
+              "place_H5": 0.000812164714243891,
+              "place_H6": 0.0022156458461446496,
+              "place_H7": 0.0009400926111884408,
+              "place_H8": 0.000757755258717134,
+              "place_I1": 0.0005906629914033783,
+              "place_I2": 0.0007526822399639242,
+              "place_I3": 0.0008478961919304261,
+              "place_I4": 0.0012594408745379522,
+              "place_I5": 0.0016528981982098826,
+              "place_I6": 0.00166576272056735,
+              "place_I7": 0.002068854236742101,
+              "place_J1": 0.0015511279890571322,
+              "place_J2": 0.0007777101485260379,
+              "place_J3": 0.0010388340329050615,
+              "place_J4": 0.0008963387734495693,
+              "place_J5": 0.0008123908279064297,
+              "place_J6": 0.0008336228234648647,
+              "place_K1": 0.0010226856483257925,
+              "place_K2": 0.001845362024665958,
+              "place_K3": 0.0009294489663576998,
+              "place_K4": 0.0015048211232629254,
+              "place_K5": 0.0010395557704716233
+            },
+            "confidence": 0.7743948450044135,
+            "unknown_probability": 0.0030346095767554136,
+            "abstained": false,
+            "calibration_version": "p3-r2-s000291-authored"
+          }
+        },
+        "usage": {
+          "prefill_ms": 0.0,
+          "questions_ms": 9536.5,
+          "input_tokens": 3394,
+          "rotations": 4,
+          "total_ms": 9544.9,
+          "images": [
+            {
+              "sha256": "dea986ef8ec0db6d71cf690dc232dc472f079bed22288bbba24dd7b0777e0cb0",
+              "width": 768,
+              "height": 768
+            }
+          ]
+        },
+        "service": {
+          "busy": false,
+          "coaching": true,
+          "runtime_id": "e17b7ab7-5dbf-4402-8d9a-dbeda07a259a",
+          "coach_protocol": 2,
+          "provenance": {
+            "version": 2,
+            "model": "4b-nf4",
+            "upstream_commit": "ccf586d43d2a580319b6535c893668904d909eb9",
+            "base_revision": "851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a",
+            "adapter_revision": "f8d8234cebc6c99065c07731e59716dc0a6e27ab",
+            "quantization": {
+              "backend": "bitsandbytes",
+              "version": "0.50.2",
+              "format": "nf4",
+              "compute_dtype": "bfloat16",
+              "double_quant": true
+            },
+            "assets_sha256": {
+              ".inference/upstream/.cache/huggingface/hub/models--Qwen--Qwen3.5-4B/snapshots/851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a/LICENSE": "bbedc3fda3305820b977265f01b8619d87570a6739de3a5582c3464840f1e57a",
+              ".inference/upstream/.cache/huggingface/hub/models--Qwen--Qwen3.5-4B/snapshots/851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a/chat_template.jinja": "a4aee8afcf2e0711942cf848899be66016f8d14a889ff9ede07bca099c28f715",
+              ".inference/upstream/.cache/huggingface/hub/models--Qwen--Qwen3.5-4B/snapshots/851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a/config.json": "ddc63e1c717afa86c865bb5e01313d89d72bb53b97ad4a8a03ba8510c0621670",
+              ".inference/upstream/.cache/huggingface/hub/models--Qwen--Qwen3.5-4B/snapshots/851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a/merges.txt": "a9d356d7bdf1ef4949e3e748e95b8e10ad9d4e2e838eddc38a0a7b6b94d1db8d",
+              ".inference/upstream/.cache/huggingface/hub/models--Qwen--Qwen3.5-4B/snapshots/851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a/model.safetensors-00001-of-00002.safetensors": "26a93f066e1916adb13453dae5a0c707c0fbc71299ed98779571a907b8e74c61",
+              ".inference/upstream/.cache/huggingface/hub/models--Qwen--Qwen3.5-4B/snapshots/851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a/model.safetensors-00002-of-00002.safetensors": "cb544bd9bfae93dc59b0f22b292f5933573854a7f9b97835c67060d7d910e188",
+              ".inference/upstream/.cache/huggingface/hub/models--Qwen--Qwen3.5-4B/snapshots/851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a/model.safetensors.index.json": "cf3f798ee02ba45f9622aa8892a47369ab667d0afbf154ee7c2212de42e6302d",
+              ".inference/upstream/.cache/huggingface/hub/models--Qwen--Qwen3.5-4B/snapshots/851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a/preprocessor_config.json": "27225450ac9c6529872ee1924fcb0962ff5634834f817040f444118116f4e516",
+              ".inference/upstream/.cache/huggingface/hub/models--Qwen--Qwen3.5-4B/snapshots/851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a/tokenizer.json": "5f9e4d4901a92b997e463c1f46055088b6cca5ca61a6522d1b9f64c4bb81cb42",
+              ".inference/upstream/.cache/huggingface/hub/models--Qwen--Qwen3.5-4B/snapshots/851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a/tokenizer_config.json": "316230d6a809701f4db5ea8f8fc862bc3a6f3229c937c174e674ff3ca0a64ac8",
+              ".inference/upstream/.cache/huggingface/hub/models--Qwen--Qwen3.5-4B/snapshots/851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a/video_preprocessor_config.json": "7768af27c1fafa9cc9011c1dc20067e03f8915e03b63504550e11d5066986d13",
+              ".inference/upstream/.cache/huggingface/hub/models--Qwen--Qwen3.5-4B/snapshots/851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a/vocab.json": "ce99b4cb2983d118806ce0a8b777a35b093e2000a503ebde25853284c9dfa003",
+              ".inference/upstream/adapters/imajev-4b/.gitattributes": "c474170dc4c1773e8e8cb20dd68378357e53faf86e63b6f2f3c6cf24da07de2e",
+              ".inference/upstream/adapters/imajev-4b/README.md": "7a2aa695acc2c16d2f0c3d1242bc998f75c9132197fef3bf7690d09eb2e2f9ad",
+              ".inference/upstream/adapters/imajev-4b/RELEASE-SPEC.md": "e9ce33082919f0aa3835bfe3b443b2aab012cb3aa1512881f59f8f151802648c",
+              ".inference/upstream/adapters/imajev-4b/SHA256SUMS": "c76118e5d5acbb4fa87506bde0c402cc879cca6bede489533e36fcc5689137a6",
+              ".inference/upstream/adapters/imajev-4b/adapter_config.json": "a5bad80823e9768c82a8e7459bec6c6b77f835306ddcc9b3ecfe514238b5806e",
+              ".inference/upstream/adapters/imajev-4b/adapter_model.safetensors": "88c2c44361e0c469352495abcfee789ff73a4deae0811168d9402cfc2b6e749c",
+              ".inference/upstream/adapters/imajev-4b/assets/automation-dark.png": "7e18c7a1088102da25395bfda635f3b4552886bb9dc0aea4eeb0c6d4cc5d50ff",
+              ".inference/upstream/adapters/imajev-4b/assets/automation.png": "ad53c297986772375926672f026dee0e6b3e440f1b9ed88531fe1152d9e1a3e0",
+              ".inference/upstream/adapters/imajev-4b/assets/highlights-dark.png": "bf609882cc75efa31c0df9be711f4ed3f8b052c076fa457a3b75093a5e456e2a",
+              ".inference/upstream/adapters/imajev-4b/assets/highlights.png": "34f927fdb0215501700e876758280c8c882d1ec0e3a0a0e045010507f515aac5",
+              ".inference/upstream/adapters/imajev-4b/assets/logo-dark.png": "024880da4b1945bdd00ccf5f79705ee75397675192de88e14194b9ae2be66e8e",
+              ".inference/upstream/adapters/imajev-4b/assets/logo-light.png": "fd0475ff49a9e03add1091c5f92422518d9d28bf835f95eeb15bf519707e3cf9",
+              ".inference/upstream/adapters/imajev-4b/assets/proof-decisionbench.png": "2fce18a47e888a03a190c16e46c03901e2e4e3aa43c21eae6e5783d7989a60ca",
+              ".inference/upstream/adapters/imajev-4b/assets/proof-image-jevbench.png": "12846a36d8f005e5d7877cee0732fbb4e7062f1f98e79ecdc834cec78bd299c3",
+              ".inference/upstream/adapters/imajev-4b/assets/proof-jevbench-score.png": "a65ad9a182d0a3a74c4e5e281d28b8201b5c5bfc3bf8370f5ddcdcc1a966c670",
+              ".inference/upstream/adapters/imajev-4b/assets/ranks-dark.png": "d1c6b9dca603ef86bfe2d3a687c7942e20600b6800922cfd7349bf4a6bfb0235",
+              ".inference/upstream/adapters/imajev-4b/assets/ranks-light.png": "0bd152368b4dff9f6c62f759ace4a133d8c7693b1a46ad4b4235628983bd8e46",
+              ".inference/upstream/adapters/imajev-4b/assets/request-listing-dark.png": "e2d3f749f7fbf29db9ed47da2eeeb887b60cb2f36371d91eca3f2f43ba3f49cd",
+              ".inference/upstream/adapters/imajev-4b/assets/request-listing.png": "f5304fe56ea87f4cf2ca7c9d0af26dccf75aaafa33a1817b132e15b2a6e504bf",
+              ".inference/upstream/adapters/imajev-4b/assets/request-ticket-dark.png": "1430bfdd76e1ee8166c17f6bd98127cb2ecbc8d8894031373e493b137dfd7705",
+              ".inference/upstream/adapters/imajev-4b/assets/request-ticket.png": "4619e1d6d549ea3402592bb2ec8c69cd77bf6dd39ffc17d367dee6a484cd15d8",
+              ".inference/upstream/adapters/imajev-4b/calibration-modality.json": "dd01751dc961f712220ade9c561f9de9f6b586476e79fc0525ab3358818c3cb5",
+              ".inference/upstream/adapters/imajev-4b/calibration-rot4-modality.json": "dd01751dc961f712220ade9c561f9de9f6b586476e79fc0525ab3358818c3cb5",
+              ".inference/upstream/adapters/imajev-4b/calibration-rot4.json": "1ef51558c476d27b04b729a5144d81fcaa19d860abc2f51e72c2e9d89268de4b",
+              ".inference/upstream/adapters/imajev-4b/calibration.json": "1ef51558c476d27b04b729a5144d81fcaa19d860abc2f51e72c2e9d89268de4b",
+              ".inference/upstream/adapters/imajev-4b/ckpt.json": "56c22205e9ecb3b9675944278c62b8bd404eedb3030602c59765a6e73b740de8",
+              ".inference/upstream/adapters/imajev-4b/decision_readout.json": "4bc0237812d7d8c2611e60f1e7d0de8f108a9c18fbb8402aefecc3c71c54d68c",
+              ".inference/upstream/adapters/imajev-4b/decision_readout.safetensors": "52ceafd7d824bf3ea5ce55276b48cc08ba9dd6b2c98a55d9bd6a72ed1643a427",
+              ".inference/upstream/adapters/imajev-4b/mlx/adapter_config.json": "dec5c599785234b647330c39affffd8096ed3725da56db8eac69408f787d4e55",
+              ".inference/upstream/adapters/imajev-4b/mlx/adapters.safetensors": "aecbdaefad58f342becd1ed72cb2322b59d2e6b465d85d2fb5d400a6dbffa135",
+              ".inference/upstream/adapters/imajev-4b/mlx/decision_readout.json": "4bc0237812d7d8c2611e60f1e7d0de8f108a9c18fbb8402aefecc3c71c54d68c",
+              ".inference/upstream/adapters/imajev-4b/mlx/decision_readout.safetensors": "3af52f411763b973d80e9909bbe28c14d8635aff389e4fc109489d06c7f7c047"
+            }
+          }
+        }
+      },
+      "seconds": 9.67895581398625
+    },
+    {
+      "expected": "capture_E4",
+      "selected": "capture_E4",
+      "request": {
+        "state": {
+          "game": "boku",
+          "board": {
+            "A1": "",
+            "A2": "",
+            "A3": "",
+            "A4": "",
+            "A5": "",
+            "B1": "Black",
+            "B2": "",
+            "B3": "Black",
+            "B4": "",
+            "B5": "",
+            "B6": "",
+            "C1": "",
+            "C2": "Black",
+            "C3": "White",
+            "C4": "White",
+            "C5": "Black",
+            "C6": "",
+            "C7": "",
+            "D1": "White",
+            "D2": "White",
+            "D3": "",
+            "D4": "Black",
+            "D5": "",
+            "D6": "White",
+            "D7": "Black",
+            "D8": "",
+            "E1": "Black",
+            "E2": "Black",
+            "E3": "Black",
+            "E4": "Black",
+            "E5": "White",
+            "E6": "",
+            "E7": "",
+            "E8": "",
+            "E9": "",
+            "F1": "",
+            "F2": "",
+            "F3": "",
+            "F4": "White",
+            "F5": "Black",
+            "F6": "",
+            "F7": "",
+            "F8": "",
+            "F9": "",
+            "F10": "",
+            "G1": "",
+            "G2": "",
+            "G3": "",
+            "G4": "",
+            "G5": "White",
+            "G6": "",
+            "G7": "",
+            "G8": "",
+            "G9": "",
+            "H1": "",
+            "H2": "",
+            "H3": "",
+            "H4": "",
+            "H5": "",
+            "H6": "",
+            "H7": "",
+            "H8": "",
+            "I1": "",
+            "I2": "",
+            "I3": "",
+            "I4": "",
+            "I5": "",
+            "I6": "",
+            "I7": "",
+            "J1": "",
+            "J2": "",
+            "J3": "",
+            "J4": "",
+            "J5": "",
+            "J6": "",
+            "K1": "",
+            "K2": "",
+            "K3": "",
+            "K4": "",
+            "K5": ""
+          },
+          "coordinates": {
+            "A1": [
+              5,
+              0
+            ],
+            "A2": [
+              6,
+              0
+            ],
+            "A3": [
+              7,
+              0
+            ],
+            "A4": [
+              8,
+              0
+            ],
+            "A5": [
+              9,
+              0
+            ],
+            "B1": [
+              4,
+              1
+            ],
+            "B2": [
+              5,
+              1
+            ],
+            "B3": [
+              6,
+              1
+            ],
+            "B4": [
+              7,
+              1
+            ],
+            "B5": [
+              8,
+              1
+            ],
+            "B6": [
+              9,
+              1
+            ],
+            "C1": [
+              3,
+              2
+            ],
+            "C2": [
+              4,
+              2
+            ],
+            "C3": [
+              5,
+              2
+            ],
+            "C4": [
+              6,
+              2
+            ],
+            "C5": [
+              7,
+              2
+            ],
+            "C6": [
+              8,
+              2
+            ],
+            "C7": [
+              9,
+              2
+            ],
+            "D1": [
+              2,
+              3
+            ],
+            "D2": [
+              3,
+              3
+            ],
+            "D3": [
+              4,
+              3
+            ],
+            "D4": [
+              5,
+              3
+            ],
+            "D5": [
+              6,
+              3
+            ],
+            "D6": [
+              7,
+              3
+            ],
+            "D7": [
+              8,
+              3
+            ],
+            "D8": [
+              9,
+              3
+            ],
+            "E1": [
+              1,
+              4
+            ],
+            "E2": [
+              2,
+              4
+            ],
+            "E3": [
+              3,
+              4
+            ],
+            "E4": [
+              4,
+              4
+            ],
+            "E5": [
+              5,
+              4
+            ],
+            "E6": [
+              6,
+              4
+            ],
+            "E7": [
+              7,
+              4
+            ],
+            "E8": [
+              8,
+              4
+            ],
+            "E9": [
+              9,
+              4
+            ],
+            "F1": [
+              0,
+              5
+            ],
+            "F2": [
+              1,
+              5
+            ],
+            "F3": [
+              2,
+              5
+            ],
+            "F4": [
+              3,
+              5
+            ],
+            "F5": [
+              4,
+              5
+            ],
+            "F6": [
+              5,
+              5
+            ],
+            "F7": [
+              6,
+              5
+            ],
+            "F8": [
+              7,
+              5
+            ],
+            "F9": [
+              8,
+              5
+            ],
+            "F10": [
+              9,
+              5
+            ],
+            "G1": [
+              0,
+              6
+            ],
+            "G2": [
+              1,
+              6
+            ],
+            "G3": [
+              2,
+              6
+            ],
+            "G4": [
+              3,
+              6
+            ],
+            "G5": [
+              4,
+              6
+            ],
+            "G6": [
+              5,
+              6
+            ],
+            "G7": [
+              6,
+              6
+            ],
+            "G8": [
+              7,
+              6
+            ],
+            "G9": [
+              8,
+              6
+            ],
+            "H1": [
+              0,
+              7
+            ],
+            "H2": [
+              1,
+              7
+            ],
+            "H3": [
+              2,
+              7
+            ],
+            "H4": [
+              3,
+              7
+            ],
+            "H5": [
+              4,
+              7
+            ],
+            "H6": [
+              5,
+              7
+            ],
+            "H7": [
+              6,
+              7
+            ],
+            "H8": [
+              7,
+              7
+            ],
+            "I1": [
+              0,
+              8
+            ],
+            "I2": [
+              1,
+              8
+            ],
+            "I3": [
+              2,
+              8
+            ],
+            "I4": [
+              3,
+              8
+            ],
+            "I5": [
+              4,
+              8
+            ],
+            "I6": [
+              5,
+              8
+            ],
+            "I7": [
+              6,
+              8
+            ],
+            "J1": [
+              0,
+              9
+            ],
+            "J2": [
+              1,
+              9
+            ],
+            "J3": [
+              2,
+              9
+            ],
+            "J4": [
+              3,
+              9
+            ],
+            "J5": [
+              4,
+              9
+            ],
+            "J6": [
+              5,
+              9
+            ],
+            "K1": [
+              0,
+              10
+            ],
+            "K2": [
+              1,
+              10
+            ],
+            "K3": [
+              2,
+              10
+            ],
+            "K4": [
+              3,
+              10
+            ],
+            "K5": [
+              4,
+              10
+            ]
+          },
+          "current_player": "White",
+          "phase": "capture",
+          "reserves": {
+            "Black": 25,
+            "White": 28
+          },
+          "forbidden": null,
+          "rules": "Black starts. Players place one stone on an empty space. Five or more adjacent stones in a straight line on any of the three hexagonal axes wins. A placement sandwiching exactly two enemy stones between friendly endpoints requires removing exactly one eligible enemy stone, even with multiple sandwiches. Return it to its owner. The opponent cannot use the removed space on their next placement. Complete capture before checking a win; otherwise an exhausted reserve or a full board without a winner draws. Each player has 36 stones.",
+          "pending_placement": "F4",
+          "recent_turns": [
+            {
+              "player": "White",
+              "place": "D6"
+            },
+            {
+              "player": "Black",
+              "place": "F5",
+              "capture": "E5"
+            },
+            {
+              "player": "White",
+              "place": "G5",
+              "capture": "E4"
+            },
+            {
+              "player": "Black",
+              "place": "D7",
+              "capture": "D5"
+            },
+            {
+              "player": "White",
+              "place": "E4"
+            },
+            {
+              "player": "Black",
+              "place": "C2",
+              "capture": "E4"
+            },
+            {
+              "player": "White",
+              "place": "C3"
+            },
+            {
+              "player": "Black",
+              "place": "E4"
+            },
+            {
+              "player": "White",
+              "place": "E5"
+            },
+            {
+              "player": "Black",
+              "place": "B1"
+            },
+            {
+              "player": "White",
+              "place": "C4"
+            },
+            {
+              "player": "Black",
+              "place": "B3",
+              "capture": "D3"
+            }
+          ],
+          "strategy": [
+            "win immediately",
+            "otherwise prevent Black winning next turn"
+          ],
+          "candidate_fact_defaults": {
+            "wins_now": false,
+            "blocks_Black_win_next_turn": false,
+            "allows_Black_win_next_turn": false
+          },
+          "candidate_fact_scope": "Omitted candidate fact flags are false. Facts include completed mandatory captures. Placement flags assume White chooses its best eligible capture: wins_now means a winning completion exists; allows_Black_win_next_turn means every completion allows a Black win; blocks_Black_win_next_turn means Black currently threatens a win and a safe completion exists. capture_options gives the facts for each individual capture choice. These facts cover only immediate wins and one Black reply, not longer-term strength."
+        },
+        "questions": {
+          "move": {
+            "type": "choice",
+            "instructions": "Choose exactly one eligible enemy stone to remove for White. Compare the consequences of each legal action through completion of any mandatory capture. Follow the ordered strategy; earlier rules override later rules.",
+            "criteria": {
+              "capture_D4": {
+                "allows_Black_win_next_turn": true
+              },
+              "capture_E4": {
+                "blocks_Black_win_next_turn": true
+              }
+            }
+          }
+        }
+      },
+      "reply": {
+        "model": "imajev-4b-nf4",
+        "answers": {
+          "move": {
+            "type": "choice",
+            "choice": "capture_E4",
+            "probabilities": {
+              "capture_D4": 0.41535320383072755,
+              "capture_E4": 0.5846467961692724
+            },
+            "confidence": 0.15670840074232092,
+            "unknown_probability": 0.07433944440765738,
+            "abstained": false,
+            "calibration_version": "p3-r2-s000291-authored"
+          }
+        },
+        "usage": {
+          "prefill_ms": 0.0,
+          "questions_ms": 4961.8,
+          "input_tokens": 2473,
+          "rotations": 4,
+          "total_ms": 4969.5,
+          "images": [
+            {
+              "sha256": "c23b33a5624fe2aaa49a272f112848d7539a3eacd01c57d57f3141b77ddc2bad",
+              "width": 768,
+              "height": 768
+            }
+          ]
+        },
+        "service": {
+          "busy": false,
+          "coaching": true,
+          "runtime_id": "e17b7ab7-5dbf-4402-8d9a-dbeda07a259a",
+          "coach_protocol": 2,
+          "provenance": {
+            "version": 2,
+            "model": "4b-nf4",
+            "upstream_commit": "ccf586d43d2a580319b6535c893668904d909eb9",
+            "base_revision": "851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a",
+            "adapter_revision": "f8d8234cebc6c99065c07731e59716dc0a6e27ab",
+            "quantization": {
+              "backend": "bitsandbytes",
+              "version": "0.50.2",
+              "format": "nf4",
+              "compute_dtype": "bfloat16",
+              "double_quant": true
+            },
+            "assets_sha256": {
+              ".inference/upstream/.cache/huggingface/hub/models--Qwen--Qwen3.5-4B/snapshots/851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a/LICENSE": "bbedc3fda3305820b977265f01b8619d87570a6739de3a5582c3464840f1e57a",
+              ".inference/upstream/.cache/huggingface/hub/models--Qwen--Qwen3.5-4B/snapshots/851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a/chat_template.jinja": "a4aee8afcf2e0711942cf848899be66016f8d14a889ff9ede07bca099c28f715",
+              ".inference/upstream/.cache/huggingface/hub/models--Qwen--Qwen3.5-4B/snapshots/851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a/config.json": "ddc63e1c717afa86c865bb5e01313d89d72bb53b97ad4a8a03ba8510c0621670",
+              ".inference/upstream/.cache/huggingface/hub/models--Qwen--Qwen3.5-4B/snapshots/851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a/merges.txt": "a9d356d7bdf1ef4949e3e748e95b8e10ad9d4e2e838eddc38a0a7b6b94d1db8d",
+              ".inference/upstream/.cache/huggingface/hub/models--Qwen--Qwen3.5-4B/snapshots/851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a/model.safetensors-00001-of-00002.safetensors": "26a93f066e1916adb13453dae5a0c707c0fbc71299ed98779571a907b8e74c61",
+              ".inference/upstream/.cache/huggingface/hub/models--Qwen--Qwen3.5-4B/snapshots/851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a/model.safetensors-00002-of-00002.safetensors": "cb544bd9bfae93dc59b0f22b292f5933573854a7f9b97835c67060d7d910e188",
+              ".inference/upstream/.cache/huggingface/hub/models--Qwen--Qwen3.5-4B/snapshots/851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a/model.safetensors.index.json": "cf3f798ee02ba45f9622aa8892a47369ab667d0afbf154ee7c2212de42e6302d",
+              ".inference/upstream/.cache/huggingface/hub/models--Qwen--Qwen3.5-4B/snapshots/851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a/preprocessor_config.json": "27225450ac9c6529872ee1924fcb0962ff5634834f817040f444118116f4e516",
+              ".inference/upstream/.cache/huggingface/hub/models--Qwen--Qwen3.5-4B/snapshots/851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a/tokenizer.json": "5f9e4d4901a92b997e463c1f46055088b6cca5ca61a6522d1b9f64c4bb81cb42",
+              ".inference/upstream/.cache/huggingface/hub/models--Qwen--Qwen3.5-4B/snapshots/851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a/tokenizer_config.json": "316230d6a809701f4db5ea8f8fc862bc3a6f3229c937c174e674ff3ca0a64ac8",
+              ".inference/upstream/.cache/huggingface/hub/models--Qwen--Qwen3.5-4B/snapshots/851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a/video_preprocessor_config.json": "7768af27c1fafa9cc9011c1dc20067e03f8915e03b63504550e11d5066986d13",
+              ".inference/upstream/.cache/huggingface/hub/models--Qwen--Qwen3.5-4B/snapshots/851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a/vocab.json": "ce99b4cb2983d118806ce0a8b777a35b093e2000a503ebde25853284c9dfa003",
+              ".inference/upstream/adapters/imajev-4b/.gitattributes": "c474170dc4c1773e8e8cb20dd68378357e53faf86e63b6f2f3c6cf24da07de2e",
+              ".inference/upstream/adapters/imajev-4b/README.md": "7a2aa695acc2c16d2f0c3d1242bc998f75c9132197fef3bf7690d09eb2e2f9ad",
+              ".inference/upstream/adapters/imajev-4b/RELEASE-SPEC.md": "e9ce33082919f0aa3835bfe3b443b2aab012cb3aa1512881f59f8f151802648c",
+              ".inference/upstream/adapters/imajev-4b/SHA256SUMS": "c76118e5d5acbb4fa87506bde0c402cc879cca6bede489533e36fcc5689137a6",
+              ".inference/upstream/adapters/imajev-4b/adapter_config.json": "a5bad80823e9768c82a8e7459bec6c6b77f835306ddcc9b3ecfe514238b5806e",
+              ".inference/upstream/adapters/imajev-4b/adapter_model.safetensors": "88c2c44361e0c469352495abcfee789ff73a4deae0811168d9402cfc2b6e749c",
+              ".inference/upstream/adapters/imajev-4b/assets/automation-dark.png": "7e18c7a1088102da25395bfda635f3b4552886bb9dc0aea4eeb0c6d4cc5d50ff",
+              ".inference/upstream/adapters/imajev-4b/assets/automation.png": "ad53c297986772375926672f026dee0e6b3e440f1b9ed88531fe1152d9e1a3e0",
+              ".inference/upstream/adapters/imajev-4b/assets/highlights-dark.png": "bf609882cc75efa31c0df9be711f4ed3f8b052c076fa457a3b75093a5e456e2a",
+              ".inference/upstream/adapters/imajev-4b/assets/highlights.png": "34f927fdb0215501700e876758280c8c882d1ec0e3a0a0e045010507f515aac5",
+              ".inference/upstream/adapters/imajev-4b/assets/logo-dark.png": "024880da4b1945bdd00ccf5f79705ee75397675192de88e14194b9ae2be66e8e",
+              ".inference/upstream/adapters/imajev-4b/assets/logo-light.png": "fd0475ff49a9e03add1091c5f92422518d9d28bf835f95eeb15bf519707e3cf9",
+              ".inference/upstream/adapters/imajev-4b/assets/proof-decisionbench.png": "2fce18a47e888a03a190c16e46c03901e2e4e3aa43c21eae6e5783d7989a60ca",
+              ".inference/upstream/adapters/imajev-4b/assets/proof-image-jevbench.png": "12846a36d8f005e5d7877cee0732fbb4e7062f1f98e79ecdc834cec78bd299c3",
+              ".inference/upstream/adapters/imajev-4b/assets/proof-jevbench-score.png": "a65ad9a182d0a3a74c4e5e281d28b8201b5c5bfc3bf8370f5ddcdcc1a966c670",
+              ".inference/upstream/adapters/imajev-4b/assets/ranks-dark.png": "d1c6b9dca603ef86bfe2d3a687c7942e20600b6800922cfd7349bf4a6bfb0235",
+              ".inference/upstream/adapters/imajev-4b/assets/ranks-light.png": "0bd152368b4dff9f6c62f759ace4a133d8c7693b1a46ad4b4235628983bd8e46",
+              ".inference/upstream/adapters/imajev-4b/assets/request-listing-dark.png": "e2d3f749f7fbf29db9ed47da2eeeb887b60cb2f36371d91eca3f2f43ba3f49cd",
+              ".inference/upstream/adapters/imajev-4b/assets/request-listing.png": "f5304fe56ea87f4cf2ca7c9d0af26dccf75aaafa33a1817b132e15b2a6e504bf",
+              ".inference/upstream/adapters/imajev-4b/assets/request-ticket-dark.png": "1430bfdd76e1ee8166c17f6bd98127cb2ecbc8d8894031373e493b137dfd7705",
+              ".inference/upstream/adapters/imajev-4b/assets/request-ticket.png": "4619e1d6d549ea3402592bb2ec8c69cd77bf6dd39ffc17d367dee6a484cd15d8",
+              ".inference/upstream/adapters/imajev-4b/calibration-modality.json": "dd01751dc961f712220ade9c561f9de9f6b586476e79fc0525ab3358818c3cb5",
+              ".inference/upstream/adapters/imajev-4b/calibration-rot4-modality.json": "dd01751dc961f712220ade9c561f9de9f6b586476e79fc0525ab3358818c3cb5",
+              ".inference/upstream/adapters/imajev-4b/calibration-rot4.json": "1ef51558c476d27b04b729a5144d81fcaa19d860abc2f51e72c2e9d89268de4b",
+              ".inference/upstream/adapters/imajev-4b/calibration.json": "1ef51558c476d27b04b729a5144d81fcaa19d860abc2f51e72c2e9d89268de4b",
+              ".inference/upstream/adapters/imajev-4b/ckpt.json": "56c22205e9ecb3b9675944278c62b8bd404eedb3030602c59765a6e73b740de8",
+              ".inference/upstream/adapters/imajev-4b/decision_readout.json": "4bc0237812d7d8c2611e60f1e7d0de8f108a9c18fbb8402aefecc3c71c54d68c",
+              ".inference/upstream/adapters/imajev-4b/decision_readout.safetensors": "52ceafd7d824bf3ea5ce55276b48cc08ba9dd6b2c98a55d9bd6a72ed1643a427",
+              ".inference/upstream/adapters/imajev-4b/mlx/adapter_config.json": "dec5c599785234b647330c39affffd8096ed3725da56db8eac69408f787d4e55",
+              ".inference/upstream/adapters/imajev-4b/mlx/adapters.safetensors": "aecbdaefad58f342becd1ed72cb2322b59d2e6b465d85d2fb5d400a6dbffa135",
+              ".inference/upstream/adapters/imajev-4b/mlx/decision_readout.json": "4bc0237812d7d8c2611e60f1e7d0de8f108a9c18fbb8402aefecc3c71c54d68c",
+              ".inference/upstream/adapters/imajev-4b/mlx/decision_readout.safetensors": "3af52f411763b973d80e9909bbe28c14d8635aff389e4fc109489d06c7f7c047"
+            }
+          }
+        }
+      },
+      "seconds": 5.0597097580030095
+    }
+  ],
+  "error": null,
+  "Black_immediate_wins": [],
+  "passed": true
+}

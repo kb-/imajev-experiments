@@ -66,7 +66,7 @@ def probe_model(game, state, result, config_path):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--session', type=Path, default=Path('sessions/015e9e8c-b396-44c2-b431-fc059e97bb85/session.json'))
+    parser.add_argument('--session', type=Path, default=Path('docs/evaluation/fixtures/boku/capture-trap-session.json'))
     parser.add_argument('--revision', type=int, default=25)
     parser.add_argument('--actions', nargs='*')
     parser.add_argument('--output', type=Path, default=Path('logs/boku-capture-traps.json'))

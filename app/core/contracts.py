@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from typing import Any, Mapping, Protocol
+from app.core.game_policy import SessionPolicy
 
 
 @dataclass(frozen=True)
@@ -23,11 +24,28 @@ class Outcome:
 
 
 @dataclass(frozen=True)
+class Stone:
+    x: float
+    y: float
+    radius: float
+    player: str
+    colors: tuple[str, str, str, str]
+
+
+@dataclass(frozen=True)
 class Scene:
     lines: tuple[tuple[float, float, float, float], ...] = ()
     labels: tuple[tuple[str, float, float], ...] = ()
     circles: tuple[tuple[float, float, float], ...] = ()
     strokes: tuple[Stroke, ...] = ()
+    stones: tuple[Stone, ...] = ()
+    pockets: tuple[tuple[float, float, float], ...] = ()
+    highlights: tuple[tuple[float, float, float, str], ...] = ()
+    background: str = '#faf8f1'
+    label_color: str = '#929b93'
+    line_width: float = .004
+    # Render labels last with a background patch so ink cannot obscure their IDs.
+    protect_labels: bool = False
 
 
 @dataclass(frozen=True)
@@ -63,6 +81,8 @@ class Game(Protocol):
     human_player: str
     computer_player: str
     instruction: str
+    session_policy: SessionPolicy
+    def instruction_for(self, state: Any) -> str: ...
     def initial_state(self) -> Any: ...
     def current_player(self, state: Any) -> str: ...
     def revision(self, state: Any) -> int: ...

@@ -238,18 +238,20 @@ The test suite covers reachable-board rules, recognition/protocol checks, tactic
 
 ## Adding another game
 
-Implement the `Game` protocol in `app/core/contracts.py` and register the implementation in `app/core/registry.py`. The controller expects the game to supply states, legal actions, outcomes, scenes, model requests, answer validation, and state serialization. Optional capabilities such as `retry_decision_request`, `tactical_choice`, and `supports_opening_suggestion` are discovered separately.
+The [Boku implementation](boku-implementation.md) adds drawn circles converted to realistic stones, drawn Xs for capture, and a game-specific rules prompt.
 
-Games can optionally implement `initial_state_for_player(player)` to support alternating starters. The UI requests alternation with `new_game(alternate_starter=True)`; direct controller resets default to the human starter.
+Implement the `Game` protocol and register it in the application registry. Each game package owns its authoritative rules, recognition and decision prompts, geometry, serialization, and a `SessionPolicy`. The policy supplies prompt choices, starter selection, assistance, presentation, saved metadata and a coaching policy. Both registered games support Original, Quoted and Coached quoted plus the shared Move variety control.
 
-The controller is tested with a small second game, but the current window still contains tic-tac-toe-specific labels and instructions. Adding a production game also requires adapting those UI elements and providing its own rule, rendering, protocol, and lifecycle coverage.
+The controller delegates game-specific behavior through explicit interfaces. Shared code contains no concrete game imports outside the registry. Drawing, rendering primitives, sampling, background jobs, process ownership, atomic storage and coaching orchestration are common infrastructure. Scenes specify colors and line geometry; rendering never chooses a palette by player name. Tic-tac-toe alternates starters; Boku always starts Black.
+
+Coaching policies supply ordered strategy defaults, game-specific instructions and replayed history. The generic store isolates games and interprets outcomes using the policy’s player identity. Tic-tac-toe retains its legacy storage path; Boku uses its own subdirectory. Old Boku saves without coaching metadata ignore their previously unused tic-tac-toe prompt field and resume Original.
 
 
 ## Coached quoted and service ownership
 
-[Coached quoted](coached-quoted.md) adds a third move-prompt choice. It retains Quoted's candidate facts but replaces its full strategy with a persistent ordered list, initially only win and block. Each game snapshots the list and revision, including on resume. Coached play disables commit-time tactical corrections. Retry rephrases the decision while preserving the rule list; abstentions do not request coaching.
+[Coached quoted](coached-quoted.md) adds a third move-prompt choice. In tic-tac-toe it retains Quoted's candidate facts but replaces its full strategy with a persistent ordered list, initially only win and block. Each game snapshots the list and revision, including on resume. Coached play disables commit-time tactical corrections. Retry rephrases the decision while preserving the rule list; abstentions do not request coaching.
 
-Only an Imajev loss launches a background coaching job. The coach diagnoses the triggering loss first, then receives that explanation in a separate request to revise the ordered rules. The diagnosis appears immediately in inline Diagnostics and survives a failed revision or resume. The compact window contains every completed coached game since the last successful update, including draws and wins. Oversized windows use batch summaries with coverage recorded at each stage. The final request retains the complete triggering loss. A validated ordered rule list (normalized from numbered text or JSON) and consumed history IDs are committed in one atomic ledger update under an interprocess lock. The logical game ID prevents duplicate successful updates after restore.
+Only an Imajev loss launches a background coaching job. The coach diagnoses the triggering loss first, then receives that explanation in a separate request to revise the ordered rules. The diagnosis appears immediately in inline Diagnostics and survives a failed revision or resume. The compact window contains every completed coached game since the last successful update, including draws and wins. Oversized windows use batch summaries with coverage recorded at each stage. Small triggering losses remain verbatim; long Boku games use ordered action-segment summaries with exact terminal positions. Coverage remains recorded, and every stage retains the game rules and geometry. A validated ordered rule list (normalized from numbered text or JSON) and consumed history IDs are committed in one atomic ledger update under an interprocess lock. The logical game ID prevents duplicate successful updates after restore.
 
 ```mermaid
 sequenceDiagram
@@ -258,16 +260,17 @@ sequenceDiagram
     participant Service as Imajev service
     participant Base as Qwen base LM
     GUI->>Store: Save completed human win
-    GUI->>Service: POST /v1/coach (diagnose triggering loss)
+    GUI->>Service: POST /v1/coach (prepared diagnosis messages)
     Service->>Base: Disable adapter under lock; diagnose; restore adapter
     Base-->>GUI: Loss diagnosis
     GUI->>GUI: Display diagnosis in inline Diagnostics
-    GUI->>Service: POST /v1/coach (diagnosis, rules and history)
+    GUI->>Service: POST /v1/coach (prepared revision messages)
     Service->>Service: Acquire inference lock
     Service->>Base: Disable PEFT adapter; generate numbered rules
     Base-->>Service: Ordered rule list
     Service->>Service: Restore adapter; release caches and lock
-    Service-->>GUI: Rules, usage and provenance
+    Service-->>GUI: Raw text, truncation, usage and provenance
+    GUI->>GUI: Validate game strategy response
     GUI->>Service: Readiness and image warm-up
     GUI->>Store: Atomic revision + consumed game IDs
     GUI->>GUI: Enable New game with updated rules
@@ -295,3 +298,6 @@ sequenceDiagram
 ```
 
 Ollama requires process ownership. An unconfirmed unload blocks restart and Continue. Failures retain the old rules and unconsumed history, with Retry coaching and Continue offered inline. No unrelated process or Ollama model is terminated. The selected model must already be installed; gameplay downloads nothing. Shared coaching is the default and never falls back to Ollama automatically.
+
+
+The `/v1/coach` protocol is version 2: input contains prepared `messages`; output contains `response_text`, `truncated`, usage and provenance. `/v1/status` advertises `coach_protocol: 2`; older external services require a restart with the updated launcher. Servers and Ollama transports neither build game prompts nor parse strategies. Shared Qwen accepts up to 4,096 input tokens and generates at most 512 output tokens. Application history budgets are 14,000 bytes for shared Qwen and 18,000 for Ollama; the shared tokenizer remains authoritative and can request further reduction. Ollama retains its 8,192-token context window. Boku’s rules and axial geometry appear in diagnosis, summary and revision requests, including every history reduction stage.

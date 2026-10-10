@@ -12,6 +12,7 @@ from urllib.parse import urlsplit
 
 POWERSHELL = Path('/mnt/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe')
 PATHS = {'/api/ps', '/api/tags', '/api/chat', '/api/generate', '/api/show'}
+MAX_REQUEST_BYTES = 8 * 1024 * 1024
 
 
 def forward(method, path, body, port):
@@ -42,7 +43,7 @@ class Handler(BaseHTTPRequestHandler):
     def handle_request(self):
         try:
             length = int(self.headers.get('Content-Length', 0))
-            if not 0 <= length <= 1_000_000:
+            if not 0 <= length <= MAX_REQUEST_BYTES:
                 raise ValueError('Request is oversized.')
             status, body = forward(self.command, self.path, self.rfile.read(length), self.server.windows_port)
         except Exception as exc:

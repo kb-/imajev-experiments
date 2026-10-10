@@ -138,21 +138,21 @@ def fake_ollama(monkeypatch, unrelated=False, failed=False, unload_failure=False
 
 def test_ollama_pipeline_swap_order(monkeypatch):
     manager,trace=fake_ollama(monkeypatch)
-    result=manager.ollama(lambda invoke:invoke({'task':'update','games':[]}))
-    assert result['strategy']==['win','learn']
+    result=manager.ollama(lambda invoke:invoke({'messages':[{'role':'user','content':'Revise rules.'}]}))
+    assert result['response_text']=='{"strategy":["win","learn"]}' and not result['truncated']
     assert trace.index('stop')<trace.index('chat')<trace.index('generate')<trace.index('start')
     assert trace[-2:]==['ps','start']
 
 
 def test_ollama_generation_failure_still_unloads_and_restarts(monkeypatch):
     manager,trace=fake_ollama(monkeypatch,failed=True)
-    with pytest.raises(RuntimeError,match='Generation failed'): manager.ollama(lambda invoke:invoke({'task':'update'}))
+    with pytest.raises(RuntimeError,match='Generation failed'): manager.ollama(lambda invoke:invoke({'messages':[{'role':'user','content':'Revise rules.'}]}))
     assert trace[-3:]==['generate','ps','start'] and not manager.swap_pending
 
 
 def test_ollama_unload_failure_blocks_restart_and_continue(monkeypatch):
     manager,trace=fake_ollama(monkeypatch,unload_failure=True)
-    with pytest.raises(RuntimeError,match='Unload failed'): manager.ollama(lambda invoke:invoke({'task':'update'}))
+    with pytest.raises(RuntimeError,match='Unload failed'): manager.ollama(lambda invoke:invoke({'messages':[{'role':'user','content':'Revise rules.'}]}))
     assert manager.swap_pending and 'start' not in trace
     with pytest.raises(RuntimeError,match='Unload failed'): manager.recover()
     assert 'start' not in trace

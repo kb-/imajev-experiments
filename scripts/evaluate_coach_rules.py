@@ -13,10 +13,13 @@ from PyQt6.QtWidgets import QApplication
 from app.config import load_config
 from app.games.tic_tac_toe.game import TicTacToe, CELLS
 from app.games.tic_tac_toe.coaching import enrich_game
-from app.inference.coach import shared_coach, coach_pipeline
+from app.inference.coach import shared_coach, coach_pipeline, prepared_transport
 from app.inference.imajev_client import ImajevClient
 from app.inference.service_manager import ServiceManager
-from app.storage.coached import BASIC_QUOTED_STRATEGY, CoachedStore, atomic_json
+from app.storage.coached import CoachedStore
+from app.games.tic_tac_toe.policy import Coaching as TicTacToeCoaching
+from app.games.tic_tac_toe.coaching import BASIC_QUOTED_STRATEGY
+from app.storage.atomic import atomic_json
 from app.ui.rendering import observation_png
 from scripts.evaluate import oracle
 
@@ -37,7 +40,9 @@ def main():
     app=QApplication([])
     config=replace(load_config(Path('config.coached-quoted.yaml')),coach_backend=args.backend,coach_model=args.model)
     manager=ServiceManager(config); client=ImajevClient(config); client.manager=manager
-    original=CoachedStore(args.history).request(args.game_id)
+    from app.games.tic_tac_toe.coaching import coaching_context
+    original=CoachedStore(args.history, TicTacToeCoaching()).request(args.game_id)
+    original['coach_context'] = coaching_context()
     enriched=dict(original,games=[enrich_game(g) if g['game_id']==args.game_id else g for g in original['games']])
     result={'backend':args.backend,'model':args.model if args.backend=='ollama' else config.expected_model,'game_id':args.game_id,'coaching':{},'positions':[],'games':[]}
     start=time.monotonic()
@@ -62,7 +67,7 @@ def main():
             for name,request in variants:
                 before=time.monotonic()
                 if name.startswith('analyzed_'):
-                    diagnostic={'task':'diagnose','games':[request['games'][0]]}
+                    diagnostic={'task':'diagnose','games':[request['games'][0]],'coach_context':request['coach_context']}
                     if request.get('winning_lines'):
                         diagnostic['winning_lines']=request['winning_lines']
                     response=invoke(diagnostic); record({'arm':name,'request':diagnostic,'response':response})
@@ -74,7 +79,7 @@ def main():
                 strategies[name]=response['strategy']; save()
                 print('COACH '+name+' '+json.dumps(strategies[name]),flush=True)
         if args.backend=='ollama':
-            manager.ollama(generate_all)
+            manager.ollama(lambda transport: generate_all(prepared_transport(transport, manager.progress)))
             client.warmup(GAME.recognition_request(state,()),observation_png(GAME.render(state,(),'recognition'),768))
         else:
             generate_all(lambda request:shared_coach(client,request))

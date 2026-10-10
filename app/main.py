@@ -48,10 +48,8 @@ def main():
     controller.log_path = log_path
     window = Window(controller)
     labels = ['Resumed' if args.resume else 'Debug' if args.debug_input else '']
-    if config.tactical_guard and not controller.coached:
+    if controller.policy.tactics_caption(config):
         labels.append('Tactics')
-    if not config.opening_suggestion:
-        labels.append('No opening hint')
     labels = [label for label in labels if label]
     if labels:
         window.setWindowTitle(f'Imajev · Drawing game [{" · ".join(labels)}]')

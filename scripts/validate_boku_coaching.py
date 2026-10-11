@@ -16,14 +16,14 @@ from PyQt6.QtWidgets import QApplication
 from app.config import load_config
 from app.core.session import SessionController
 from app.games.boku.game import Boku
-from app.inference.imajev_client import ImajevClient
+from app.inference.recognition import create_recognizer, metadata as recognition_metadata
 from app.inference.service_manager import ServiceManager
 from app.storage.atomic import atomic_json
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--config', type=Path, default=Path('config.boku.yaml'))
+    parser.add_argument('--config', type=Path, default=Path('configs/boku.yaml'))
     parser.add_argument('--output', type=Path, default=Path('logs/boku-coaching-live'))
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=False)
@@ -31,10 +31,10 @@ def main():
                      learning_directory=args.output/'learning', directory=args.output/'sessions',
                      external_inference=False, save_sessions=True)
     app = QApplication([])
-    c = SessionController(Boku(), ImajevClient(config), config)
+    c = SessionController(Boku(), create_recognizer(config), config)
     manager = ServiceManager(config)
     c.service_manager = manager
-    c.client.manager = manager
+    c.recognizer.manager = manager
     manager.progress = c.progress.emit
     c.changed.connect(lambda: print(c.phase+': '+c.message, flush=True))
     result = {'backend':config.coach_backend, 'fixture':'legal replayed loss; White placements are scripted',

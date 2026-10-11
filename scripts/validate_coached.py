@@ -17,21 +17,21 @@ from PyQt6.QtWidgets import QApplication
 from app.config import load_config
 from app.core.session import SessionController
 from app.games.tic_tac_toe.game import TicTacToe
-from app.inference.imajev_client import ImajevClient
+from app.inference.recognition import create_recognizer, metadata as recognition_metadata
 from app.inference.service_manager import ServiceManager
 from scripts.evaluate import oracle
 
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--config',type=Path,default=Path('config.coached-quoted.yaml'))
+    parser.add_argument('--config',type=Path,default=Path('configs/coached-quoted.yaml'))
     parser.add_argument('--output',type=Path,default=Path('logs')/('coached-quoted-live-'+datetime.now(timezone.utc).strftime('%Y%m%d-%H%M%S')))
     args=parser.parse_args()
     args.output.mkdir(parents=True,exist_ok=False)
     config=replace(load_config(args.config),prompt_variant='coached_quoted',learning_directory=args.output/'learning',external_inference=False)
     app=QApplication([])
-    c=SessionController(TicTacToe(),ImajevClient(config),config)
-    manager=ServiceManager(config); c.service_manager=manager; c.client.manager=manager; manager.progress=c.progress.emit
+    c=SessionController(TicTacToe(),create_recognizer(config),config)
+    manager=ServiceManager(config); c.service_manager=manager; c.recognizer.manager=manager; manager.progress=c.progress.emit
     results={'games':[],'memory_mib':[],'backend':config.coach_backend}
     stop=threading.Event()
     def memory():

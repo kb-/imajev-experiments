@@ -76,13 +76,26 @@ class ImajevClient:
         self.uncertain_busy = False
         self.service_metadata = metadata
 
-    def decide(self, request: dict, image: bytes, timeout=None) -> Reply:
+    def decide(self, request: dict, image: bytes | None, timeout=None) -> Reply:
+        if self.manager and not self.config.external_inference:
+            def recognise_after_activation():
+                # A running child process may still be loading its weights.
+                # Opponent turns unload this service, so await readiness again.
+                self.wait_ready()
+                return self._decide(request, image, timeout)
+            return self.manager.run_imajev(self.config, recognise_after_activation)
+        return self._decide(request, image, timeout)
+
+    def _decide(self, request: dict, image: bytes | None, timeout=None) -> Reply:
         import json
         try:
             with httpx.Client(timeout=timeout or self.config.request_timeout, trust_env=False, follow_redirects=False) as client:
                 self._check_busy(client)
-                response = client.post(self.config.endpoint, data={'request': json.dumps(request)},
-                                       files={'image': ('board.png', image, 'image/png')})
+                if image is None:
+                    response = client.post(self.config.endpoint, json=request)
+                else:
+                    response = client.post(self.config.endpoint, data={'request': json.dumps(request)},
+                                           files={'image': ('board.png', image, 'image/png')})
             if response.status_code >= 400:
                 detail = response.text[:300]
                 if response.status_code == 409:
@@ -96,7 +109,11 @@ class ImajevClient:
                 raw = response.json()
             except ValueError as exc:
                 raise InferenceError('The service returned malformed JSON. Check its logs and retry.') from exc
-            parsed = parse_reply(raw, request, self.config.expected_model)
+            try:
+                parsed = parse_reply(raw, request, self.config.expected_model)
+            except InferenceError as exc:
+                exc.raw = raw
+                raise
             if self.service_metadata:
                 raw['service'] = self.service_metadata
             return parsed
@@ -106,7 +123,9 @@ class ImajevClient:
         except httpx.RequestError as exc:
             raise Unavailable('Cannot reach Imajev. Start the local service, then Retry.') from exc
 
-    def warmup(self, request: dict, image: bytes) -> Reply:
+    def wait_ready(self):
+        if self.manager and not self.config.external_inference:
+            self.manager.prepare_imajev(self.config)
         # Upstream exposes /v1/models; it has no dedicated readiness/health endpoint.
         parts = urlsplit(self.config.endpoint)
         models_url = urlunsplit((parts.scheme, parts.netloc, '/v1/models', '', ''))
@@ -133,6 +152,10 @@ class ImajevClient:
                 break
             except httpx.RequestError:
                 time.sleep(min(.5, max(0, deadline - time.monotonic())))
+        return deadline
+
+    def warmup(self, request: dict, image: bytes | None) -> Reply:
+        deadline = self.wait_ready()
         # One actual image request validates model/contract and warms its image stack.
         remaining = deadline - time.monotonic()
         if remaining <= 0:

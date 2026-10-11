@@ -186,7 +186,7 @@ def test_coach_success_next_game_snapshot(qapp,tmp_path,monkeypatch):
 
 
 def test_config_coached(tmp_path):
-    assert load_config(__import__('pathlib').Path('config.coached-quoted.yaml')).prompt_variant=='coached_quoted'
+    assert load_config(__import__('pathlib').Path('configs/coached-quoted.yaml')).prompt_variant=='coached_quoted'
     p=tmp_path/'c.yaml'; p.write_text('learning:\n  coach_backend: ollama\n')
     with pytest.raises(ValueError,match='learning.model'): load_config(p)
 

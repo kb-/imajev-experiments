@@ -2,7 +2,7 @@ import json
 import random
 import pytest
 from app.config import Config, load_config
-from app.core.contracts import ChoiceAnswer, Reply
+from app.core.contracts import MoveResult
 from app.core.move_sampling import select_move
 from app.core.session import SessionController
 from app.games.tic_tac_toe.game import TicTacToe
@@ -19,15 +19,22 @@ class NoSampling:
 
 
 def reply(weights, abstained=False):
-    return Reply('test', {'move': ChoiceAnswer(max(weights, key=weights.get), weights, .4, abstained)}, {})
+    return MoveResult(max(weights, key=weights.get), 'test', {}, probabilities=weights, unknown_probability=.4, abstained=abstained)
 
 
 def test_default_and_configured_temperature(tmp_path):
     assert Config().move_temperature == 0
-    assert load_config(tmp_path / 'missing.yaml').move_temperature == 0
+    empty = tmp_path / 'empty.yaml'
+    empty.write_text('{}\n')
+    assert load_config(empty).move_temperature == 0
     path = tmp_path / 'varied.yaml'
     path.write_text('opponent:\n  move_temperature: 1.5\n')
     assert load_config(path).move_temperature == 1.5
+
+
+def test_missing_profile_does_not_silently_select_another_model(tmp_path):
+    with pytest.raises(FileNotFoundError):
+        load_config(tmp_path / 'missing.yaml')
 
 
 @pytest.mark.parametrize('value', ['-1', '3.1', '.nan', '.inf', 'true', 'null', 'bad'])

@@ -68,6 +68,52 @@ class Reply:
 
 
 @dataclass(frozen=True)
+class RecognitionAnswer:
+    choice: str
+    probabilities: Mapping[str, float] | None = None
+    unknown_probability: float | None = None
+    abstained: bool | None = None
+    confidence: float | None = None
+
+
+@dataclass(frozen=True)
+class RecognitionResult:
+    model: str
+    answers: Mapping[str, RecognitionAnswer]
+    raw: Mapping[str, Any]
+    backend: str
+
+    @property
+    def score_kind(self) -> str:
+        return 'effective_probability' if self.backend == 'imajev' else 'choice_probability'
+
+    def score(self, name: str) -> float:
+        answer = self.answers[name]
+        if answer.probabilities is None or answer.choice not in answer.probabilities:
+            raise ValueError('Recognition requires a measured choice distribution.')
+        probability = answer.probabilities[answer.choice]
+        if self.backend == 'imajev':
+            if answer.unknown_probability is None or answer.abstained is None:
+                raise ValueError('ImaJEV recognition requires its uncertainty scores.')
+            return probability * (1 - answer.unknown_probability)
+        return probability
+
+
+@dataclass(frozen=True)
+class MoveResult:
+    """A model proposal; missing scores remain missing rather than synthesized."""
+    choice: str
+    model: str
+    raw: Mapping[str, Any]
+    backend: str = 'imajev'
+    probabilities: Mapping[str, float] | None = None
+    abstained: bool | None = None
+    unknown_probability: float | None = None
+    confidence: float | None = None
+    rejection: str | None = None
+
+
+@dataclass(frozen=True)
 class Ticket:
     session_id: str
     state_revision: int
@@ -91,8 +137,8 @@ class Game(Protocol):
     def outcome(self, state: Any) -> Outcome: ...
     def render(self, state: Any, drawing: tuple[Stroke, ...], purpose: str) -> Scene: ...
     def recognition_request(self, state: Any, drawing: tuple[Stroke, ...]) -> dict: ...
-    def decode_recognition(self, state: Any, drawing: tuple[Stroke, ...], reply: Reply, threshold: float) -> str: ...
+    def decode_recognition(self, state: Any, drawing: tuple[Stroke, ...], reply: RecognitionResult, threshold: float) -> str: ...
     def decision_request(self, state: Any, actions: tuple[Action, ...]) -> dict: ...
-    def decode_decision(self, state: Any, reply: Reply) -> str: ...
+    def decode_decision(self, state: Any, reply: MoveResult) -> str: ...
     def encode_state(self, state: Any) -> dict: ...
     def decode_state(self, record: dict) -> Any: ...

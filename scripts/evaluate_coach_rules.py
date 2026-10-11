@@ -14,7 +14,8 @@ from app.config import load_config
 from app.games.tic_tac_toe.game import TicTacToe, CELLS
 from app.games.tic_tac_toe.coaching import enrich_game
 from app.inference.coach import shared_coach, coach_pipeline, prepared_transport
-from app.inference.imajev_client import ImajevClient
+from app.inference.recognition import create_recognizer, metadata as recognition_metadata
+from app.inference.opponents import create_opponent
 from app.inference.service_manager import ServiceManager
 from app.storage.coached import CoachedStore
 from app.games.tic_tac_toe.policy import Coaching as TicTacToeCoaching
@@ -38,8 +39,8 @@ def main():
     parser.add_argument('--output',type=Path,required=True)
     args=parser.parse_args(); args.output.mkdir(parents=True,exist_ok=False)
     app=QApplication([])
-    config=replace(load_config(Path('config.coached-quoted.yaml')),coach_backend=args.backend,coach_model=args.model)
-    manager=ServiceManager(config); client=ImajevClient(config); client.manager=manager
+    config=replace(load_config(Path('configs/coached-quoted.yaml')),coach_backend=args.backend,coach_model=args.model)
+    manager=ServiceManager(config); client=create_recognizer(config); client.manager=manager; opponent=create_opponent(config,client,manager)
     from app.games.tic_tac_toe.coaching import coaching_context
     original=CoachedStore(args.history, TicTacToeCoaching()).request(args.game_id)
     original['coach_context'] = coaching_context()
@@ -51,15 +52,15 @@ def main():
         with (args.output/'coaching.jsonl').open('a') as stream: stream.write(json.dumps(stage,ensure_ascii=False)+'\n')
     def decide(state,rules,label):
         request=GAME.decision_request(state,GAME.legal_actions(state),prompt_variant='coached_quoted',strategy=rules)
-        before=time.monotonic(); reply=client.decide(request,observation_png(GAME.render(state,(),'decision'),768)); elapsed=time.monotonic()-before
-        answer=reply.answers['move']; choice='place_'+answer.choice
+        before=time.monotonic(); reply=opponent.choose_move(request,observation_png(GAME.render(state,(),'decision'),768)); elapsed=time.monotonic()-before
+        answer=reply; choice=GAME.decode_decision(state,reply)
         scores={a.id:oracle((after:=GAME.apply_action(state,a.id)).board,after.next_player) for a in GAME.legal_actions(state)}
         value={'choice':choice,'abstained':answer.abstained,'correct':not answer.abstained and scores[choice]==max(scores.values()),'seconds':elapsed}
         with (args.output/'calls.jsonl').open('a') as stream:
             stream.write(json.dumps({'label':label,'state':GAME.encode_state(state),'request':request,'reply':reply.raw,'score':value})+'\n')
         return value
     try:
-        manager.start(); state=GAME.initial_state(); client.warmup(GAME.recognition_request(state,()),observation_png(GAME.render(state,(),'recognition'),768))
+        state=GAME.initial_state(); client.warmup(GAME.recognition_request(state,()),observation_png(GAME.render(state,(),'recognition'),768))
         strategies={'basic':BASIC_QUOTED_STRATEGY}
         minimal = dict(enriched, games=[dict(g, result_for_O='draw' if g['outcome']=='draw' else 'loss' if g['winner']=='X' else 'win') for g in enriched['games']], revision_instruction='Return the previous strategy with at most one evidence-based rule addition or edit. Keep unaffected rules and their priority order exactly; do not replace the whole list with a generic strategy. Learn one general lesson from the avoidable mistake, rather than the already lost final turn.', winning_lines=[['A1','B1','C1'],['A2','B2','C2'],['A3','B3','C3'],['A1','A2','A3'],['B1','B2','B3'],['C1','C2','C3'],['A1','B2','C3'],['C1','B2','A3']])
         variants = [('analyzed_lines', minimal)] if args.diagnose_first else [('minimal_lines', minimal)] if args.minimal_only else [('focused_history',original),('focused_boards',enriched),('analyzed_boards',enriched)]
@@ -82,7 +83,7 @@ def main():
             manager.ollama(lambda transport: generate_all(prepared_transport(transport, manager.progress)))
             client.warmup(GAME.recognition_request(state,()),observation_png(GAME.render(state,(),'recognition'),768))
         else:
-            generate_all(lambda request:shared_coach(client,request))
+            generate_all(lambda request:shared_coach(client.client,request))
         frozen=json.loads(Path('data/evaluation/prompting-strategy-positions.json').read_text())['positions'][:11]
         source=json.loads((args.history/'sessions'/args.game_id/'session.json').read_text())
         target=next(e['state'] for e in source['events'] if e.get('ticket',{}).get('purpose')=='decision' and e['ticket']['state_revision']==4)

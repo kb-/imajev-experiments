@@ -1,4 +1,4 @@
-"""Sample legal moves from Imajev preferences, without changing its raw reply."""
+"""Sample legal moves from model preferences, without changing its raw reply."""
 from dataclasses import replace
 import math
 
@@ -11,21 +11,23 @@ def select_move(game, state, reply, temperature, rng):
     proposed = game.decode_decision(state, reply)
     if temperature == 0:
         return proposed, proposed, {}
-    answer = reply.answers['move']
+    answer = reply
+    if answer.probabilities is None:
+        raise ValueError('This opponent supplies no move distribution; set move_temperature to zero.')
     probabilities = {}
     for choice, probability in answer.probabilities.items():
         if not math.isfinite(probability) or probability < 0:
             raise ValueError('Cannot sample invalid move probabilities.')
         if probability == 0:
             continue
-        candidate = replace(reply, answers={**reply.answers, 'move': replace(answer, choice=choice)})
+        candidate = replace(reply, choice=choice)
         try:
             action = game.decode_decision(state, candidate)
         except ValueError:
             continue  # Authoritative game validation excludes illegal choices.
         probabilities[action] = probabilities.get(action, 0) + probability
     if not probabilities:
-        raise ValueError('Imajev returned no positive probability for a legal move.')
+        raise ValueError('The opponent returned no positive probability for a legal move.')
     # Subtract before scaling to avoid overflow at very small temperatures.
     logs = {action: math.log(p) for action, p in probabilities.items()}
     maximum = max(logs.values())

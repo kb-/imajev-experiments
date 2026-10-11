@@ -6,6 +6,7 @@ import pytest
 
 from app.games.boku.game import Boku
 from app.inference.imajev_client import parse_reply
+from app.inference.opponents import create_opponent
 from test_game_separation import make_controller
 from test_session import wait_for
 
@@ -48,6 +49,7 @@ def test_recorded_refusal_and_retry_preserve_board_until_legal_play(qapp, tmp_pa
             return parse_reply(row['reply'], request, row['reply']['model'])
 
     controller.client = RecordedClient()
+    controller.opponent = create_opponent(controller.config, controller.client)
     controller._launch('decision')
     wait_for(qapp, lambda: not controller.busy)
     assert controller.phase == 'error'

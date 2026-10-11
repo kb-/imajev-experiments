@@ -40,7 +40,7 @@ def test_retry_changes_request_and_preserves_accepted_x(qapp):
     assert 'Decision · retry 1' in history
     assert fake.requests[0]['questions']['move']['instructions'] in history
     assert fake.requests[1]['questions']['move']['instructions'] in history
-    assert 'Result: Imajev abstained' in history
+    assert 'Result: The opponent abstained' in history
 
 
 def test_resume_paused_computer_turn(qapp, tmp_path):

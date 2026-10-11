@@ -16,7 +16,7 @@ Build a local desktop application where a person draws a move on a game board an
 | Input | Freehand mouse drawing, multiple strokes per move, explicit Submit |
 | Model | Start by validating Imajev-2B on the 8 GB GPU; keep model selection configurable |
 | Networking | Local service only; offline play after dependencies and model files are installed |
-| Packaging | uv project with locked dependencies and config.yaml |
+| Packaging | uv project with locked dependencies and configs/default.yaml |
 | Persistence | Versioned JSON game records and PNG observations; no pickle |
 | Extension scope | Sequential, turn-based games with a finite set of legal actions |
 
@@ -97,7 +97,7 @@ Use an explicit in-process game registry in v1. No dynamic plugin loading or dis
 | `app/games/tic_tac_toe/` | State, rules, rendering and Imajev prompts |
 | `app/storage/session_store.py` | JSON and image records |
 | `tests/` | Rules, lifecycle, protocol and recognition evaluation |
-| `config.yaml`, `pyproject.toml`, `uv.lock` | Reproducible settings and dependencies |
+| `configs/default.yaml`, `pyproject.toml`, `uv.lock` | Reproducible settings and dependencies |
 
 ## 5 Game contracts and state
 

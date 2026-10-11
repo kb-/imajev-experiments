@@ -29,7 +29,11 @@ class SessionPolicy:
     def decision(self, game, state, actions, config, strategy, attempt):
         return game.decision_request(state, actions)
 
-    def correct_action(self, game, state, action, config):
+    def prepare_decision(self, game, state, actions, config, strategy, attempt):
+        """Return the model request and optional local-only tactical evidence."""
+        return self.decision(game, state, actions, config, strategy, attempt), None
+
+    def correct_action(self, game, state, action, config, evidence=None, probabilities=None):
         return action, None
 
     def metadata(self, config, coached):
@@ -42,6 +46,9 @@ class SessionPolicy:
 
     def details(self, state):
         return ''
+
+    def explanation(self, config, mode):
+        return {'rules': '', 'opponent_input': '', 'mode': ''}
 
     def tactics_caption(self, config):
         return ''

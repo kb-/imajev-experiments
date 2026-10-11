@@ -37,7 +37,7 @@ The launcher checks source revision, all required local model/processor/tokenize
 
 ## Default Imajev-4B NF4 profile
 
-The standard setup and launch scripts delegate to `setup_inference_4b_nf4.sh` and `launch_inference_4b_nf4.sh`. The GUI defaults to `imajev-4b-nf4` with a 45-second request timeout and 300-second startup budget. `config.4b-nf4.yaml` remains available as an explicit profile; it is no longer needed to select NF4.
+The standard setup and launch scripts delegate to `setup_inference_4b_nf4.sh` and `launch_inference_4b_nf4.sh`. The GUI defaults to `imajev-4b-nf4` with a 45-second request timeout and 300-second startup budget. `configs/imajev-4b-nf4-unguarded.yaml` preserves the former `config.4b-nf4.yaml` experiment with tactical correction and opening advice disabled; the standard NF4 profile is `configs/default.yaml`.
 
 The profile uses CUDA-only bitsandbytes NF4 quantization of the pinned Qwen3.5-4B base at load time. The official Imajev-4B PEFT adapter, trained 256-code decision readout, and four-rotation calibration remain unquantized. It uses `artifacts/model-qwen4b.json` and reports `model: imajev-4b-nf4`. The launcher does not enable upstream `--fast` CUDA graphs or `--merge-lora`.
 
@@ -50,14 +50,14 @@ The original 2B assets and manifest remain separate from NF4. To prepare, launch
 ```sh
 bash scripts/setup_inference_2b.sh
 bash scripts/launch_inference_2b.sh
-uv run imajev-game --external-inference --config config.2b.yaml
+uv run imajev-game --external-inference --config configs/imajev-2b-shared.yaml
 ```
 
 Run setup once while online, then keep the launcher running in one terminal and start the GUI in another. These scripts use `.inference/runtime-manifest.json`, the pinned 2B base and adapter, and the original calibration. Both profiles bind to port 8765; run one inference service at a time and use the matching GUI configuration.
 
 ## GUI setup (Linux or Windows)
 
-The GUI runs separately from the inference service. Keep the service running in its own terminal and keep the endpoint in `config.yaml` at `http://127.0.0.1:8765/v1/systemone`.
+The GUI runs separately from the inference service. Keep the service running in its own terminal and keep the endpoint in `configs/default.yaml` at `http://127.0.0.1:8765/v1/systemone`.
 
 ### Linux
 

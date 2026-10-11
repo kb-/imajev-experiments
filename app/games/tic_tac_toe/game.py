@@ -1,6 +1,6 @@
 from dataclasses import asdict, dataclass, replace
 import math
-from app.core.contracts import Action, Outcome, Reply, Scene, Stroke
+from app.core.contracts import MoveResult, Action, Outcome, RecognitionResult, Scene, Stroke
 
 CELLS = tuple(f'{col}{row}' for row in range(1, 4) for col in 'ABC')
 WINNING_LINES = ((0, 1, 2), (3, 4, 5), (6, 7, 8), (0, 3, 6), (1, 4, 7), (2, 5, 8), (0, 4, 8), (2, 4, 6))
@@ -140,20 +140,20 @@ class TicTacToe:
                         cell: f'{("Top", "Middle", "Bottom")[i//3]} {("left", "centre", "right")[i%3]} cell: column {cell[0]}, row {cell[1]}'
                         for i, cell in enumerate(CELLS)} | {'invalid': 'Blank image, mark crosses grid boundaries, or more than one mark'}}}}
 
-    def decode_recognition(self, state: State, drawing: tuple[Stroke, ...], reply: Reply, threshold: float) -> str:
+    def decode_recognition(self, state: State, drawing: tuple[Stroke, ...], reply: RecognitionResult, threshold: float) -> str:
         symbol, cell = reply.answers['symbol'], reply.answers['cell']
         if symbol.abstained:
-            raise ValueError('Imajev abstained on the symbol. Undo a stroke or clear and redraw.')
-        if symbol.effective_probability < threshold:
-            raise ValueError(f'I could not identify one X confidently: {symbol.choice} scored {symbol.effective_probability:.1%}; {threshold:.0%} is required. Undo a stroke or clear and redraw.')
+            raise ValueError('The recognizer abstained on the symbol. Undo a stroke or clear and redraw.')
+        if reply.score('symbol') < threshold:
+            raise ValueError(f"I could not identify one X confidently: {symbol.choice} scored {reply.score('symbol'):.1%}; {threshold:.0%} is required. Undo a stroke or clear and redraw.")
         if symbol.choice == 'O':
             raise ValueError('You are playing X. Draw a cross instead of a circle.')
         if symbol.choice != 'X':
             raise ValueError('I could not identify one X. Undo a stroke or clear and redraw.')
         if cell.abstained:
-            raise ValueError('Imajev abstained on the cell. Keep one X inside a single cell and redraw.')
-        if cell.effective_probability < threshold:
-            raise ValueError(f'I could not identify one cell confidently: {cell.choice} scored {cell.effective_probability:.1%}; {threshold:.0%} is required. Keep one X inside a single cell.')
+            raise ValueError('The recognizer abstained on the cell. Keep one X inside a single cell and redraw.')
+        if reply.score('cell') < threshold:
+            raise ValueError(f"I could not identify one cell confidently: {cell.choice} scored {reply.score('cell'):.1%}; {threshold:.0%} is required. Keep one X inside a single cell.")
         if cell.choice not in CELLS:
             raise ValueError('I could not identify one cell. Keep one X inside a single cell.')
         if not geometry_matches(drawing, CELLS.index(cell.choice)):
@@ -258,14 +258,16 @@ class TicTacToe:
                 f'Return {candidate} as your choice instead of abstaining.')
         return request
 
-    def decode_decision(self, state: State, reply: Reply) -> str:
-        answer = reply.answers['move']
+    def decode_decision(self, state: State, reply: MoveResult) -> str:
+        answer = reply
+        if answer.rejection:
+            raise ValueError(answer.rejection)
         if answer.abstained:
-            raise ValueError('Imajev abstained while choosing O. Retry will ask a different question.')
+            raise ValueError('The opponent abstained while choosing O. Retry will ask a different question.')
         from .prompting import normalize_choice
         choice = normalize_choice(answer.choice)
         if choice not in {a.id for a in self.legal_actions(state)}:
-            raise ValueError('Imajev selected an invalid move. Retry the computer turn.')
+            raise ValueError('The opponent selected an invalid move. Retry the computer turn.')
         return choice
 
     def encode_state(self, state: State) -> dict:

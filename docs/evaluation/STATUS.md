@@ -1,5 +1,9 @@
 # Acceptance status
 
+## Decision2 Nox Q8: unsuited for unassisted strategic play
+
+The [12 October 2026 full-context evaluation](decision2-nox-q8.md) found only 63/102 optimal canonical-order choices and 11 losses in 12 Tic-tac-toe games against minimax. The model received complete symbol definitions, game rules, general tactics, board, history, and legal actions, without position-specific hints or corrections. Flag Nox Q8 as **unsuited for unassisted strategic play in the tested setup**. GPU integration passed; strategic suitability failed. This finding does not assess other Decision2 variants or establish Boku performance.
+
 Implementation and automated application checks are complete. Broad handwriting and hardware feasibility are **not established**; a live synthetic recognition pilot is now available. Do not approve model/hardware acceptance until the following target-machine evidence exists.
 
 ## Verified here

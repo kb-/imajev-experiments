@@ -152,7 +152,7 @@ class Boku:
         expected = 'X' if state.phase == 'capture' else 'O'
         for key in ('symbol', 'cell'):
             answer = reply.answers[key]
-            if answer.abstained or answer.effective_probability < threshold:
+            if answer.abstained or reply.score(key) < threshold:
                 raise ValueError(f'I could not identify the {key} confidently. Undo a stroke or clear and redraw.')
         if reply.answers['symbol'].choice != expected:
             raise ValueError('Draw an X to capture a stone.' if expected == 'X' else 'Draw a circle to place a stone.')
@@ -215,11 +215,13 @@ class Boku:
         return request
 
     def decode_decision(self, state, reply):
-        answer = reply.answers['move']
+        answer = reply
+        if answer.rejection:
+            raise ValueError(answer.rejection)
         if answer.abstained:
-            raise ValueError('Imajev abstained. Retry to reconsider this turn.')
+            raise ValueError('The opponent abstained. Retry to reconsider this turn.')
         if answer.choice not in {a.id for a in self.legal_actions(state)}:
-            raise ValueError('Imajev selected an illegal Boku action. Retry.')
+            raise ValueError('The opponent selected an illegal Boku action. Retry.')
         return answer.choice
 
     def encode_state(self, state):

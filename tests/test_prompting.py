@@ -181,9 +181,10 @@ def test_resume_reuses_recorded_call_and_rejects_changed_request(qapp, tmp_path)
 
     class Client:
         calls = 0
-        def decide(self, request, png, timeout):
+        def choose_move(self, request, png, timeout):
             self.calls += 1
-            return parse_reply(answer(request, {'move': 'A1'}), request, 'imajev-2b')
+            from app.inference.opponents import from_imajev
+            return from_imajev(parse_reply(answer(request, {'move': 'A1'}), request, 'imajev-2b'))
 
     (tmp_path / 'images').mkdir()
     client = Client()

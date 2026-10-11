@@ -14,7 +14,7 @@ Boku has the same three prompt choices and a Move variety selector. Its quoted a
 After the normal inference setup:
 
 ```bash
-uv run --locked --offline imajev-game --config config.coached-quoted.yaml
+uv run --locked --offline imajev-game --config configs/coached-quoted.yaml
 ```
 
 Alternatively select **Coached quoted** in the GUI before your first move; the selection applies immediately on an empty new game, even during warm-up. After play begins, click New game to apply a different mode. Resumed games retain their saved settings. Entering coached mode before play snapshots the current rule list and revision; changing variety alone preserves that snapshot. Normal startup launches the pinned Imajev child, checks readiness and warms up. Closing waits for active work and stops owned processes. Port conflicts are visible; an existing listener is never silently attached to or terminated.
@@ -35,7 +35,34 @@ learning:
 
 Ollama requires managed Imajev. The app reuses a daemon or launches its own `ollama serve`, never downloads models, and never unloads unrelated models. Loaded models that prevent exclusive GPU use are reported. Generation uses `stream: false`, `keep_alive: 0`, temperature zero, thinking disabled, 8,192 context tokens and 512 output tokens. Context packing uses a conservative 18,000-byte limit for the complete messages; oversized history is summarized rather than silently truncated.
 
-`config.coached-quoted.ollama.yaml` selects the locally tested `qwen3.6:latest` model. Use it only after that model is installed. The shared-base configuration remains `config.coached-quoted.yaml`.
+`configs/coached-quoted-ollama.yaml` selects the locally tested `qwen3.6:latest` model. Use it only after that model is installed. The shared-base configuration remains `configs/coached-quoted.yaml`.
+
+## Reuse rules across models
+
+Coached quoted offers **Continue current learning**, **Start with basic rules**, **Load rules…** and **Save rules…**. The panel and **How it works** show the selected source, revision and ordered rules. Continue keeps the current learning run and cancels a pending source change. Basic rules are the game's existing initial strategy; loading a file supplies your saved strategy instead. Each explicit basic/file selection starts one isolated run, seeded at revision zero without earlier game history. Subsequent games and coaching updates continue that run.
+
+Before play, a source selection applies immediately and preserves the starter and drawing. During play or after a completed game it is a preview until **New game**; the app applies it before any opponent opening request. **Save rules…** exports exactly the displayed strategy, including a pending import or a coach's updated next-game strategy. It does not export session history.
+
+The launcher accepts mutually exclusive source options:
+
+```bash
+uv run imajev-game --config configs/coached-quoted.yaml --rules-file saved-ttt-rules.json
+uv run imajev-game --config configs/coached-quoted.yaml --basic-rules
+```
+
+Without either option, the existing learned rules remain the default. Source flags require `opponent.prompt_variant: coached_quoted` and cannot be combined with `--resume`; changing rules starts a new run. Other modes keep their existing prompts. Loading rules does not configure a coach or download a model: configure a compatible coach separately, especially when using native decision backends such as Liquid.
+
+Portable rule files contain only these fields:
+
+```json
+{
+  "version": 1,
+  "game": "tic_tac_toe",
+  "strategy": ["win immediately", "otherwise stop X winning next turn"]
+}
+```
+
+Use `"boku"` for Boku. Files transfer between models and profiles for the same game. Invalid versions, malformed or oversized rule lists, extra fields and another game's rules are rejected. The same limits as coached updates apply: 1–12 rules, 160 characters each and 2,048 UTF-8 bytes overall. Exports use atomic replacement.
 
 ## Updates and history
 
@@ -53,18 +80,18 @@ The coach returns numbered rules, as in the earlier learning experiment; the API
 
 A successful atomic ledger commit saves the new revision and consumes the history window together. Failed coaching or **Continue with previous strategy** leaves the window available for the next loss. **Retry coaching** retries the update. Continue first establishes that Imajev is ready; it cannot bypass active GPU work or an unconfirmed Ollama unload. New game stays disabled until success or successful recovery.
 
-The panel displays the numbered strategy and revision. Inline Diagnostics displays a readable **COACH DIAGNOSIS** as soon as it arrives, while rule revision continues. It also includes requests, history coverage, responses, timings and failures. Diagnosis remains visible if revision fails and is preserved across resume. The status changes between Diagnosing loss, Studying games, Updating strategy and Reloading Imajev. The completed board remains visible during coaching. A displayed diagnosis is the model's explanation; structural checks do not establish that it is tactically correct.
+The panel displays the numbered strategy and revision. The **Activity log** tab displays a readable **COACH DIAGNOSIS** as soon as it arrives, while rule revision continues. It also includes requests, history coverage, responses, timings and failures. Diagnosis remains visible if revision fails and is preserved across resume. The status changes between Diagnosing loss, Studying games, Updating strategy and Reloading Imajev. The completed board remains visible during coaching. A displayed diagnosis is the model's explanation; structural checks do not establish that it is tactically correct.
 
 ## Storage and resume
 
 Tic-tac-toe’s default local directory is `learning/coached-quoted/`, ignored by Git. Boku uses its isolated `boku/` subdirectory. It contains `strategy.json`, completed summaries under `games/`, resumable records under `sessions/` and coaching attempts under `attempts/`. Coached sessions are saved even when debug logging is off. Existing `learning/` free-text experiments and ordinary sessions are not imported.
 
 ```bash
-uv run --locked --offline imajev-game --config config.coached-quoted.yaml \
+uv run --locked --offline imajev-game --config configs/coached-quoted.yaml \
   --resume learning/coached-quoted/sessions/<game-id>/session.json
 ```
 
-A resumed coached game retains its original logical ID and strategy snapshot. The ledger prevents a restored terminal loss from committing a second successful update. Old ordinary records remain readable. To start an independent experiment, configure a fresh learning directory; retain the old directory as an archive.
+A resumed coached game retains its original logical ID and strategy snapshot. The ledger prevents a restored terminal loss from committing a second successful update. Old ordinary records remain readable. Basic or imported rules create `learning/coached-quoted/runs/<run-id>/` (with a `boku/` subdirectory for Boku). Existing data stays intact. Each game retains its own context while switching games. Coached records include `run_id` and `rule_origin`; resume restores that context and continues its ledger, without needing the original imported file. Keep the configured learning directory available when resuming an isolated run. Older records without a run ID continue using the original directory. You can also configure a fresh learning directory for a wholly separate experiment.
 
 ## Verification
 

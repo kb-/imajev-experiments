@@ -1,0 +1,46 @@
+# Install with: uv run python scripts/install_decision2.py
+# Evaluation status: UNSUITED for unassisted strategic play in the tested setup.
+# Full-context Tic-tac-toe: 63/102 optimal canonical choices; 11 losses/12 games vs minimax.
+# Evidence and limits: ../docs/evaluation/decision2-nox-q8.md
+game:
+  default: tic_tac_toe
+# recognition:
+#   backend: imajev
+#   model: imajev-4b-nf4
+recognition: &liquid
+  backend: llama_cpp
+  model: liquid-d1-3b-q8
+  protocol: systemone
+  input_mode: text_image
+  endpoint: http://127.0.0.1:8080/v1/systemone
+  executable: ../runtimes/llama_cpp/install/llama-server
+  model_path: ../models/liquid-d1-3b/model.gguf
+  projector_path: ../models/liquid-d1-3b/mmproj-d1-3B-Q8_0.gguf
+  context_limit: 8192
+  max_choices: 255
+  min_choice_probability: 0.615
+  runtime_args: ["-ngl", "99"]
+recognition_fallback:
+  backend: imajev
+  model: imajev-4b-nf4
+  min_effective_probability: 0.65
+  after_rejections: 3
+opponent:
+  backend: llama_cpp
+  model: decision2-nox-4b-q8
+  protocol: systemone
+  input_mode: text
+  prompt_variant: quoted
+  move_temperature: 0
+  tactical_guard: false
+  max_choices: 255
+  executable: ../runtimes/decision2-src/build/bin/llama-server
+  model_path: ../models/decision2-nox-4b/Decision-2.0-Nox-4B-Q8_0.gguf
+  context_limit: 2048
+  runtime_args: ["-ngl", "99", "--embeddings", "--pooling", "none", "-b", "1024", "-ub", "1024"]
+diagnostics:
+  directory: ../sessions
+learning:
+  coach_backend: ollama
+  model: qwen3.6:latest
+  directory: ../learning/coached-quoted

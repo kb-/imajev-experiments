@@ -3,6 +3,8 @@ import json
 import httpx
 import pytest
 from app.config import Config, load_config
+from app.inference.recognition import from_imajev as recognition_result
+from app.inference.opponents import from_imajev
 from app.inference.imajev_client import ImajevClient, InferenceError, parse_reply
 from app.games.tic_tac_toe.game import TicTacToe, State, geometry_matches
 from app.core.contracts import Stroke
@@ -34,14 +36,14 @@ def test_unknown_scales_recognition():
     reply = parse_reply(answer(request, {'symbol': 'X', 'cell': 'A1'}, unknown=.2), request, 'imajev-2b')
     assert reply.answers['symbol'].effective_probability == .8
     with pytest.raises(ValueError, match='could not identify'):
-        game.decode_recognition(State(), INK, reply, .85)
+        game.decode_recognition(State(), INK, recognition_result(reply), .85)
 
 
 @pytest.mark.parametrize('symbol,cell,message', [('O', 'A1', 'cross'), ('invalid', 'A1', 'could not'), ('X', 'invalid', 'could not'), ('X', 'B1', 'spans')])
 def test_specific_rejections(symbol, cell, message):
     reply = parse_reply(answer(request, {'symbol': symbol, 'cell': cell}), request, 'imajev-2b')
     with pytest.raises(ValueError, match=message):
-        game.decode_recognition(State(), INK, reply, .85)
+        game.decode_recognition(State(), INK, recognition_result(reply), .85)
 
 
 def test_geometry_is_length_weighted():
@@ -63,10 +65,10 @@ def test_decision_does_not_use_handwriting_threshold():
     req = game.decision_request(state, game.legal_actions(state))
     raw = answer(req, {'move': 'place_B1'}, unknown=.9)
     reply = parse_reply(raw, req, 'imajev-2b')
-    assert game.decode_decision(state, reply) == 'place_B1'
+    assert game.decode_decision(state, from_imajev(reply)) == 'place_B1'
     raw['answers']['move']['abstained'] = True
     with pytest.raises(ValueError):
-        game.decode_decision(state, parse_reply(raw, req, 'imajev-2b'))
+        game.decode_decision(state, from_imajev(parse_reply(raw, req, 'imajev-2b')))
 
 
 def test_loopback_only(tmp_path):
@@ -89,6 +91,48 @@ def test_multipart_transport(monkeypatch):
     transport = httpx.MockTransport(handle)
     monkeypatch.setattr(httpx, 'Client', lambda **kw: real_client(transport=transport, **kw))
     assert ImajevClient(Config(expected_model='imajev-2b')).decide(request, b'png').answers['cell'].choice == 'A1'
+
+
+@pytest.mark.parametrize('already_running', [False, True])
+def test_recognition_waits_for_restarted_service_after_opponent(monkeypatch, already_running):
+    from app.inference.service_manager import ServiceManager
+    from types import SimpleNamespace
+
+    config = Config(expected_model='imajev-2b')
+    manager = ServiceManager(config)
+    manager.active_opponent = object()
+    if already_running:
+        manager.active_opponent = None
+        manager.process = SimpleNamespace(poll=lambda: None)
+    calls = []
+    ready = False
+
+    def prepare(_):
+        manager.active_opponent = None
+        manager.process = SimpleNamespace(poll=lambda: None)
+
+    monkeypatch.setattr(manager, 'prepare_imajev', prepare)
+    monkeypatch.setattr('app.inference.imajev_client.time.sleep', lambda _: None)
+    real_client = httpx.Client
+
+    def handle(req):
+        nonlocal ready
+        calls.append(req.url.path)
+        if req.url.path == '/v1/models':
+            if calls.count('/v1/models') == 1:
+                raise httpx.ConnectError('Service is loading', request=req)
+            ready = True
+            return httpx.Response(200, json={'loaded': True, 'model': 'imajev-2b', 'backend': 'torch'})
+        assert ready, 'Recognition sent before the reloaded service was ready'
+        if req.url.path == '/v1/status':
+            return httpx.Response(404)
+        return httpx.Response(200, json=answer(request, {'symbol': 'X', 'cell': 'A1'}))
+
+    monkeypatch.setattr(httpx, 'Client', lambda **kw: real_client(transport=httpx.MockTransport(handle), **kw))
+    client = ImajevClient(config)
+    client.manager = manager
+    assert client.decide(request, b'png').answers['cell'].choice == 'A1'
+    assert calls == ['/v1/models', '/v1/models', '/v1/status', '/v1/systemone']
 
 
 def test_busy_service_never_receives_retry_image(monkeypatch):
@@ -162,7 +206,7 @@ def test_rejection_identifies_low_symbol_confidence():
     raw['answers']['symbol']['probabilities'] = {'X': .6, 'O': .1, 'invalid': .3}
     reply = parse_reply(raw, request, 'imajev-2b')
     with pytest.raises(ValueError, match='X scored 60.0%; 85% is required'):
-        game.decode_recognition(State(), INK, reply, .85)
+        game.decode_recognition(State(), INK, recognition_result(reply), .85)
 
 
 def test_rejection_identifies_low_cell_confidence():
@@ -170,14 +214,14 @@ def test_rejection_identifies_low_cell_confidence():
     raw['answers']['cell']['probabilities'] = {cell: (.8 if cell == 'A1' else .2 if cell == 'invalid' else 0) for cell in request['questions']['cell']['criteria']}
     reply = parse_reply(raw, request, 'imajev-2b')
     with pytest.raises(ValueError, match='A1 scored 80.0%; 85% is required'):
-        game.decode_recognition(State(), INK, reply, .85)
+        game.decode_recognition(State(), INK, recognition_result(reply), .85)
 
 
 def test_recognition_abstention_and_circle_correction_are_specific():
     raw = answer(request, {'symbol': 'X', 'cell': 'A1'}, abstained=True)
     with pytest.raises(ValueError, match='abstained on the symbol'):
-        game.decode_recognition(State(), INK, parse_reply(raw, request, 'imajev-2b'), .85)
+        game.decode_recognition(State(), INK, recognition_result(parse_reply(raw, request, 'imajev-2b')), .85)
     raw = answer(request, {'symbol': 'O', 'cell': 'A1'})
     raw['answers']['cell']['unknown_probability'] = .5
     with pytest.raises(ValueError, match='cross instead of a circle'):
-        game.decode_recognition(State(), INK, parse_reply(raw, request, 'imajev-2b'), .85)
+        game.decode_recognition(State(), INK, recognition_result(parse_reply(raw, request, 'imajev-2b')), .85)

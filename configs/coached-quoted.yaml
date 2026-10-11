@@ -9,10 +9,10 @@ imajev:
 opponent:
   prompt_variant: coached_quoted
 learning:
-  coach_backend: ollama
-  model: qwen3.6:latest
+  coach_backend: shared
+  directory: ../learning/coached-quoted
+  # For Ollama: set coach_backend: ollama and model to an installed model name.
   ollama_url: http://127.0.0.1:11434
-  directory: learning/coached-quoted
 recognition:
   min_effective_probability: 0.85
 canvas:
@@ -20,4 +20,4 @@ canvas:
 diagnostics:
   enabled: false
   save_sessions: false
-  directory: sessions
+  directory: ../sessions

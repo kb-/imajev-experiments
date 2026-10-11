@@ -12,6 +12,7 @@ from app.core.session import SessionController
 from app.games.boku.game import Boku, State
 from app.games.boku.geometry import AXES, CELLS, CENTERS, DIRECTIONS, SPACING, geometry_matches, neighbor, recognition_view
 from app.inference.imajev_client import parse_reply
+from app.inference.opponents import from_imajev
 from app.ui.rendering import observation_png
 from app.ui.window import Window
 from test_protocol import answer
@@ -44,7 +45,8 @@ def positioned(black=(), white=()):
 
 def reply(state, cell, symbol='O', **options):
     request = game.recognition_request(state, ink(cell, symbol))
-    return parse_reply(answer(request, {'symbol': symbol, 'cell': cell}, **options), request, 'imajev-2b')
+    from app.inference.recognition import from_imajev
+    return from_imajev(parse_reply(answer(request, {'symbol': symbol, 'cell': cell}, **options), request, 'imajev-2b'))
 
 
 def test_geometry():
@@ -162,7 +164,8 @@ def test_recognition_conversion_and_snapshots(qapp):
 @pytest.mark.parametrize('symbol,cell', [('X','F5'),('invalid','F5'),('O','invalid')])
 def test_wrong_symbols_and_invalid_cells(symbol,cell):
     request = game.recognition_request(State(),())
-    response = parse_reply(answer(request,{'symbol':symbol,'cell':cell}),request,'imajev-2b')
+    from app.inference.recognition import from_imajev as recognition_result
+    response = recognition_result(parse_reply(answer(request,{'symbol':symbol,'cell':cell}),request,'imajev-2b'))
     with pytest.raises(ValueError):
         game.decode_recognition(State(),ink('F5'),response,.85)
 
@@ -190,12 +193,12 @@ def test_decisions_retries_sampling_and_bounded_history():
     actions = game.legal_actions(state)
     request = game.decision_request(state,actions)
     assert len(request['questions']['move']['criteria']) == 80
-    response = parse_reply(answer(request,{'move':'place_F5'}),request,'imajev-2b')
+    response = from_imajev(parse_reply(answer(request,{'move':'place_F5'}),request,'imajev-2b'))
     assert select_move(game,state,response,.5,random.Random(1))[1] == 'place_F5'
     retry = game.retry_decision_request(state,actions,1)
     assert retry['state'] == request['state'] and retry['questions']['move']['criteria'] == request['questions']['move']['criteria']
     with pytest.raises(ValueError,match='abstained'):
-        game.decode_decision(state,replace(response,answers={'move':replace(response.answers['move'],abstained=True)}))
+        game.decode_decision(state,replace(response,abstained=True))
     capture = capture_state()
     capture_request = game.decision_request(capture,game.legal_actions(capture))
     choices = capture_request['questions']['move']['criteria']
@@ -289,7 +292,7 @@ def test_gui_game_switch_before_play_fixed_starter_and_coaching_isolation(qapp,t
 
 
 def test_config_profile():
-    config = load_config(Path('config.boku.yaml'))
+    config = load_config(Path('configs/boku.yaml'))
     assert config.game == 'boku' and config.threshold == .65
 
 

@@ -65,7 +65,7 @@ A CPU-only check with the installed Qwen tokenizer and `enable_thinking=False` m
 
 ## Human drawing threshold adjustment
 
-The last debug run rejected two correctly recognized E3 circles at effective symbol scores 0.6922 and 0.7115, despite location scores 0.9899 and 0.9905. Replaying the four saved recognition requests at threshold 0.65 accepts those circles and still rejects the abstained angular loop and the X drawn during placement. Visual inspection during the subsequent experiments established that the angular loop was a valid drawing, despite the model rejecting it. `config.boku.yaml` now uses 0.65; the earlier synthetic probes above used 0.85. Independent geometry, symbol/phase, abstention and legality checks still apply. Four requests are insufficient to estimate general recognition accuracy.
+The last debug run rejected two correctly recognized E3 circles at effective symbol scores 0.6922 and 0.7115, despite location scores 0.9899 and 0.9905. Replaying the four saved recognition requests at threshold 0.65 accepts those circles and still rejects the abstained angular loop and the X drawn during placement. Visual inspection during the subsequent experiments established that the angular loop was a valid drawing, despite the model rejecting it. `configs/boku.yaml` now uses 0.65; the earlier synthetic probes above used 0.85. Independent geometry, symbol/phase, abstention and legality checks still apply. Four requests are insufficient to estimate general recognition accuracy.
 
 
 ## Follow-up drawing experiments

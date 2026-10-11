@@ -37,8 +37,8 @@ def test_logged_loss_has_only_one_block_and_retries_retain_facts(mode):
     assert retry['state']['immediate_White_win_actions'] == []
     assert game.encode_state(state) == before
     # Facts inform scoring; the app still accepts a legal, tactically bad choice.
-    from app.core.contracts import ChoiceAnswer, Reply
-    assert game.decode_decision(state,Reply('test',{'move':ChoiceAnswer('place_D6',{'place_D6':1},0,False)},{})) == 'place_D6'
+    from app.core.contracts import MoveResult, ChoiceAnswer, Reply
+    assert game.decode_decision(state,MoveResult('place_D6','test',{},probabilities={'place_D6':1},abstained=False)) == 'place_D6'
 
 
 def test_capture_choices_can_differ_in_whether_they_prevent_a_win():

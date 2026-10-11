@@ -101,6 +101,32 @@ Install the pinned official llama.cpp binary bundle with `scripts/install_llama_
 
 For Mapika, create the separate environment in `runtimes/decider` using its pyproject (`decider-ai[gguf]==1.9.0`). Install a CUDA-enabled `llama-cpp-python` build there following the publisher's GGUF instructions. Keep the GGUF, `tokenizer.json`, `tokenizer_config.json` and `decider_config.json` together locally. The service runs through that environment's Python with `-m app.inference.decider_service` from the repository root. It hashes those assets, reports runtime versions, rejects oversized complete prompts and serializes GPU requests. The pinned publisher prompt-builder boundary is covered by a bridge contract test; install-time integration with actual weights remains necessary.
 
+### Decision 2.0 Nox Q8 on NVIDIA / WSL2
+
+The [publisher's Q8_0 weights](https://huggingface.co/vllm-sr/Decision-2.0-Nox-4B-GGUF) are 4.49 GB. They require the Decision 2.0 runtime fork; downloading the GGUF does not add support to the official runtime used by Liquid. The installer keeps both runtimes separate and preserves the existing Q4 profile.
+
+Install Git, CMake, a C++ compiler, a build tool, and libcurl development headers. On Ubuntu, the non-CUDA prerequisites are `git cmake build-essential libcurl4-openssl-dev`. Follow [NVIDIA's WSL CUDA toolkit instructions](https://docs.nvidia.com/cuda/wsl-user-guide/index.html#cuda-support-for-wsl-2) and ensure `nvcc --version` works in the launch environment. `nvidia-smi` alone confirms the driver, not the compiler. Use NVIDIA's WSL toolkit-only package; Ubuntu's `nvidia-cuda-toolkit` can pull in Linux driver libraries that conflict with WSL. WSL uses the existing Windows NVIDIA driver. The script does not run sudo or install system packages.
+
+Managed inference on WSL selects the PTX compiler from the Windows driver bundle through a child-process-only `LD_PRELOAD`. This prevents an Ubuntu-installed Linux PTX compiler from crashing ImaJEV's PyTorch CUDA initialization, while retaining the CUDA toolkit and libraries needed by the Decision 2.0 build. No system files, Python dependencies, or global environment variables are changed. An explicitly preloaded PTX compiler is respected. If Windows retains multiple driver bundles, a separate driver probe identifies the active bundle; inference never guesses between them. This applies to services launched by the app, not independently started inference servers. It restores application GPU access but does not remove conflicting system packages.
+
+From the repository root:
+
+```sh
+uv run python scripts/install_decision2.py
+uv run python scripts/install_decision2.py --verify
+uv run imajev-game --config configs/decision2-nox-4b-q8.yaml --debug-input
+```
+
+The installer builds CUDA architecture `86` (RTX 3070) with four jobs; use `--cuda-arch` and `--jobs` to override them. It pins runtime commit `3c64a581d4f95bb2de409d383741fa5b18d84345` and model revision `b179d65af24ff9e28924c8d5c080f8c5bf5b2b07`, verifies the model size and SHA-256, and records executable/library hashes, build options and compiler version in `runtimes/decision2/manifest.json`. Matching installations are reused. Conflicting weights or source checkouts are left intact; move them aside before retrying. A failed build can leave `runtimes/decision2-src/build/`; move that directory aside before rebuilding. Build output is saved to `logs/decision2-build.log`.
+
+To download verified weights before installing CUDA, use `uv run python scripts/install_decision2.py --download-only`. This does not build a runtime or establish GPU compatibility. The original filename is kept under `models/decision2-nox-4b/`.
+
+The pinned fork recognizes Decision 2.0 internally but omits it from its `/v1/models` output-modality list. The installer applies a checksum-verified, one-line metadata fix and records it in the runtime manifest. Only that exact source change is accepted during reuse; other edits remain conflicts. Rerun the installer to upgrade an older installation incrementally, retaining compiled CUDA objects. The application's native-decision capability check remains enabled. Verification temporarily enables trace logging to capture GPU offloading evidence.
+
+The Q8 profile uses ImaJEV 4B NF4 recognition and Nox for text decisions. It requests context 2048, batch/microbatch 1024, all GPU layers, embeddings and pooling `none`. These are provisional lower-memory settings based on the fork's short-request tests. Embedding requests can also be limited by the physical batch, so an advertised context of 2048 is not a guarantee that a 2048-token decision fits. No prompt or legal choices are truncated. If an actual request exceeds capacity, inspect the runtime error and increase context and batch limits together as needed, then remeasure VRAM. Boku's larger prompts may exceed the initial limits. Neither Q4 nor CPU fallback is automatic.
+
+Close the application and its inference runtimes before `--verify`. Verification uses actual Tic-tac-toe policy requests (early and tactical positions), checks returned choices and distributions, confirms full GPU layer offloading in the runtime output, and exercises Nox → ImaJEV → Nox through the managed lifecycle. ImaJEV must already be installed. It cleans up owned services and saves successes and failures in `logs/decision2-verification.json`, with lifecycle logs in `logs/decision2-verification.log` and native server output captured in the report. Its VRAM metric is sampled whole-device usage across the validation, including model switches, not an exact allocation peak. Installation alone does not establish that Q8 fits the GPU or plays well; only a successful live verification establishes integration and memory fit for those requests.
+
 ## GPU ownership
 
 Managed inference uses one exclusive GPU gate for activation and requests. Matching recognition/opponent runtimes stay resident across turns, with health and model identity verified before reuse. A different runtime or coaching releases the active model first. Switching backends stops owned local process groups and confirms that their workers have exited, including workers whose launcher has already exited. For Ollama it unloads only the selected model and confirms its disappearance from `/api/ps`. An unconfirmed process exit or unload blocks another activation. Occupied ports and preloaded Ollama models are reported; unrelated services are not terminated. Ollama startup includes the existing WSL/Windows relay. Downloads are never initiated by gameplay.

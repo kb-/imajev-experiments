@@ -59,6 +59,9 @@ def parse_native_choice(raw, name, question, settings):
     offered = question['criteria']
     answers = raw.get('answers')
     answer = answers.get(name) if isinstance(answers, dict) else None
+    if isinstance(answer, dict) and answer.get('error') is not None:
+        return MoveResult('', settings.model, raw, settings.backend,
+                          rejection=f'Decision question {name}: {answer["error"]}')
     if not isinstance(answer, dict) or answer.get('type') != 'choice':
         return MoveResult('', settings.model, raw, settings.backend, rejection='Decision response is missing its choice answer.')
     choice = answer.get('choice')

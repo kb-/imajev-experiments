@@ -13,6 +13,7 @@ from urllib.parse import urlsplit
 import httpx
 from dataclasses import replace
 from app.inference.processes import terminate_process_group
+from app.inference.cuda_environment import inference_environment
 
 logger = logging.getLogger(__name__)
 
@@ -98,7 +99,8 @@ class ServiceManager:
         (root / 'logs').mkdir(exist_ok=True)
         self.log = open(root / 'logs' / 'managed-service.log', 'a')
         self.process = subprocess.Popen(['bash', str(root / 'scripts' / launchers[self.active_imajev_config.expected_model])],
-                                        cwd=root, stdout=self.log, stderr=subprocess.STDOUT, start_new_session=True)
+                                        cwd=root, stdout=self.log, stderr=subprocess.STDOUT, start_new_session=True,
+                                        env=inference_environment())
 
     def check(self):
         if self.process is not None and self.process.poll() is not None:
@@ -367,7 +369,7 @@ class ServiceManager:
         self.opponent_log = open(root / 'logs/managed-opponent.log', 'a')
         self.opponent_process = subprocess.Popen(command, cwd=root, stdout=self.opponent_log,
                                                 stderr=subprocess.STDOUT, start_new_session=True,
-                                                env=dict(os.environ, HF_HUB_OFFLINE='1'))
+                                                env=inference_environment(dict(os.environ, HF_HUB_OFFLINE='1')))
         url = f'http://127.0.0.1:{port}'
         deadline = time.monotonic() + self.config.startup_timeout
         try:
@@ -418,7 +420,7 @@ class ServiceManager:
         else:
             raise RuntimeError('Install Ollama and the configured model explicitly before coaching.')
         self.ollama_process = subprocess.Popen(command, cwd=Path(__file__).resolve().parents[2],
-            env=dict(os.environ, OLLAMA_HOST=urlsplit(url).netloc), start_new_session=True)
+            env=inference_environment(dict(os.environ, OLLAMA_HOST=urlsplit(url).netloc)), start_new_session=True)
         deadline = time.monotonic() + 20
         while True:
             try:

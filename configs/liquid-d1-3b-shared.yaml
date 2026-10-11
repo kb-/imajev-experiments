@@ -28,4 +28,6 @@ opponent:
 diagnostics:
   directory: ../sessions
 learning:
+  coach_backend: ollama
+  model: qwen3.6:latest
   directory: ../learning/coached-quoted

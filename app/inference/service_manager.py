@@ -12,6 +12,7 @@ from functools import wraps
 from urllib.parse import urlsplit
 import httpx
 from dataclasses import replace
+from app.inference.processes import terminate_process_group
 
 logger = logging.getLogger(__name__)
 
@@ -106,20 +107,7 @@ class ServiceManager:
     @exclusive
     def stop(self):
         if self.process is not None:
-            if self.process.poll() is None:
-                logger.info('Stopping ImaJEV process group pid=%s', self.process.pid)
-                import signal
-                try:
-                    os.killpg(self.process.pid, signal.SIGTERM)
-                except ProcessLookupError:
-                    pass
-                try:
-                    self.process.wait(timeout=30)
-                except subprocess.TimeoutExpired:
-                    logger.warning('ImaJEV termination timed out; killing process group pid=%s', self.process.pid)
-                    os.killpg(self.process.pid, signal.SIGKILL)
-                    self.process.wait(timeout=10)
-            logger.info('ImaJEV process exited pid=%s returncode=%s', self.process.pid, self.process.poll())
+            terminate_process_group(self.process, 'ImaJEV')
             self.process = None
         if self.log:
             self.log.close()
@@ -139,18 +127,9 @@ class ServiceManager:
                     self._unload(client)
                 logger.info('Coach unload confirmed model=%s', self.selected_model)
         finally:
-            if self.ollama_process is not None and self.ollama_process.poll() is None:
-                logger.info('Stopping owned Ollama process group pid=%s', self.ollama_process.pid)
-                import signal
-                os.killpg(self.ollama_process.pid, signal.SIGTERM)
-                try:
-                    self.ollama_process.wait(timeout=10)
-                except subprocess.TimeoutExpired:
-                    logger.warning('Ollama termination timed out; killing process group pid=%s', self.ollama_process.pid)
-                    os.killpg(self.ollama_process.pid, signal.SIGKILL)
-                    self.ollama_process.wait(timeout=10)
-                logger.info('Owned Ollama exited pid=%s returncode=%s', self.ollama_process.pid,
-                            self.ollama_process.poll())
+            if self.ollama_process is not None:
+                terminate_process_group(self.ollama_process, 'owned Ollama', timeout=10)
+                self.ollama_process = None
         logger.info('Runtime cleanup complete')
 
     @exclusive
@@ -213,21 +192,7 @@ class ServiceManager:
             self.opponent_ollama = None
             logger.info('Ollama opponent unload confirmed model=%s', model)
         if self.opponent_process is not None:
-            import signal
-            if self.opponent_process.poll() is None:
-                logger.info('Stopping opponent process group pid=%s', self.opponent_process.pid)
-                try:
-                    os.killpg(self.opponent_process.pid, signal.SIGTERM)
-                except ProcessLookupError:
-                    pass
-                try:
-                    self.opponent_process.wait(timeout=30)
-                except subprocess.TimeoutExpired:
-                    logger.warning('Opponent termination timed out; killing process group pid=%s', self.opponent_process.pid)
-                    os.killpg(self.opponent_process.pid, signal.SIGKILL)
-                    self.opponent_process.wait(timeout=10)
-            logger.info('Opponent process exited pid=%s returncode=%s', self.opponent_process.pid,
-                        self.opponent_process.poll())
+            terminate_process_group(self.opponent_process, 'opponent')
             self.opponent_process = None
         if self.opponent_log:
             self.opponent_log.close()
@@ -511,7 +476,19 @@ class ServiceManager:
                 response = client.post(url + '/api/chat', json={'model': self.selected_model,
                     'messages': request['messages'], 'stream': False, 'keep_alive': 0, 'think': False,
                     'options': {'temperature': 0, 'num_ctx': 8192, 'num_predict': 512}})
-                response.raise_for_status()
+                try:
+                    response.raise_for_status()
+                except httpx.HTTPStatusError as exc:
+                    # Ollama reports runner/startup failures in the response body.
+                    # Retain them in the UI and saved attempts, not just the HTTP code.
+                    try:
+                        detail = response.json().get('error')
+                    except (ValueError, AttributeError):
+                        detail = None
+                    detail = str(detail or response.text).strip()[:4096]
+                    message = f'Ollama coach {self.selected_model} HTTP {response.status_code}: {detail}'
+                    logger.error('%s', message)
+                    raise RuntimeError(message) from exc
                 raw = response.json()
                 text = raw['message']['content']
                 return dict(response_text=text, truncated=raw.get('done_reason') == 'length' or not raw.get('done', True),

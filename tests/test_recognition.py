@@ -105,6 +105,7 @@ def test_nonvision_recognition_configuration_is_rejected(tmp_path, backend, prot
 def test_native_threshold_policy_and_coaching_are_explicit(tmp_path):
     import yaml
     data = yaml.safe_load(PROFILE.read_text())
+    data['learning'] = {'coach_backend': 'shared'}
     path = tmp_path / 'config.yaml'
     data['recognition']['min_effective_probability'] = .85
     path.write_text(yaml.safe_dump(data))
@@ -263,7 +264,7 @@ def test_failed_recognition_keeps_raw_response_and_ink(qapp, monkeypatch):
 
 def test_native_controller_startup_and_complete_turn_share_runtime(qapp, monkeypatch):
     from app.ui.window import Window
-    config = load_config(PROFILE)
+    config = replace(load_config(PROFILE), coach_backend='shared', coach_model='')
     manager = ServiceManager(config)
     activations = []
 

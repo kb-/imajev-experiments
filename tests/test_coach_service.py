@@ -4,6 +4,7 @@ from dataclasses import replace
 from types import SimpleNamespace
 import threading
 import pytest
+import httpx
 from app.config import Config, load_config
 from app.inference.service_manager import ServiceManager
 from scripts.serve_local import BusyGuard
@@ -103,7 +104,7 @@ def test_owned_process_waits_for_exit_and_detects_failure(monkeypatch):
     with pytest.raises(RuntimeError,match='child exited'): manager.check()
 
 
-def fake_ollama(monkeypatch, unrelated=False, failed=False, unload_failure=False):
+def fake_ollama(monkeypatch, unrelated=False, failed=False, unload_failure=False, http_error=None):
     trace=[]; loaded=[]
     class Response:
         def __init__(self,raw): self.raw=raw
@@ -125,6 +126,8 @@ def fake_ollama(monkeypatch, unrelated=False, failed=False, unload_failure=False
                 loaded.clear(); return Response({})
             loaded.append('coach:latest')
             if failed: raise RuntimeError('Generation failed')
+            if http_error is not None:
+                return httpx.Response(500, json=http_error, request=httpx.Request('POST', url))
             return Response({'message':{'content':'{"strategy":["win","learn"]}'},'done_reason':'stop','done':True})
     monkeypatch.setattr('app.inference.service_manager.httpx.Client',Transport)
     manager=ServiceManager(replace(Config(),coach_backend='ollama',coach_model='coach'))
@@ -148,6 +151,19 @@ def test_ollama_generation_failure_still_unloads_and_restarts(monkeypatch):
     manager,trace=fake_ollama(monkeypatch,failed=True)
     with pytest.raises(RuntimeError,match='Generation failed'): manager.ollama(lambda invoke:invoke({'messages':[{'role':'user','content':'Revise rules.'}]}))
     assert trace[-3:]==['generate','ps','start'] and not manager.swap_pending
+
+
+@pytest.mark.parametrize('body,detail', [
+    ({'error': 'unable to allocate CUDA_Host buffer'}, 'unable to allocate CUDA_Host buffer'),
+    (['unexpected server response'], 'unexpected server response'),
+])
+def test_ollama_server_error_keeps_cause_and_confirms_cleanup(monkeypatch, caplog, body, detail):
+    manager, trace = fake_ollama(monkeypatch, http_error=body)
+    with pytest.raises(RuntimeError, match='Ollama coach coach:latest HTTP 500') as error:
+        manager.ollama(lambda invoke: invoke({'messages': [{'role': 'user', 'content': 'Diagnose loss.'}]}))
+    assert detail in str(error.value) and detail in caplog.text
+    assert isinstance(error.value.__cause__, httpx.HTTPStatusError)
+    assert trace[-3:] == ['generate', 'ps', 'start'] and not manager.swap_pending
 
 
 def test_ollama_unload_failure_blocks_restart_and_continue(monkeypatch):

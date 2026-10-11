@@ -1,4 +1,7 @@
 # Install with: uv run python scripts/install_decision2.py
+# Evaluation status: UNSUITED for unassisted strategic play in the tested setup.
+# Full-context Tic-tac-toe: 63/102 optimal canonical choices; 11 losses/12 games vs minimax.
+# Evidence and limits: ../docs/evaluation/decision2-nox-q8.md
 game:
   default: tic_tac_toe
 recognition:

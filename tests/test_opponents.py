@@ -96,7 +96,7 @@ def test_native_images_use_runtime_wire_formats():
 def test_profiles_load_and_keep_names():
     from pathlib import Path
     profiles = list(Path('configs/models').glob('*.yaml'))
-    assert len(profiles) == 16
+    assert len(profiles) == 17
     for profile in profiles:
         config = load_config(profile)
         assert config.expected_model == 'imajev-4b-nf4'
@@ -145,6 +145,7 @@ def test_managed_activation_and_inference_times_are_separate(monkeypatch):
     trace = []
     manager = ServiceManager(Config(opponent=settings()))
     monkeypatch.setattr(manager, '_activate_ollama', lambda s: trace.append('activate'))
+    monkeypatch.setattr(manager, '_verify_active', lambda s: None)
     monkeypatch.setattr(manager, '_release_opponent', lambda: trace.append('release'))
     ticks = iter([0, 3, 3, 8, 10, 10, 10, 12])
     monkeypatch.setattr(services.time, 'monotonic', lambda: next(ticks))
@@ -272,7 +273,7 @@ def test_local_activation_waits_for_health_and_checks_identity(monkeypatch, tmp_
     def spawn(*args, **kwargs):
         assert trace == ['previous exited']
         trace.append('spawned')
-        return SimpleNamespace(poll=lambda: None)
+        return SimpleNamespace(poll=lambda: None, pid=12345)
 
     monkeypatch.setattr('app.inference.service_manager.subprocess.Popen', spawn)
     monkeypatch.setattr('app.inference.service_manager.time.sleep', lambda _: None)
@@ -305,6 +306,7 @@ def test_managed_opponent_timeout_releases_owned_runtime(monkeypatch):
     trace = []
     monkeypatch.setattr(manager, '_release_opponent', lambda: trace.append('release'))
     monkeypatch.setattr(manager, '_activate_ollama', lambda s: trace.append('activate'))
+    monkeypatch.setattr(manager, '_verify_active', lambda s: None)
     def timeout():
         raise InferenceError('timed out')
     with pytest.raises(InferenceError):

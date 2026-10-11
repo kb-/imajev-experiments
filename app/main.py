@@ -7,7 +7,7 @@ from app.config import load_config
 from app.logging_setup import configure_logging
 from app.core.registry import get_game
 from app.core.session import SessionController
-from app.inference.imajev_client import ImajevClient
+from app.inference.recognition import create_recognizer
 from app.ui.window import Window
 from app.inference.service_manager import ServiceManager
 
@@ -31,14 +31,14 @@ def main():
         if args.debug_input:
             config = replace(config, diagnostics=True, save_sessions=True)
         game = get_game(config.game)
-        controller = SessionController(game, ImajevClient(config), config)
+        controller = SessionController(game, create_recognizer(config), config)
     except (OSError, ValueError, TypeError) as exc:
         QMessageBox.critical(None, 'Configuration error', str(exc))
         return 1
     manager = ServiceManager(config)
     manager.progress = controller.progress.emit
     controller.service_manager = manager
-    controller.client.manager = manager
+    controller.recognizer.manager = manager
     if args.resume:
         try:
             controller.restore(args.resume)

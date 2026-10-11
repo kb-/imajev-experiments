@@ -235,3 +235,9 @@ learning/coached-quoted/
 /runtimes/decision2/
 
 /runtimes/llama_cpp/
+
+# Local experiment state, downloaded runtimes and editor settings
+/learning/
+/runtimes/
+/.vscode/
+/imajev-*.json

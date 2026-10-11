@@ -145,6 +145,20 @@ Boku offers Original, Quoted and Coached quoted too. Its quoted strategy begins 
 Boku retains the v5 forced-win facts and normal Retry behavior. The experimental
 loss-acknowledgement option was dropped; see the [results and inconsistencies](docs/evaluation/boku-loss-acknowledgement.md).
 
+With `opponent.tactical_guard: true`, ordinary Boku games now enforce an immediate
+White win or a checked defence against an immediate Black win or bounded forced-win
+setup. Mandatory captures are checked separately. The model's original proposal and
+any correction remain in Diagnostics and the session record. Original mode keeps its
+existing model prompt; its guard facts are computed locally in the background.
+Coached quoted remains unguarded, and positions without a checked safe action keep
+the model's choice. These checks do not establish perfect play.
+
+The bottom Diagnostics panel opens with a **How this game works** explanation of the
+rules, active models, model inputs, recognition fallback, prompt mode and move
+handling. It updates when you select another game or mode. Selections made during
+play are marked as previews until **New game**; live diagnostics and the exact
+question history remain below the explanation.
+
 In every game and prompt mode, three rejected computer retries after the
 initial failure cause a forfeit and a human win. Timeouts and service errors
 do not count. Coached quoted records the forfeit cause for its coach; see
@@ -165,3 +179,5 @@ The app validates and loads the saved board and strokes into a new session, pres
 To test the model without an opening suggestion, run `uv run --locked imajev-game --config config.no-opening.yaml --debug-input`. This removes the suggested opening from the first O request and retries while keeping the tactical guard on. The window title marks this mode, and saved session records include `opening_suggestion: false`.
 
 Independent opponent backends and editable model profiles are now available while keeping the existing names and ImaJEV defaults. See [model backend configuration and comparisons](docs/model-backends.md).
+
+To use Liquid d1 for both drawing recognition and opponent moves, run `uv run python -m scripts.install_liquid_d1`, then `uv run imajev-game --config configs/models/liquid-d1-3b-shared.yaml --debug-input`. Both roles share one resident GPU model and projector. See [native recognition and model configuration](docs/model-backends.md#native-vision-recognition) for setup, score thresholds and validation.

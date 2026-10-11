@@ -20,10 +20,11 @@ def test_minimax_oracle_is_separate_and_complete():
 @pytest.mark.parametrize('variant', ['quoted', 'legacy'])
 def test_cli_evaluates_configured_prompt_and_reports_it(qapp, monkeypatch, tmp_path, mode, variant):
     config = tmp_path / 'config.yaml'
-    config.write_text(f'opponent:\n  prompt_variant: {variant}\n  opening_suggestion: false\n')
+    config.write_text(f'imajev:\n  external_inference: true\nopponent:\n  prompt_variant: {variant}\n  opening_suggestion: false\n')
     output = tmp_path / 'evaluation.json'
     client = Fake()
-    monkeypatch.setattr(evaluator, 'ImajevClient', lambda config: client)
+    from app.inference.recognition import create_recognizer
+    monkeypatch.setattr(evaluator, 'create_recognizer', lambda config, **kwargs: create_recognizer(config, client))
     argv = ['evaluate', '--config', str(config), '--output', str(output), mode]
     if mode == 'opponent':
         argv += ['--limit', '1']
@@ -50,6 +51,7 @@ def test_recognition_evaluation_retains_strict_reply_contract(qapp, tmp_path):
     path = tmp_path / 'drawings.json'
     path.write_text(json.dumps({'version': 1, 'samples': [{'id': 'drawing', 'participant': 'test',
         'split': 'heldout', 'strokes': [asdict(stroke) for stroke in INK], 'valid_x': True, 'cell': 'A1'}]}))
-    result = evaluator.recognition(path, 'heldout', Fake(), Config())
+    from app.inference.recognition import create_recognizer
+    result = evaluator.recognition(path, 'heldout', create_recognizer(Config(), Fake()), Config())
     assert result['results'][0]['accepted'] == 'place_A1'
     assert result['results'][0]['reply']['answers']['symbol']['choice'] == 'X'

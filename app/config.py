@@ -24,6 +24,10 @@ class BackendSettings:
 
 @dataclass(frozen=True)
 class Config:
+    recognition: BackendSettings | None = None
+    recognition_fallback: BackendSettings | None = None
+    fallback_threshold: float = .85
+    fallback_after_rejections: int = 3
     opponent: BackendSettings | None = None
     coach_backend: str = 'shared'
     ollama_url: str = 'http://127.0.0.1:11434'
@@ -46,12 +50,21 @@ class Config:
     directory: Path = Path('sessions')
 
     @property
+    def recognition_settings(self):
+        return self.recognition or BackendSettings(model=self.expected_model, endpoint=self.endpoint)
+
+    @property
     def opponent_settings(self):
         return self.opponent or BackendSettings(model=self.expected_model, endpoint=self.endpoint)
 
     @property
     def opponent_name(self):
         return 'Imajev' if self.opponent_settings.backend == 'imajev' else self.opponent_settings.model
+
+    def validate_recognition_policy(self, prompt_variant=None):
+        prompt = self.prompt_variant if prompt_variant is None else prompt_variant
+        if self.recognition_settings.backend != 'imajev' and prompt == 'coached_quoted' and self.coach_backend == 'shared':
+            raise ValueError('Non-ImaJEV recognition with coached_quoted requires learning.coach_backend: ollama.')
 
 
 def validate_loopback(endpoint, label):
@@ -137,14 +150,41 @@ def load_config(path: Path) -> Config:
         raise ValueError(f'Invalid YAML configuration: {exc}') from exc
     if not isinstance(data, dict):
         raise ValueError('Configuration must be a YAML mapping.')
-    sections = {key: data.get(key, {}) for key in ('game', 'imajev', 'recognition', 'canvas', 'diagnostics', 'opponent', 'learning')}
+    sections = {key: data.get(key, {}) for key in ('game', 'imajev', 'recognition', 'recognition_fallback', 'canvas', 'diagnostics', 'opponent', 'learning')}
     if any(not isinstance(section, dict) for section in sections.values()):
         raise ValueError('Configuration sections must be mappings.')
-    g, i, r, c, d, o, l = (sections[k] for k in sections)
-    if r.get('backend', 'imajev') != 'imajev':
-        raise ValueError('Drawing recognition currently supports only ImaJEV.')
-    recognition_model = r.get('model', i.get('expected_model', Config.expected_model))
-    recognition_endpoint = r.get('endpoint', i.get('endpoint', Config.endpoint))
+    g, i, r, f, c, d, o, l = (sections[k] for k in sections)
+    native_recognition = r.get('backend', 'imajev') != 'imajev'
+    legacy_model = i.get('expected_model', Config.expected_model)
+    legacy_endpoint = i.get('endpoint', Config.endpoint)
+    recognition = backend_settings(dict(r, input_mode=r.get('input_mode', 'text_image')),
+                                   path.parent, legacy_model, legacy_endpoint)
+    if recognition.backend == 'decider' or recognition.protocol != 'systemone' or recognition.input_mode != 'text_image':
+        raise ValueError('Recognition requires an image-capable native System One backend.')
+    if native_recognition and ('backend' not in o or 'model' not in o):
+        raise ValueError('Non-ImaJEV recognition requires an explicit opponent backend and model.')
+    threshold_key = 'min_choice_probability' if native_recognition else 'min_effective_probability'
+    other_threshold = 'min_effective_probability' if native_recognition else 'min_choice_probability'
+    if other_threshold in r:
+        raise ValueError(f'{recognition.backend} recognition uses {threshold_key}.')
+    fallback = None
+    fallback_threshold = .85
+    fallback_after_rejections = 3
+    if f:
+        if not native_recognition or i.get('external_inference', False):
+            raise ValueError('Recognition fallback requires managed non-ImaJEV recognition.')
+        if f.get('backend') != 'imajev':
+            raise ValueError('Recognition fallback currently supports ImaJEV only.')
+        if 'min_choice_probability' in f:
+            raise ValueError('ImaJEV fallback uses min_effective_probability.')
+        fallback = backend_settings(f, path.parent, legacy_model, legacy_endpoint)
+        fallback_threshold = float(f.get('min_effective_probability', .85))
+        fallback_after_rejections = f.get('after_rejections', 3)
+        if (not math.isfinite(fallback_threshold) or not 0 <= fallback_threshold <= 1
+                or type(fallback_after_rejections) is not int or fallback_after_rejections < 1):
+            raise ValueError('Invalid recognition fallback threshold or retry count.')
+    recognition_model = legacy_model if native_recognition else recognition.model
+    recognition_endpoint = legacy_endpoint if native_recognition else recognition.endpoint
     opponent = backend_settings(o, path.parent, recognition_model, recognition_endpoint)
     game_id = g.get('default', 'tic_tac_toe')
     from app.core.registry import get_game
@@ -154,6 +194,9 @@ def load_config(path: Path) -> Config:
     if g.get('human_symbol', human) != human:
         raise ValueError(f'{game_id} currently supports human {human} only.')
     config = Config(
+        recognition=recognition if native_recognition or any(k in r for k in ('input_mode', 'projector_path', 'runtime_args', 'context_limit')) else None,
+        recognition_fallback=fallback, fallback_threshold=fallback_threshold,
+        fallback_after_rejections=fallback_after_rejections,
         opponent=opponent if any(k in o for k in ('backend', 'model', 'endpoint', 'protocol', 'input_mode', 'generation_temperature', 'generation_max_tokens', 'executable', 'model_path', 'projector_path', 'runtime_args', 'max_choices', 'context_limit')) else None,
         coach_backend=l.get('coach_backend', 'shared'), ollama_url=l.get('ollama_url', Config.ollama_url),
         coach_model=l.get('model', ''), learning_directory=path.parent / l.get('directory', 'learning/coached-quoted'),
@@ -164,11 +207,12 @@ def load_config(path: Path) -> Config:
         expected_model=recognition_model,
         request_timeout=float(i.get('request_timeout_seconds', Config.request_timeout)),
         startup_timeout=float(i.get('startup_timeout_seconds', Config.startup_timeout)),
-        threshold=float(r.get('min_effective_probability', .85)),
+        threshold=float(r.get(threshold_key, .85)),
         observation_size=int(c.get('observation_size_pixels', 768)),
         diagnostics=d.get('enabled', False), save_sessions=d.get('save_sessions', False),
         directory=path.parent / d.get('directory', 'sessions'))
     policy.validate_prompt(config.prompt_variant)
+    config.validate_recognition_policy()
     if opponent.protocol == 'chat' and config.move_temperature:
         raise ValueError('Chat opponents supply no distribution; move_temperature must be zero.')
     url = urlparse(config.endpoint)

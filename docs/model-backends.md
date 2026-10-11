@@ -1,6 +1,6 @@
 # Independent recognition and opponents
 
-Repository, application, Python package and CLI names are unchanged. Existing YAML files still select the same ImaJEV recognition and opponent, prompts and tactical policy. Drawing recognition retains its probability, abstention and geometry checks.
+Repository, application, Python package and CLI names are unchanged. Existing YAML files still select the same ImaJEV recognition and opponent, prompts and tactical policy. ImaJEV recognition retains its probability, abstention and geometry checks.
 
 Select an opponent independently:
 
@@ -21,13 +21,46 @@ opponent:
   tactical_guard: true
 ```
 
-Run `uv run imajev-game --config your-config.yaml`. The UI shows both model identities. ImaJEV remains the only drawing recognizer; selecting a multimodal opponent does not change recognition. `input_mode: text_image` sends a rendered board as well as the same symbolic state and choices. Text-only opponents receive no image. A local vision runtime also needs `projector_path` pointing to its installed projector.
+Run `uv run imajev-game --config your-config.yaml`. The UI shows both model identities. Selecting a multimodal opponent does not change recognition: configure that role separately. `input_mode: text_image` sends a rendered board as well as the same symbolic state and choices. Text-only opponents receive no image. A local vision runtime also needs `projector_path` pointing to its installed projector.
 
 The `OpponentBackend.choose_move(request, image)` boundary returns `MoveResult`: proposed choice, backend/model identity and original response, with optional distribution, confidence, abstention and unknown probability. Chat models need only return the offered choice. Missing uncertainty fields remain `None`; no probability or abstention values are invented. Games validate legal actions directly. Sampling with `move_temperature > 0` requires a real distribution; chat uses its separate `generation_temperature`. These temperatures have different meanings.
 
 Chat profiles can set `generation_max_tokens` (default 128) to budget reasoning and answer tokens. Truncated responses are rejected, including responses with empty answer content. The installed Qwen3-VL model continued reasoning despite `think: false`; its [profile](../configs/models/qwen3-vl.yaml) uses 512 tokens, which completed the tested opening position. Non-default budgets are recorded in session metadata.
 
-Only the ImaJEV adapter reads the legacy decision `Reply`. Games and evaluation decision callers now consume `MoveResult`; recognition still uses the strict ImaJEV reply contract. Existing saved sessions without role metadata remain readable. New sessions record both roles and reject restoration under a different inference configuration.
+Only the ImaJEV adapters read the legacy `Reply`. Games and evaluation decision callers consume `MoveResult`; drawing callers consume `RecognitionResult`. Existing saved sessions without role metadata remain readable, and previous ImaJEV role metadata remains compatible. Native recognition sessions record complete role settings and their threshold policy, and reject restoration with a different configuration.
+
+## Native vision recognition
+
+Recognition supports ImaJEV and image-capable native System One models through llama.cpp or Ollama. Vision chat recognition is deferred. Text-only models cannot recognize drawings. The complete recognition question set must fit the runtime's choice limit: Boku's cell question exceeds Ollama System One's 26-choice limit. No cells are removed to fit a model.
+
+The existing Liquid profile keeps ImaJEV recognition. To run Liquid d1 for **both** roles, install its projector and select the shared profile:
+
+```sh
+uv run python -m scripts.install_liquid_d1
+uv run imajev-game --config configs/models/liquid-d1-3b-shared.yaml --debug-input
+```
+
+The installer downloads only the pinned publisher Q8 projector, verifies its SHA-256, and leaves existing `models/liquid-d1-3b/model.gguf` weights intact. The existing CUDA llama.cpp installation serves both roles with GPU offloading; no additional Python inference package or local compilation is required. Gameplay uses local assets and never downloads them.
+
+`recognition` accepts the native runtime fields supported by `opponent`, with `input_mode: text_image`. Set `recognition.min_choice_probability` for native recognition (default 0.85). ImaJEV continues to use `recognition.min_effective_probability` (default 0.85), including its unknown-probability adjustment. The threshold keys are not interchangeable. Native confidence is reported separately and never substitutes for a missing probability distribution. Missing abstention/unknown fields remain null. Model probabilities are not a measured drawing-accuracy guarantee.
+
+The shared Liquid profile also configures `recognition_fallback` with ImaJEV-4B NF4. After three rejected Liquid recognition attempts at the same board revision, the app automatically retries the pending drawing with ImaJEV using its own `min_effective_probability: 0.65`. The model manager releases Liquid before loading ImaJEV, then releases ImaJEV before the next Liquid opponent move. Each request records the backend and threshold actually used. Undo and Clear reset the rejection count; a saved session preserves it across restart.
+
+Both games retain their symbol, geometry, turn and action-legality checks. Rejected drawings remain editable. Startup warms the image path on a blank observation and validates the response contract without requiring blank ink to be accepted as a move.
+
+To share a runtime, configure both roles with identical backend, service origin, model identity, executable, weights, projector, context and launch arguments. YAML anchors in the shared Liquid profile keep these aligned. Recognition sends the ink image; the opponent uses symbolic state. Changing role, input mode, prompts or threshold does not reload the model. Changing loaded assets or launch settings requires an ordered release and activation. Diagnostics record reuse, process ID, activation time and inference time.
+
+Other native vision models, including d1-omni and Clef, can use the same adapter when the installed runtime advertises image and decision support and their matching projector is configured. Their recognition quality and GPU residency require separate live validation. Clef remains excluded from default 8 GB checks.
+
+With non-ImaJEV recognition, `coached_quoted` requires `learning.coach_backend: ollama` and an installed coach model. The legacy shared coach uses ImaJEV's coaching endpoint. After Ollama coaching finishes and unload is confirmed, the configured recognizer is restored.
+
+Run local controls and a shared-turn check with:
+
+```sh
+uv run python -m scripts.validate_recognition
+```
+
+The report at `logs/liquid-recognition-validation.json` records exact requests, drawings, raw responses, rejections, role settings, asset/runtime provenance, process reuse, accuracy/coverage and sampled device-wide peak memory. Warm-up is excluded from inference latency. Small synthetic controls validate integration; use the recognition evaluation/replay scripts and identical saved human drawings to compare recognition quality. Evaluation and replay now support managed inference by default and `--external-inference` for an existing service. The Boku prompt-variant script retains its explicit external-service behavior.
 
 ## Runtimes and profiles
 
@@ -60,7 +93,7 @@ For Mapika, create the separate environment in `runtimes/decider` using its pypr
 
 ## GPU ownership
 
-Managed inference releases the active opponent before recognizing another drawing or coaching. Switching backends stops owned local process groups or unloads only the selected Ollama model and confirms its disappearance from `/api/ps`. An unconfirmed unload blocks another activation. Occupied ports and preloaded Ollama models are reported; unrelated services are not terminated. Ollama startup includes the existing WSL/Windows relay. Downloads are never initiated by gameplay.
+Managed inference uses one exclusive GPU gate for activation and requests. Matching recognition/opponent runtimes stay resident across turns, with health and model identity verified before reuse. A different runtime or coaching releases the active model first. Switching backends stops owned local process groups or unloads only the selected Ollama model and confirms its disappearance from `/api/ps`. An unconfirmed unload blocks another activation. Occupied ports and preloaded Ollama models are reported; unrelated services are not terminated. Ollama startup includes the existing WSL/Windows relay. Downloads are never initiated by gameplay.
 
 Process creation alone never establishes readiness. Every managed ImaJEV request verifies `/v1/models` reports the expected loaded PyTorch model before checking its busy status and submitting inference. Local llama.cpp and Decider activation waits for `/health` and verifies the model identity from `/v1/models`. Ollama activation explicitly loads chat models using an empty chat request; native decision models use a separate small readiness decision. It then verifies the resident name and installed digest through `/api/ps` before submitting a game request. A failed load, identity mismatch, or failed release blocks the next request. Polling intervals only control how often readiness is checked; elapsed time is never evidence of readiness.
 
@@ -85,6 +118,6 @@ The runner saves a versioned protocol, source hashes, config snapshots, local we
 
 Managed HTTP runtimes report activation and inference durations separately. Total call latency is always recorded; missing timings remain null. Memory readings include device-wide snapshots and a sampled device-wide peak from `nvidia-smi`, not per-model allocations or a reliable Windows-host RAM measurement through WSL. Measure host RAM and peak VRAM externally for hardware claims. Ollama provenance includes installed model digest, runtime version and capabilities; local runtimes record command, model hash and readiness identity. Archived evaluation files are unchanged.
 
-Existing decision scripts now use the same backend factory. Recognition-only drawing scripts retain ImaJEV. Older research scripts that explicitly use external services still expect you to start those services; `evaluate_prompting` now accepts `--config` and manages the chosen opponent. Its experiment protocol version changed to prevent mixing old decoder results into resumed trials.
+Existing decision scripts use the opponent factory. Recognition evaluation, replay and validation scripts use the recognition factory and record real scores and their score policy. Older research scripts that explicitly use external services still expect you to start those services; `evaluate_prompting` now accepts `--config` and manages the chosen opponent. Its experiment protocol version changed to prevent mixing old decoder results into resumed trials.
 
 Protocol references: [Ollama System One](https://docs.ollama.com/api/systemone), [llama.cpp server](https://github.com/ggml-org/llama.cpp/blob/master/tools/server/README.md), [Mapika Decider](https://github.com/Mapika/decider), [Decision 2.0 GGUF](https://huggingface.co/vllm-sr/Decision-2.0-Nox-4B-GGUF).

@@ -6,14 +6,36 @@ import socket
 import subprocess
 import sys
 import time
+import threading
+from functools import wraps
 from urllib.parse import urlsplit
 import httpx
 from dataclasses import replace
 
 
+def exclusive(method):
+    @wraps(method)
+    def call(self, *args, **kwargs):
+        with self.gpu_lock:
+            return method(self, *args, **kwargs)
+    return call
+
+
+def runtime_key(settings):
+    """Loaded resources, independent of the role or individual request."""
+    url = urlsplit(settings.endpoint)
+    def path(value):
+        return str(Path(value).resolve()) if value else ''
+    executable = shutil.which(settings.executable) or settings.executable
+    return (settings.backend, url.hostname, url.port or 80, settings.model,
+            path(executable), path(settings.model_path), path(settings.projector_path),
+            settings.context_limit, settings.runtime_args)
+
+
 class ServiceManager:
     def __init__(self, config):
         self.config = config
+        self.gpu_lock = threading.RLock()
         self.process = self.ollama_process = None
         self.log = None
         self.swap_pending = False
@@ -26,6 +48,7 @@ class ServiceManager:
         self.opponent_ollama = None
         self.runtime_provenance = {}
 
+    @exclusive
     def start(self):
         self._release_opponent()
         if self.swap_pending:
@@ -73,6 +96,7 @@ class ServiceManager:
         if self.process is not None and self.process.poll() is not None:
             raise RuntimeError('Imajev child exited. See logs/managed-service.log and Retry.')
 
+    @exclusive
     def stop(self):
         if self.process is not None:
             if self.process.poll() is None:
@@ -91,6 +115,7 @@ class ServiceManager:
             self.log.close()
             self.log = None
 
+    @exclusive
     def shutdown(self):
         try:
             self._release_opponent()
@@ -108,18 +133,25 @@ class ServiceManager:
                     os.killpg(self.ollama_process.pid, signal.SIGKILL)
                     self.ollama_process.wait(timeout=10)
 
-    def recover(self):
-        """Confirm a selected model is unloaded before permitting an Imajev restart."""
+    @exclusive
+    def recover(self, recognition=None):
+        """Confirm release before recovering the configured recognition runtime."""
         if self.swap_pending:
             with httpx.Client(timeout=30, trust_env=False) as client:
                 self._unload(client)
-        self.prepare_imajev(self.config)
+        if recognition is None or recognition.backend == 'imajev':
+            config = self.config if recognition is None else replace(self.config, endpoint=recognition.endpoint, expected_model=recognition.model)
+            self.prepare_imajev(config)
+        else:
+            self._release_opponent()
+            self.stop()
 
     def imajev_active(self, config):
         return (self.active_opponent is None and self.process is not None and self.process.poll() is None
                 and self.active_imajev_config.endpoint == config.endpoint
                 and self.active_imajev_config.expected_model == config.expected_model)
 
+    @exclusive
     def prepare_imajev(self, config):
         if self.config.external_inference:
             return
@@ -129,6 +161,7 @@ class ServiceManager:
         self.active_imajev_config = config
         self.start()
 
+    @exclusive
     def run_imajev(self, config, operation):
         started = time.monotonic()
         self.prepare_imajev(config)
@@ -176,33 +209,65 @@ class ServiceManager:
         self.active_opponent = None
 
     def run_opponent(self, settings, operation):
+        return self.run_backend(settings, operation)
+
+    @exclusive
+    def run_backend(self, settings, operation):
         if self.config.external_inference:
             return operation()
         if self.swap_pending:
             with httpx.Client(timeout=30, trust_env=False) as client:
                 self._unload(client)
-        # Leave a successful opponent resident until the next role needs the GPU.
         started = time.monotonic()
-        if self.active_opponent != settings or (self.opponent_process is not None and self.opponent_process.poll() is not None):
-            self._release_opponent()
-            self.progress('Loading ' + settings.model + '…')
-            if settings.backend == 'ollama':
-                self._activate_ollama(settings)
-            else:
-                self._activate_local(settings)
-            self.active_opponent = settings
-        activation_seconds = time.monotonic() - started
+        reused = (self.active_opponent is not None
+                  and runtime_key(self.active_opponent) == runtime_key(settings)
+                  and not (self.opponent_process is not None and self.opponent_process.poll() is not None))
         try:
+            if reused:
+                self._verify_active(settings)
+            else:
+                self._release_opponent()
+                self.progress('Loading ' + settings.model + '…')
+                if settings.backend == 'ollama':
+                    self._activate_ollama(settings)
+                else:
+                    self._activate_local(settings)
+                self.active_opponent = settings
+            activation_seconds = time.monotonic() - started
             inference_started = time.monotonic()
             result = operation()
             return replace(result, raw={**result.raw, 'runtime_provenance': self.runtime_provenance,
+                                        'runtime_reused': reused,
+                                        'runtime_pid': self.opponent_process.pid if self.opponent_process else None,
                                         'activation_seconds': activation_seconds,
                                         'inference_seconds': time.monotonic() - inference_started})
         except BaseException:
-            # An HTTP timeout does not prove GPU work has finished. Process exit or
-            # a confirmed Ollama unload is required before another operation.
+            # A timeout or failed readiness must release GPU ownership before Retry.
             self._release_opponent()
             raise
+
+    def _verify_active(self, settings):
+        parts = urlsplit(settings.endpoint)
+        url = f'{parts.scheme}://{parts.netloc}'
+        with httpx.Client(timeout=2, trust_env=False, follow_redirects=False) as client:
+            if settings.backend == 'ollama':
+                response = client.get(url + '/api/ps'); response.raise_for_status()
+                expected = self.runtime_provenance['model']
+                if not any(item['name'] == expected['name'] and item.get('digest') == expected.get('digest')
+                           for item in response.json()['models']):
+                    raise RuntimeError('Resident model identity changed; GPU reuse blocked.')
+                if settings.input_mode == 'text_image' and 'vision' not in self.runtime_provenance.get('capabilities', []):
+                    raise RuntimeError('Resident model does not support image recognition.')
+            else:
+                response = client.get(url + '/health'); response.raise_for_status()
+                response = client.get(url + '/v1/models'); response.raise_for_status()
+                entry = next((m for m in response.json()['data'] if m['id'] == settings.model), None)
+                if entry is None:
+                    raise RuntimeError('Resident model identity changed; GPU reuse blocked.')
+                if settings.input_mode == 'text_image':
+                    architecture = entry.get('architecture', {})
+                    if 'image' not in architecture.get('input_modalities', []) or 'decisions' not in architecture.get('output_modalities', []):
+                        raise RuntimeError('Resident model does not advertise image decisions.')
 
     def _activate_ollama(self, settings):
         from urllib.parse import urlunsplit
@@ -331,7 +396,7 @@ class ServiceManager:
                             if modalities is not None and 'decisions' not in modalities:
                                 raise RuntimeError('Runtime has no native decision support for this model.')
                             inputs = entry.get('architecture', {}).get('input_modalities', [])
-                            if settings.input_mode == 'text_image' and 'image' not in inputs:
+                            if settings.input_mode == 'text_image' and ('image' not in inputs or not modalities or 'decisions' not in modalities):
                                 raise RuntimeError('Runtime does not advertise image input for this model.')
                             self.runtime_provenance['served_model'] = entry
                             return
@@ -390,6 +455,7 @@ class ServiceManager:
                 raise RuntimeError('Ollama unload is unconfirmed; Imajev restart blocked.')
             time.sleep(.25)
 
+    @exclusive
     def ollama(self, operation):
         """Run the entire history pipeline within a single exclusive GPU swap."""
         if self.config.external_inference:
@@ -431,5 +497,7 @@ class ServiceManager:
                 return operation(invoke)
             finally:
                 self._unload(client)
-                self.progress('Reloading Imajev…')
-                self.start()
+                if self.config.recognition_settings.backend == 'imajev':
+                    self.progress('Reloading Imajev…')
+                    self.prepare_imajev(replace(self.config, endpoint=self.config.recognition_settings.endpoint,
+                                                expected_model=self.config.recognition_settings.model))

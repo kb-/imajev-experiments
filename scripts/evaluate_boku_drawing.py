@@ -16,7 +16,8 @@ from app.config import load_config
 from app.core.contracts import Scene, Stroke
 from app.games.boku.game import Boku
 from app.games.boku.geometry import CELLS, CENTERS, SPACING, geometry_matches, recognition_view
-from app.inference.imajev_client import ImajevClient, InferenceError
+from app.inference.imajev_client import InferenceError
+from app.inference.recognition import create_recognizer, metadata as recognition_metadata
 from app.storage.atomic import atomic_json
 from app.ui.rendering import observation_png
 from scripts.validate_boku import drawing as synthetic
@@ -96,7 +97,7 @@ def main():
     app = QApplication([])
     game = Boku()
     config = replace(load_config(args.config),external_inference=True)
-    client = ImajevClient(config)
+    client = create_recognizer(config)
     cases = samples(args.session) + (controls() if args.controls else [])
     if args.ids:
         cases = [c for c in cases if any(c['id'].startswith(prefix) for prefix in args.ids)]
@@ -105,12 +106,13 @@ def main():
     atomic_json(args.output/'fixtures.json',[{'id':c['id'],'symbol':c['symbol'],'cell':c['cell'],
                 'state':game.encode_state(c['state']),'drawing':[{'points':s.points,'width':s.width,'color':s.color} for s in c['ink']],
                 'source':c.get('source')} for c in cases])
-    result = {'threshold':config.threshold,'rows':[],'error':None}
+    from app.inference.opponents import role_metadata
+    result = {'inference_protocol':3, 'inference':role_metadata(config), 'threshold':config.threshold,'rows':[],'error':None}
     def invoke(request,png):
         deadline = time.monotonic()+180
         while True:
             try:
-                return client.decide(request,png)
+                return client.recognize(request,png)
             except InferenceError as exc:
                 if 'previous GPU request' not in str(exc) or time.monotonic()>deadline:
                     raise
@@ -172,12 +174,12 @@ def main():
             symbol_reply = invoke(symbol_request,observation_png(symbol_scene,config.observation_size))
             cell_request = {'state':request['state'],'questions':{'cell':request['questions']['cell']}}
             cell_reply = invoke(cell_request,png)
-            from app.core.contracts import Reply
-            reply = Reply(symbol_reply.model,{**symbol_reply.answers,**cell_reply.answers},
-                          {'symbol_response':symbol_reply.raw,'cell_response':cell_reply.raw})
+            from app.core.contracts import RecognitionResult
+            reply = RecognitionResult(symbol_reply.model,{**symbol_reply.answers,**cell_reply.answers},
+                          {'symbol_response':symbol_reply.raw,'cell_response':cell_reply.raw}, symbol_reply.backend)
         else:
             reply = invoke(request,png)
-        answers = {key:{'choice':a.choice,'effective':a.effective_probability,'unknown':a.unknown_probability,'abstained':a.abstained} for key,a in reply.answers.items()}
+        answers = recognition_metadata(reply)['answers']
         expected_action = (f'{"capture" if sample["state"].phase == "capture" else "place"}_{sample["cell"]}'
                            if sample['symbol'] == ('X' if sample['state'].phase=='capture' else 'O') and sample['cell'] else None)
         try:

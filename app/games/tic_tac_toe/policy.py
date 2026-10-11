@@ -36,8 +36,24 @@ class Policy(SessionPolicy):
         return (game.retry_decision_request(state, actions, attempt, **options) if attempt else
                 game.decision_request(state, actions, **options))
 
-    def correct_action(self, game, state, action, config):
+    def correct_action(self, game, state, action, config, evidence=None, probabilities=None):
         return game.tactical_choice(state, action) if self.tactics_caption(config) else (action, None)
+
+    def explanation(self, config, mode):
+        descriptions = {
+            'legacy': ('Original sends the symbolic board, legal action IDs, rules, immediate win and threat lists. '
+                       'It can add opening advice when enabled.'),
+            'quoted': ('Quoted sends a 3×3 symbolic board, coordinates, an ordered strategy and facts about each legal move, '
+                       'including immediate wins, blocks and fork-related consequences.'),
+            'coached_quoted': ('Coached quoted sends the same board and move facts as Quoted, but uses the strategy learned '
+                              'from previous losses. The coach updates that strategy after a loss; tactical corrections are off.'),
+        }
+        return {
+            'rules': 'X and O alternate in the 3×3 grid. Three in a row, column or diagonal wins; a full board draws.',
+            'opponent_input': descriptions[mode],
+            'guard': ('The app enforces an immediate O win or the single move that blocks an immediate X win. '
+                      'It does not enforce fork defence or perfect play.'),
+        }
 
     def tactics_caption(self, config):
         return 'Immediate wins and blocks enforced' if config.tactical_guard and config.prompt_variant != 'coached_quoted' else ''

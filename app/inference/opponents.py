@@ -2,19 +2,15 @@
 from dataclasses import replace
 import base64
 import json
-import math
 import time
 from typing import Protocol
-from urllib.parse import urlsplit, urlunsplit
 
 import httpx
 
 from app.core.contracts import MoveResult
 from app.inference.imajev_client import ImajevClient, InferenceError, Unavailable
-
-
-class Unsupported(InferenceError):
-    """The complete experiment cannot be represented by this runtime."""
+from app.inference.native import (Unsupported, description, native_request, native_payload,
+                                  parse_native_choice, request_json)
 
 
 class OpponentBackend(Protocol):
@@ -48,23 +44,6 @@ def metadata(result):
             'confidence': result.confidence, 'rejection': result.rejection}
 
 
-def description(value):
-    """Match ImaJEV's structured-description flattening, including insertion order."""
-    def text(item):
-        return item if isinstance(item, str) else json.dumps(item, ensure_ascii=False)
-    if value is None or isinstance(value, str):
-        return value
-    if isinstance(value, dict):
-        return '; '.join(f'{key}: {text(item)}' for key, item in value.items()) or None
-    return '; '.join(text(item) for item in value) or None
-
-
-def native_request(request):
-    return {**request, 'questions': {name: {**question, 'criteria': {
-        key: description(value) for key, value in question['criteria'].items()}}
-        for name, question in request['questions'].items()}}
-
-
 def parse_move(raw, request, settings):
     if not isinstance(raw, dict) or raw.get('model') != settings.model:
         raise InferenceError(f'Expected opponent model {settings.model}; received a different model identity.')
@@ -84,44 +63,12 @@ def parse_move(raw, request, settings):
             return MoveResult('', settings.model, raw, settings.backend,
                               rejection=f'Opponent did not return a complete JSON choice: {exc}')
     name = 'move' if 'move' in request['questions'] else next(iter(request['questions']))
-    answers = raw.get('answers')
-    answer = answers.get(name) if isinstance(answers, dict) else None
-    if not isinstance(answer, dict) or answer.get('type') != 'choice':
-        return MoveResult('', settings.model, raw, settings.backend, rejection='Opponent response is missing its choice answer.')
-    choice = answer.get('choice')
-    probabilities = answer.get('probabilities')
-    rejection = None
-    if not isinstance(choice, str) or choice not in offered:
-        rejection = 'Opponent returned an unoffered choice.'
-    if probabilities is not None:
-        if (not isinstance(probabilities, dict) or set(probabilities) != set(offered)
-                or any(isinstance(p, bool) or not isinstance(p, (int, float)) or not math.isfinite(p)
-                       or not 0 <= p <= 1 for p in probabilities.values())
-                or abs(sum(probabilities.values()) - 1) > .02):
-            rejection = 'Opponent returned an invalid choice distribution.'
-            probabilities = None
-        elif choice in probabilities and probabilities[choice] + 1e-6 < max(probabilities.values()):
-            rejection = 'Opponent choice does not match its highest probability.'
-    confidence = answer.get('confidence')
-    if confidence is not None and (isinstance(confidence, bool) or not isinstance(confidence, (int, float))
-                                   or not math.isfinite(confidence) or not 0 <= confidence <= 1):
-        rejection = 'Opponent returned invalid confidence.'
-        confidence = None
-    abstained = answer.get('abstained')
-    unknown = answer.get('unknown_probability')
-    if abstained is not None and not isinstance(abstained, bool):
-        rejection = 'Opponent returned invalid abstention.'
-        abstained = None
-    if unknown is not None and (isinstance(unknown, bool) or not isinstance(unknown, (int, float))
-                                or not math.isfinite(unknown) or not 0 <= unknown <= 1):
-        rejection = 'Opponent returned invalid unknown probability.'
-        unknown = None
+    result = parse_native_choice(raw, name, request['questions'][name], settings)
     for other, question in request['questions'].items():
         if other != name:
-            additional = parse_move(raw, {'questions': {other: question}}, settings)
-            rejection = rejection or additional.rejection
-    return MoveResult(choice if isinstance(choice, str) else '', settings.model, raw, settings.backend,
-                      probabilities, abstained, unknown, confidence, rejection)
+            additional = parse_native_choice(raw, other, question, settings)
+            result = replace(result, rejection=result.rejection or additional.rejection)
+    return result
 
 
 class ImajevOpponent:
@@ -200,31 +147,19 @@ class HTTPOpponent:
             if image is not None:
                 body['messages'][-1]['images'] = [base64.b64encode(image).decode('ascii')]
             return body
-        body = dict(native_request(request), model=s.model)
-        if s.backend == 'ollama':
-            body['keep_alive'] = -1
-        if image is not None:
-            encoded = base64.b64encode(image).decode('ascii')
-            body['images'] = [encoded if s.backend == 'ollama' else 'data:image/png;base64,' + encoded]
-        return body
+        return native_payload(request, image, s)
 
     def _request(self, request, image, timeout):
         if self.uncertain_busy and (not self.manager or self.config.external_inference):
             raise InferenceError('The timed-out external opponent may still be working. Restart the external service and this application before Retry.')
         try:
-            with httpx.Client(timeout=timeout or self.config.request_timeout, trust_env=False, follow_redirects=False) as transport:
-                response = transport.post(self.settings.endpoint, json=self._payload(request, image))
-            if response.status_code in (400, 413, 501):
-                raise Unsupported(f'Opponent cannot represent this request (HTTP {response.status_code}): {response.text[:300]}')
-            if response.status_code != 200:
-                raise InferenceError(f'Opponent returned HTTP {response.status_code}: {response.text[:300]}')
             try:
-                def invalid_constant(value):
-                    raise ValueError(f'Nonfinite JSON number: {value}')
-                raw = json.loads(response.content, parse_constant=invalid_constant)
-            except ValueError:
-                return MoveResult('', self.settings.model, {'response_text': response.text}, self.settings.backend,
-                                  rejection='Opponent returned malformed JSON.')
+                raw = request_json(self.settings.endpoint, self._payload(request, image),
+                                   timeout or self.config.request_timeout)
+            except InferenceError as exc:
+                if not hasattr(exc, 'raw'):
+                    raise
+                return MoveResult('', self.settings.model, exc.raw, self.settings.backend, rejection=str(exc))
             result = parse_move(raw, request, self.settings)
             if self.provenance:
                 result = replace(result, raw={**result.raw, 'runtime_provenance': self.provenance})
@@ -250,10 +185,11 @@ class HTTPOpponent:
 
 
 def create_opponent(config, client=None, manager=None):
+    client = getattr(client, 'client', client)
     if config.opponent_settings.backend == 'imajev':
         same = (config.opponent_settings.model == config.expected_model
                 and config.opponent_settings.endpoint == config.endpoint)
-        return ImajevOpponent(config, client if same else None, manager)
+        return ImajevOpponent(config, client if same and hasattr(client, 'decide') else None, manager)
     return HTTPOpponent(config, manager)
 
 
@@ -263,6 +199,9 @@ def role_metadata(config):
     # Existing recordings already used this budget; preserve their role identity.
     if opponent['generation_max_tokens'] == 128:
         opponent.pop('generation_max_tokens')
-    return {'version': 1, 'recognition': {'backend': 'imajev', 'model': config.expected_model,
-                                        'endpoint': config.endpoint},
-            'opponent': opponent}
+    recognition = config.recognition_settings
+    if recognition.backend == 'imajev':
+        return {'version': 1, 'recognition': {'backend': 'imajev', 'model': recognition.model,
+                                            'endpoint': recognition.endpoint}, 'opponent': opponent}
+    return {'version': 2, 'recognition': dict(asdict(recognition),
+            score_kind='choice_probability', min_choice_probability=config.threshold), 'opponent': opponent}

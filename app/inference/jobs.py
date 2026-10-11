@@ -11,6 +11,7 @@ class Job(QRunnable):
         super().__init__()
         self.ticket = ticket
         self.operation = operation
+        self.error_raw = None
         self.signals = JobSignals()
 
     def run(self):
@@ -20,4 +21,5 @@ class Job(QRunnable):
             reply = self.operation()
         except Exception as exc:
             error = str(exc) or type(exc).__name__
+            self.error_raw = getattr(exc, 'raw', None)
         self.signals.completed.emit(self.ticket, reply, error, time.monotonic() - start)

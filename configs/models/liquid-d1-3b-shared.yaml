@@ -1,0 +1,27 @@
+# One GPU runtime serves both roles; install the matching projector first.
+game:
+  default: boku
+recognition: &liquid
+  backend: llama_cpp
+  model: liquid-d1-3b-q8
+  protocol: systemone
+  input_mode: text_image
+  endpoint: http://127.0.0.1:8080/v1/systemone
+  executable: ../../runtimes/llama_cpp/install/llama-server
+  model_path: ../../models/liquid-d1-3b/model.gguf
+  projector_path: ../../models/liquid-d1-3b/mmproj-d1-3B-Q8_0.gguf
+  context_limit: 8192
+  max_choices: 255
+  min_choice_probability: 0.8
+  runtime_args: ["-ngl", "99"]
+recognition_fallback:
+  backend: imajev
+  model: imajev-4b-nf4
+  min_effective_probability: 0.65
+  after_rejections: 3
+opponent:
+  <<: *liquid
+  input_mode: text
+  prompt_variant: quoted
+  move_temperature: 0
+  tactical_guard: true

@@ -5,8 +5,9 @@ import logging
 import json
 import random
 from PyQt6.QtCore import QObject, QThreadPool, pyqtSignal
-from app.core.contracts import Stroke, Ticket, MoveResult
+from app.core.contracts import Stroke, Ticket, MoveResult, RecognitionResult
 from app.inference.opponents import create_opponent, metadata, role_metadata
+from app.inference.recognition import create_recognizer, metadata as recognition_metadata
 from app.inference.jobs import Job
 from app.storage.session_store import SessionStore, session_record
 from app.ui.rendering import observation_png
@@ -26,12 +27,18 @@ class SessionController(QObject):
     changed = pyqtSignal()
     progress = pyqtSignal(str)
     diagnosis_ready = pyqtSignal(object, object)
-    request_ready = pyqtSignal(object, object)
+    request_ready = pyqtSignal(object, object, object)
 
     def __init__(self, game, client, config, parent=None, opponent=None):
         super().__init__(parent)
-        self.game, self.client, self.config = game, client, config
-        self.opponent = opponent or create_opponent(config, client)
+        self.game, self.config = game, config
+        config.validate_recognition_policy()
+        self.recognizer = client if hasattr(client, 'recognize') else create_recognizer(config, client)
+        self.fallback_recognizer = (create_recognizer(replace(config, recognition=config.recognition_fallback))
+                                    if config.recognition_fallback else None)
+        # The raw ImaJEV client is used only by its legacy coaching transport.
+        self.client = getattr(self.recognizer, 'client', self.recognizer)
+        self.opponent = opponent or create_opponent(config, self.client)
         self.policy = game.session_policy
         self.game_preferences = {}
         self.move_rng = random.Random()
@@ -46,6 +53,7 @@ class SessionController(QObject):
         self.job = None
         self.retry_purpose = None
         self.decision_attempt = 0
+        self.failed_recognition_retries = 0
         self.source_session_id = None
         self.last_move = 'No moves yet'
         self.events = []
@@ -113,6 +121,7 @@ class SessionController(QObject):
         if not self.can_configure_game:
             return False
         self.policy.validate_prompt(prompt_variant)
+        self.config.validate_recognition_policy(prompt_variant)
         temperature = validate_move_temperature(move_temperature)
         if self.config.opponent_settings.protocol == 'chat' and temperature:
             raise ValueError('Chat opponents supply no move distribution; use zero move variety.')
@@ -134,16 +143,19 @@ class SessionController(QObject):
         self.coach_diagnosis = analysis['summary']
         self._publish()
 
-    def _request_ready(self, ticket, request):
+    def _request_ready(self, ticket, request, evidence):
         if ticket != self.active or ticket != self.inflight or self.stopping:
             return
         self.events[-1]['request'] = request
+        if evidence is not None:
+            self.events[-1]['tactical_evidence'] = evidence
         self.message = self.config.opponent_name + ' is choosing…'
         self._publish()
 
     def new_game(self, alternate_starter=False):
         if self.coaching_failed or (self.busy and self.inflight and self.inflight.purpose in ('coach', 'continue', 'shutdown')):
             return
+        self.config.validate_recognition_policy()
         ledger = self.learning_store.ledger() if self.coached else {'revision': 0, 'strategy': []}
         self.strategy, self.strategy_revision = ledger['strategy'].copy(), ledger['revision']
         self.next_strategy = ledger
@@ -160,6 +172,7 @@ class SessionController(QObject):
         self.retry_purpose = None
         self.decision_attempt = 0
         self.failed_decision_retries = 0
+        self.failed_recognition_retries = 0
         self.termination = None
         self.source_session_id = None
         self.last_move = 'No moves yet'
@@ -172,11 +185,15 @@ class SessionController(QObject):
 
     def restore(self, path: Path):
         record = json.loads(path.read_text(encoding='utf-8'))
+        if ('recognition_fallback' in record and record['recognition_fallback']
+                != json.loads(json.dumps(self._fallback_metadata()))):
+            raise ValueError('Saved recognition fallback differs from this configuration.')
         if record.get('inference') is not None and record['inference'] != json.loads(json.dumps(role_metadata(self.config))):
             raise ValueError('Saved inference roles differ from this configuration; select the matching --config.')
         if record.get('version') != 1 or record.get('state', {}).get('game') != self.game.id:
             raise ValueError('This session record does not match the selected game.')
         prompt_variant = self.policy.restore_prompt(record)
+        self.config.validate_recognition_policy(prompt_variant)
         temperature = validate_move_temperature(record.get('move_temperature', 0))
         self.state = self.game.decode_state(record['state'])
         self.config = replace(self.config, prompt_variant=prompt_variant, move_temperature=temperature)
@@ -209,8 +226,22 @@ class SessionController(QObject):
                 description = next((item['description'] for item in event.get('offered_actions', []) if item['id'] == action), action)
                 self.last_move = f"{event.get('player', '')} · {description}"
                 break
+        revision = self.game.revision(self.state)
+        self.failed_recognition_retries = min(self.config.fallback_after_rejections, sum(
+            1 for event in self.events
+            if event.get('ticket', {}).get('purpose') == 'recognition'
+            and event['ticket'].get('state_revision') == revision
+            and event.get('rejection') and not event.get('fallback')))
+        stored_recognition = record.get('recognition_retries')
+        if stored_recognition is not None:
+            if (not isinstance(stored_recognition, dict) or stored_recognition.get('version') != 1
+                    or stored_recognition.get('state_revision') != revision
+                    or type(stored_recognition.get('failed')) is not int
+                    or not 0 <= stored_recognition['failed'] <= self.config.fallback_after_rejections):
+                raise ValueError('Saved recognition retry progress is invalid.')
+            self.failed_recognition_retries = stored_recognition['failed']
         self.failed_decision_retries, self.decision_attempt = retry_progress(
-            self.events, self.game.revision(self.state))
+            self.events, revision)
         progress = record.get('decision_retries')
         expected_progress = {'version': 1, 'state_revision': self.game.revision(self.state),
                              'failed': self.failed_decision_retries}
@@ -239,12 +270,14 @@ class SessionController(QObject):
     def undo(self):
         if self.editable and self.pending:
             self.pending = self.pending[:-1]
+            self.failed_recognition_retries = 0
             self.message = self.instruction
             self._publish()
 
     def clear(self):
         if self.editable:
             self.pending = ()
+            self.failed_recognition_retries = 0
             self.message = self.instruction
             self._publish()
 
@@ -285,6 +318,10 @@ class SessionController(QObject):
             self._after_move()
             return
         ticket = Ticket(self.session_id, self.game.revision(self.state), str(uuid.uuid4()), purpose)
+        fallback = (purpose == 'recognition' and self.fallback_recognizer is not None
+                    and self.failed_recognition_retries >= self.config.fallback_after_rejections)
+        recognizer = self.fallback_recognizer if fallback else self.recognizer
+        recognition_threshold = self.config.fallback_threshold if fallback else self.config.threshold
         drawing = self.pending
         state = self.game.initial_state() if purpose == 'startup' else self.state
         render_purpose = 'decision' if purpose == 'decision' else 'recognition'
@@ -296,7 +333,7 @@ class SessionController(QObject):
                    if purpose == 'decision' else self.game.recognition_request(state, drawing))
         png = observation_png(self.game.render(state, drawing, render_purpose), self.config.observation_size)
         self.phase = {'recognition': 'recognising', 'decision': 'computer', 'startup': 'loading'}[purpose]
-        self.message = {'recognition': 'Reading your move…', 'decision': self.config.opponent_name + ' is choosing…', 'startup': 'Connecting and warming up Imajev…'}[purpose]
+        self.message = {'recognition': 'Reading your move with ' + recognizer.settings.model + '…', 'decision': self.config.opponent_name + ' is choosing…', 'startup': 'Connecting and warming up ' + self.config.recognition_settings.model + '…'}[purpose]
         if prepare_in_worker:
             self.message = 'Checking move consequences…'
         self.busy, self.active, self.inflight, self.retry_purpose = True, ticket, ticket, None
@@ -314,18 +351,23 @@ class SessionController(QObject):
             event['image'] = self.store.image(ticket, png)
         except OSError as exc:
             self.storage_error = f'Could not save observation: {exc}'
+        if purpose != 'decision':
+            role_config = replace(config, recognition=recognizer.settings, threshold=recognition_threshold)
+            event['recognition'] = role_metadata(role_config)['recognition']
+            event['recognition_threshold'] = recognition_threshold
+            event['fallback'] = fallback
+            event['failed_recognition_retries'] = self.failed_recognition_retries
         self.events.append(event)
         self.opponent.manager = self.service_manager
-        method = self.opponent.choose_move if purpose == 'decision' else self.client.warmup if purpose == 'startup' else self.client.decide
+        recognizer.manager = self.service_manager
+        method = self.opponent.choose_move if purpose == 'decision' else recognizer.warmup if purpose == 'startup' else recognizer.recognize
         def operation():
             prepared = request
             if prepare_in_worker:
-                prepared = policy.decision(game, state, actions, config, strategy, attempt)
+                prepared, evidence = policy.prepare_decision(game, state, actions, config, strategy, attempt)
                 if self.active != ticket or self.stopping:
                     raise RuntimeError('Decision preparation was superseded.')
-                self.request_ready.emit(ticket, prepared)
-            if purpose == 'startup' and self.service_manager:
-                self.service_manager.start()
+                self.request_ready.emit(ticket, prepared, evidence)
             return method(prepared, png)
         self.job = Job(ticket, operation)
         self.job.signals.completed.connect(self._completed)
@@ -335,6 +377,7 @@ class SessionController(QObject):
     def _completed(self, ticket, reply, error, seconds):
         if ticket != self.inflight:
             return
+        raw_error = getattr(self.job, 'error_raw', None)
         self.busy = False
         self.inflight = None
         self.job = None
@@ -352,7 +395,7 @@ class SessionController(QObject):
         self.active = None
         logger.info('inference completed purpose=%s seconds=%.2f error=%s', ticket.purpose, seconds, error)
         event = self.events[-1]
-        event.update(seconds=seconds, error=error, reply=dict(reply.raw) if reply else None)
+        event.update(seconds=seconds, error=error, reply=dict(reply.raw) if reply else raw_error)
         self.diagnostics = f'{ticket.purpose.title()} · {seconds:.2f} s\n'
         if isinstance(reply, MoveResult):
             event['move_result'] = metadata(reply)
@@ -362,18 +405,36 @@ class SessionController(QObject):
                 self.diagnostics += f'\nPreference: {reply.probabilities.get(reply.choice)}'
             if reply.rejection:
                 self.diagnostics += '\n' + reply.rejection
-        elif reply:
-            logger.debug('model answers request=%s model=%s answers=%s', ticket.request_id, reply.model, json.dumps(reply.raw.get('answers', {}), allow_nan=False))
-            for question, answer in reply.answers.items():
-                logger.info('model answer question=%s choice=%s probability=%.4f unknown=%.4f effective=%.4f abstained=%s',
-                            question, answer.choice, answer.probabilities[answer.choice], answer.unknown_probability, answer.effective_probability, answer.abstained)
-            score_name = 'preference' if ticket.purpose == 'decision' else 'effective probability'
-            self.diagnostics += '\n'.join(f'{key}: {a.choice} · {score_name} {(a.probabilities[a.choice] if ticket.purpose == "decision" else a.effective_probability):.3f} · unknown {a.unknown_probability:.3f}' for key, a in reply.answers.items())
+        elif isinstance(reply, RecognitionResult):
+            event['recognition_result'] = recognition_metadata(reply)
+            self.diagnostics += f'Model: {reply.model} · {reply.backend}\nScore: {reply.score_kind}\n'
+            for name, answer in reply.answers.items():
+                score = reply.score(name)
+                logger.info('recognition answer question=%s choice=%s score_kind=%s score=%.4f unknown=%s abstained=%s',
+                            name, answer.choice, reply.score_kind, score, answer.unknown_probability, answer.abstained)
+                self.diagnostics += f'{name}: {answer.choice} · {score:.3f}'
+                if answer.unknown_probability is not None:
+                    self.diagnostics += f' · unknown {answer.unknown_probability:.3f}'
+                if answer.confidence is not None:
+                    self.diagnostics += f' · confidence {answer.confidence:.3f}'
+                self.diagnostics += '\n'
+        if reply and 'runtime_reused' in reply.raw:
+            self.diagnostics += ('\nRuntime: ' + ('reused' if reply.raw['runtime_reused'] else 'loaded')
+                                 + f" · PID {reply.raw.get('runtime_pid')}"
+                                 + f" · activation {reply.raw.get('activation_seconds', 0):.3f} s"
+                                 + f" · inference {reply.raw.get('inference_seconds', 0):.3f} s")
         if error:
             self._error(ticket.purpose, error)
             return
         if ticket.purpose == 'startup':
             self.ready = True
+            if (self.fallback_recognizer and self.pending
+                    and self.failed_recognition_retries >= self.config.fallback_after_rejections
+                    and self.game.current_player(self.state) == self.game.human_player):
+                self.phase, self.message = 'human', 'Resuming drawing recognition with ImaJEV…'
+                self._publish()
+                self._launch('recognition')
+                return
             if self.game.current_player(self.state) == self.game.computer_player or self.outcome.kind != 'ongoing':
                 self._after_move()
             else:
@@ -382,9 +443,10 @@ class SessionController(QObject):
             return
         try:
             if ticket.purpose == 'recognition':
-                action = self.game.decode_recognition(self.state, self.pending, reply, self.config.threshold)
+                action = self.game.decode_recognition(self.state, self.pending, reply, event['recognition_threshold'])
                 self.state = self.game.apply_action(self.state, action, self.pending)
                 self.pending = ()
+                self.failed_recognition_retries = 0
             else:
                 proposed, action, distribution = select_move(
                     self.game, self.state, reply, event['move_temperature'], self.move_rng)
@@ -398,7 +460,9 @@ class SessionController(QObject):
                                          f'({distribution[selected]:.1%} sampling probability).')
                     logger.info('move sampled temperature=%g model_best=%s selected=%s probability=%.4f',
                                 event['move_temperature'], proposed, selected, distribution[selected])
-                action, correction = self.policy.correct_action(self.game, self.state, selected, self.config)
+                action, correction = self.policy.correct_action(
+                    self.game, self.state, selected, self.config,
+                    event.get('tactical_evidence'), reply.probabilities)
                 if correction:
                     event['tactical_correction'] = {'reason': correction, 'proposed': selected, 'committed': action}
                     self.diagnostics += f'\nTactical rule: {correction}; selected {selected}, committed {action}.'
@@ -417,8 +481,16 @@ class SessionController(QObject):
             logger.warning('move rejected request=%s purpose=%s reason=%s', ticket.request_id, ticket.purpose, exc)
             self.diagnostics += f'\nRejected: {exc}'
             if ticket.purpose == 'recognition':
+                if not event['fallback'] and self.fallback_recognizer:
+                    self.failed_recognition_retries = min(
+                        self.config.fallback_after_rejections, self.failed_recognition_retries + 1)
+                    event['failed_recognition_retries'] = self.failed_recognition_retries
                 self.phase, self.message = 'human', str(exc)
                 self._publish()
+                if (not event['fallback'] and self.fallback_recognizer
+                        and self.failed_recognition_retries == self.config.fallback_after_rejections):
+                    logger.info('recognition fallback activated after %d rejections', self.failed_recognition_retries)
+                    self._launch('recognition')
             else:
                 if event['decision_attempt'] > 0:
                     self.failed_decision_retries += 1
@@ -452,10 +524,11 @@ class SessionController(QObject):
 
     def _warmup_ready(self):
         if self.service_manager:
-            self.service_manager.recover()
+            self.service_manager.recover(self.config.recognition_settings)
         state = self.game.initial_state()
         request = self.game.recognition_request(state, ())
-        return self.client.warmup(request, observation_png(self.game.render(state, (), 'recognition'), self.config.observation_size))
+        self.recognizer.manager = self.service_manager
+        return self.recognizer.warmup(request, observation_png(self.game.render(state, (), 'recognition'), self.config.observation_size))
 
     def _coach(self):
         if self.busy or self.stopping:
@@ -490,7 +563,7 @@ class SessionController(QObject):
                                        else 'Studying games…' if payload['task'] == 'summarize' else 'Updating strategy…')
                     return shared_coach(self.client, payload)
                 response = pipeline(invoke)
-            self.progress.emit('Checking Imajev…')
+            self.progress.emit('Checking ' + self.config.recognition_settings.model + '…')
             self._warmup_ready()
             return response
 
@@ -528,7 +601,7 @@ class SessionController(QObject):
             return
         ticket = Ticket(self.session_id, self.game.revision(self.state), str(uuid.uuid4()), 'continue')
         self.busy, self.inflight = True, ticket
-        self.message = 'Checking Imajev before continuing…'
+        self.message = 'Checking ' + self.config.recognition_settings.model + ' before continuing…'
         self.job = Job(ticket, self._warmup_ready)
         self.job.signals.completed.connect(self._continue_completed)
         self._publish()
@@ -569,10 +642,21 @@ class SessionController(QObject):
             self.message += f' Failed retries: {self.failed_decision_retries}/{DECISION_RETRY_LIMIT}.'
         self._publish()
 
+    def _fallback_metadata(self):
+        if self.config.recognition_fallback is None:
+            return None
+        return {'settings': asdict(self.config.recognition_fallback),
+                'min_effective_probability': self.config.fallback_threshold,
+                'after_rejections': self.config.fallback_after_rejections}
+
     def record(self):
         record = session_record(self.session_id, self.game, self.state, self.pending, self.events, self.config)
         record['decision_retries'] = {'version': 1, 'state_revision': self.game.revision(self.state),
                                       'failed': self.failed_decision_retries}
+        record['recognition_retries'] = {'version': 1, 'state_revision': self.game.revision(self.state),
+                                         'failed': self.failed_recognition_retries}
+        if self.config.recognition_fallback:
+            record['recognition_fallback'] = self._fallback_metadata()
         if self.termination:
             record['termination'] = self.termination.copy()
         if self.coached:

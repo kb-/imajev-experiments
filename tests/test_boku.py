@@ -45,7 +45,8 @@ def positioned(black=(), white=()):
 
 def reply(state, cell, symbol='O', **options):
     request = game.recognition_request(state, ink(cell, symbol))
-    return parse_reply(answer(request, {'symbol': symbol, 'cell': cell}, **options), request, 'imajev-2b')
+    from app.inference.recognition import from_imajev
+    return from_imajev(parse_reply(answer(request, {'symbol': symbol, 'cell': cell}, **options), request, 'imajev-2b'))
 
 
 def test_geometry():
@@ -163,7 +164,8 @@ def test_recognition_conversion_and_snapshots(qapp):
 @pytest.mark.parametrize('symbol,cell', [('X','F5'),('invalid','F5'),('O','invalid')])
 def test_wrong_symbols_and_invalid_cells(symbol,cell):
     request = game.recognition_request(State(),())
-    response = parse_reply(answer(request,{'symbol':symbol,'cell':cell}),request,'imajev-2b')
+    from app.inference.recognition import from_imajev as recognition_result
+    response = recognition_result(parse_reply(answer(request,{'symbol':symbol,'cell':cell}),request,'imajev-2b'))
     with pytest.raises(ValueError):
         game.decode_recognition(State(),ink('F5'),response,.85)
 

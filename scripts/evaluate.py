@@ -15,8 +15,10 @@ from PyQt6.QtWidgets import QApplication
 from app.config import load_config
 from app.core.contracts import Stroke
 from app.games.tic_tac_toe.game import State, TicTacToe
-from app.inference.imajev_client import ImajevClient, InferenceError
+from app.inference.imajev_client import InferenceError
+from app.inference.recognition import create_recognizer, metadata as recognition_metadata
 from app.inference.opponents import create_opponent, metadata, role_metadata
+from app.inference.service_manager import ServiceManager
 from app.ui.rendering import observation_png
 
 game = TicTacToe()
@@ -72,13 +74,14 @@ def recognition(corpus, split, client, config):
         accepted, error, reply = None, None, None
         start = time.monotonic()
         try:
-            reply = client.decide(game.recognition_request(State(), drawing), observation_png(game.render(State(), drawing, 'recognition'), config.observation_size))
+            reply = client.recognize(game.recognition_request(State(), drawing), observation_png(game.render(State(), drawing, 'recognition'), config.observation_size))
             accepted = game.decode_recognition(State(), drawing, reply, config.threshold)
         except (ValueError, InferenceError) as exc:
             error = str(exc)
         durations.append(time.monotonic() - start)
         results.append({'id': sample['id'], 'participant': sample['participant'], 'expected': expected,
-                        'accepted': accepted, 'error': error, 'reply': dict(reply.raw) if reply else None})
+                        'accepted': accepted, 'error': error, 'reply': dict(reply.raw) if reply else None,
+                        'recognition': recognition_metadata(reply) if reply else None})
         print(f'{sample["id"]}: {accepted or error}', flush=True)
     accepted = [r for r in results if r['accepted']]
     valid = [r for r in results if r['expected']]
@@ -144,6 +147,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--config', type=Path, default=Path('config.yaml'))
     parser.add_argument('--output', type=Path, default=Path('evaluation.json'))
+    parser.add_argument('--external-inference', action='store_true')
     commands = parser.add_subparsers(dest='mode', required=True)
     commands.add_parser('contract')
     recognize = commands.add_parser('recognition')
@@ -155,8 +159,10 @@ def main():
     args = parser.parse_args()
     app = QApplication.instance() or QApplication([])
     config = load_config(args.config)
-    client = ImajevClient(config)
-    opponent_client = create_opponent(config, client)
+    config = replace(config, external_inference=config.external_inference or args.external_inference)
+    manager = ServiceManager(config)
+    client = create_recognizer(config, manager=manager)
+    opponent_client = create_opponent(config, client, manager)
     started = time.monotonic()
     try:
         warmup = client.warmup(game.recognition_request(State(), ()), observation_png(game.render(State(), (), 'recognition'), config.observation_size))
@@ -171,7 +177,9 @@ def main():
             report = {'mode': 'contract', 'prompt_variant': config.prompt_variant, 'opening_suggestion': config.opening_suggestion, 'passed': True, 'recognition_reply': dict(warmup.raw), 'decision_reply': dict(reply.raw)}
     except (InferenceError, ValueError, OSError, KeyError, TypeError) as exc:
         parser.exit(1, f'Evaluation failed: {exc}\n')
-    report.update(inference_protocol=2, inference=role_metadata(config), model=config.opponent_settings.model, threshold=config.threshold, total_seconds=time.monotonic()-started,
+    finally:
+        manager.shutdown()
+    report.update(inference_protocol=3, inference=role_metadata(config), model=config.opponent_settings.model, threshold=config.threshold, total_seconds=time.monotonic()-started,
                   warmup_reply=dict(warmup.raw), hardware_metrics='Measure peak VRAM/RAM externally on the target service host.')
     args.output.write_text(json.dumps(report, indent=2, allow_nan=False), encoding='utf-8')
     print(f'Saved report: {args.output}')

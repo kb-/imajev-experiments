@@ -70,6 +70,41 @@ def format_question_history(events):
     return '\n\n'.join(entries) if entries else 'No model questions yet.'
 
 
+def format_game_explanation(game, config, mode, temperature, status):
+    """Describe the configured experiment; actual per-turn prompts appear below it."""
+    policy = game.session_policy
+    info = policy.explanation(config, mode)
+    recognition, opponent = config.recognition_settings, config.opponent_settings
+    score = 'effective probability' if recognition.backend == 'imajev' else 'choice probability'
+    fallback = (f' After {config.fallback_after_rejections} rejected drawings at the same board position, '
+                f'{config.recognition_fallback.model} retries recognition with an effective-probability threshold '
+                f'of {config.fallback_threshold:g}.' if config.recognition_fallback else '')
+    model_input = ('a rendered board image and the symbolic request' if opponent.input_mode == 'text_image'
+                   else 'the symbolic request, without a board image')
+    variety = ('The app takes the model’s reported legal choice.' if temperature == 0 else
+               f'The app samples a legal choice from reported move probabilities at temperature {temperature:g}.')
+    guard = (info['guard'] if config.tactical_guard and mode != 'coached_quoted' else
+             'Tactical corrections are off for coached learning.' if mode == 'coached_quoted' else
+             'Tactical corrections are disabled by configuration; the legal model choice is played as proposed.')
+    return '\n'.join((
+        'HOW THIS GAME WORKS',
+        f'{game.name} · {dict(policy.prompt_choices).get(mode, mode)} · {status}',
+        '', 'RULES', info['rules'],
+        '', 'WHAT THE MODELS RECEIVE',
+        f'Recognition: {recognition.model} ({recognition.backend}) sees your drawing in a labelled game view '
+        f'and chooses its symbol and cell. Each answer must pass the {score} threshold {config.threshold:g}; '
+        'the app then checks drawing geometry and game legality.' + fallback,
+        f'Opponent: {opponent.model} ({opponent.backend}, {opponent.protocol}) receives {model_input}. '
+        + info['opponent_input'],
+        '', 'HOW DECISIONS ARE HANDLED',
+        variety + ' The rules engine rejects illegal or abstained answers and retries; three rejected '
+        'decision retries after the initial failure forfeit the game.',
+        guard,
+        'The session records the model proposal, any sampled choice, any tactical correction, and the accepted action. '
+        'The exact question instructions and choices sent to the model appear under QUESTIONS ASKED below.',
+    ))
+
+
 class Window(QMainWindow):
     def __init__(self, controller):
         super().__init__()
@@ -145,6 +180,8 @@ class Window(QMainWindow):
         self.prompt_selector = QComboBox()
         self.prompt_game_id = controller.game.id
         for key, label in controller.policy.prompt_choices:
+            if key == 'coached_quoted' and controller.config.recognition_settings.backend != 'imajev' and controller.config.coach_backend == 'shared':
+                continue
             self.prompt_selector.addItem(label, key)
         self.prompt_selector.setCurrentIndex(self.prompt_selector.findData(controller.config.prompt_variant))
         self.prompt_selector.setAccessibleName('Move prompt')
@@ -184,9 +221,9 @@ class Window(QMainWindow):
         self.retry_button = QPushButton('Retry')
         self.retry_button.clicked.connect(controller.retry)
         side.addWidget(self.retry_button)
-        self.diag_button = QPushButton('Diagnostics ▾' if controller.config.diagnostics else 'Diagnostics ▸')
+        self.diag_button = QPushButton('Diagnostics ▾')
         self.diag_button.setCheckable(True)
-        self.diag_button.setChecked(controller.config.diagnostics)
+        self.diag_button.setChecked(True)
         self.diag_button.toggled.connect(self.toggle_diagnostics)
         side.addWidget(self.diag_button)
         body.addWidget(panel)
@@ -210,9 +247,10 @@ class Window(QMainWindow):
         self.diag = QTextEdit()
         self.diag.setReadOnly(True)
         self.diag.setMinimumHeight(160)
-        self.diag.setMaximumHeight(240)
-        self.diag.setVisible(controller.config.diagnostics)
+        self.diag.setMaximumHeight(320)
+        self.diag.setVisible(True)
         layout.addWidget(self.diag)
+        self._focus_explanation = True
         footer = QHBoxLayout()
         footer.addWidget(self.label('A little ink. A little strategy.   ·   Runs on your local model', 'muted'))
         footer.addStretch()
@@ -235,6 +273,7 @@ class Window(QMainWindow):
         self.controller.submit()
 
     def configure_game(self):
+        self.focus_explanation()
         try:
             self.controller.configure_unstarted_game(
                 self.prompt_selector.currentData(), self.move_temperature.value())
@@ -243,6 +282,7 @@ class Window(QMainWindow):
         self.refresh()
 
     def configure_selected_game(self):
+        self.focus_explanation()
         c = self.controller
         if c.can_configure_game and self.selector.currentData() != c.game.id:
             self.canvas.current = []
@@ -252,6 +292,7 @@ class Window(QMainWindow):
     def new_game(self):
         if self.controller.coaching_failed or (self.controller.busy and self.controller.inflight and self.controller.inflight.purpose in ('coach', 'continue', 'shutdown')):
             return
+        self.focus_explanation()
         self.canvas.current = []
         self.controller.config = replace(self.controller.config, prompt_variant=self.prompt_selector.currentData(),
                                          move_temperature=self.move_temperature.value())
@@ -263,6 +304,10 @@ class Window(QMainWindow):
         self.diag.setVisible(checked)
         self.diag_button.setText('Diagnostics ▾' if checked else 'Diagnostics ▸')
 
+    def focus_explanation(self):
+        self._focus_explanation = True
+        self.diag_button.setChecked(True)
+
     def refresh(self):
         c = self.controller
         if self.prompt_game_id != c.game.id:
@@ -270,6 +315,8 @@ class Window(QMainWindow):
             self.move_temperature.blockSignals(True)
             self.prompt_selector.clear()
             for key, label in c.policy.prompt_choices:
+                if key == 'coached_quoted' and c.config.recognition_settings.backend != 'imajev' and c.config.coach_backend == 'shared':
+                    continue
                 self.prompt_selector.addItem(label, key)
             self.prompt_selector.setCurrentIndex(self.prompt_selector.findData(c.config.prompt_variant))
             self.move_temperature.setValue(c.config.move_temperature)
@@ -277,7 +324,7 @@ class Window(QMainWindow):
             self.move_temperature.blockSignals(False)
             self.prompt_game_id = c.game.id
         self.game_label.setText(c.game.name.upper())
-        self.players_label.setText(f'YOU   {c.game.human_player}     /     IMAJEV   {c.game.computer_player}')
+        self.players_label.setText(f'YOU   {c.game.human_player}     /     COMPUTER   {c.game.computer_player}')
         self.canvas.setAccessibleName(f'{c.game.name} drawing board. {c.instruction}')
         details = c.policy.details(c.state)
         self.game_details.setVisible(bool(details))
@@ -312,7 +359,15 @@ class Window(QMainWindow):
         self.last.setText(c.last_move)
         self.last.setMinimumHeight(self.last.sizeHint().height())
         status = 'Working' if c.busy else ('Attention needed' if c.phase == 'error' else ('Ready' if c.ready else 'Connecting'))
-        self.model.setText(f'Recognition: {c.config.expected_model}\nOpponent: {c.config.opponent_settings.model} · {status}')
+        recognition_name = c.config.recognition_settings.model
+        if c.config.recognition_fallback:
+            if (c.busy and c.inflight and c.inflight.purpose == 'recognition'
+                    and c.events and c.events[-1].get('fallback')):
+                recognition_name = c.config.recognition_fallback.model + ' · fallback active'
+            else:
+                recognition_name += (f' · fallback {c.config.recognition_fallback.model}'
+                                     f' after {c.config.fallback_after_rejections} rejections')
+        self.model.setText(f'Recognition: {recognition_name}\nOpponent: {c.config.opponent_settings.model} · {status}')
         self.model.setMinimumHeight(self.model.sizeHint().height())
         self.new_button.setEnabled(not c.coaching_failed and not (c.busy and c.inflight and c.inflight.purpose in ('coach', 'continue', 'shutdown')))
         self.continue_button.setVisible(c.coaching_failed)
@@ -332,16 +387,41 @@ class Window(QMainWindow):
         elif c.phase == 'over':
             self.input_hint.setText('This game has ended. Choose New game to draw again.')
         elif not c.ready:
-            self.input_hint.setText('Drawing is disabled until the local Imajev service is ready at ' + c.config.endpoint)
+            self.input_hint.setText('Drawing is disabled until the recognition service is ready at ' + c.config.recognition_settings.endpoint)
         else:
             self.input_hint.setText('Drawing is paused. ' + c.message)
         log_info = f'\nMouse diagnostics: {c.log_path}' if getattr(c, 'log_path', None) else ''
         coach_info = c.coach_diagnostics or (json.dumps(c.coach_request, ensure_ascii=False, indent=2) if c.coach_request else '')
         diagnosis = '\n\nCOACH DIAGNOSIS\n' + c.coach_diagnosis if c.coach_diagnosis else ''
-        roles = (f'Recognition: {c.config.expected_model} · imajev\n'
-                 f'Opponent: {c.config.opponent_settings.model} · {c.config.opponent_settings.backend}\n\n')
+        fallback = (f'Fallback: {c.config.recognition_fallback.model} · after '
+                    f'{c.config.fallback_after_rejections} rejections\n') if c.config.recognition_fallback else ''
+        roles = (f'Recognition: {c.config.recognition_settings.model} · {c.config.recognition_settings.backend}\n'
+                 + fallback + f'Opponent: {c.config.opponent_settings.model} · {c.config.opponent_settings.backend}\n\n')
         summary = roles + c.diagnostics + diagnosis + ('\n\nCOACHING\n' + coach_info if coach_info else '') + ('\n' + c.storage_error if c.storage_error else '') + log_info
-        self.diag.setPlainText(summary + '\n\nQUESTIONS ASKED (NEWEST FIRST)\n' + format_question_history(c.events))
+        selected_game_id = self.selector.currentData()
+        if selected_game_id != c.game.id:
+            explained_game = GAMES[selected_game_id]
+            explained_mode, explained_temperature = c.game_preferences.get(
+                selected_game_id, (explained_game.session_policy.default_prompt, 0))
+            status = f'PREVIEW — applies on New game; currently playing {c.game.name} / {current_prompt}'
+        else:
+            explained_game = c.game
+            explained_mode = self.prompt_selector.currentData() or c.config.prompt_variant
+            explained_temperature = self.move_temperature.value()
+            status = (f'PREVIEW — applies on New game; currently playing {current_prompt}'
+                      if pending or pending_variety else 'ACTIVE')
+        explanation = format_game_explanation(
+            explained_game, c.config, explained_mode, explained_temperature, status)
+        content = (explanation + '\n\nLIVE DIAGNOSTICS\n' + summary +
+                   '\n\nQUESTIONS ASKED (NEWEST FIRST)\n' + format_question_history(c.events))
+        if self.diag.toPlainText() != content:
+            scrollbar = self.diag.verticalScrollBar()
+            position = scrollbar.value()
+            self.diag.setPlainText(content)
+            scrollbar.setValue(0 if self._focus_explanation else min(position, scrollbar.maximum()))
+        elif self._focus_explanation:
+            self.diag.verticalScrollBar().setValue(0)
+        self._focus_explanation = False
 
     def export(self):
         c = self.controller

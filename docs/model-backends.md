@@ -122,9 +122,28 @@ uv run python -m scripts.compare_models \
 # Remove --prepare-only and add --resume to execute the frozen experiment.
 ```
 
-`--config` repeats; `--limit 0` includes every source position. Tic-tac-toe uses reachable ongoing O-turn states and an exact minimax reference. Boku uses deduplicated computer-turn states from committed session fixtures and **bounded tactical evidence**, not a perfect-play oracle. Each position has canonical, reversed and seeded shuffled options. Prompt variants, opening suggestions, observation size and tactical guard must agree across configurations. Coached prompts freeze their initial strategy and never read or write learning history.
+`--config` repeats; `--limit 0` includes every source position. Tic-tac-toe uses reachable ongoing O-turn states and an exact minimax reference. Boku uses deduplicated computer-turn states from committed session fixtures and **bounded tactical evidence**, not a perfect-play oracle. Each position has canonical, reversed and seeded shuffled options. Prompt variants, opening suggestions, observation size and tactical guard must agree across configurations. Coached comparisons read each profile's current learned strategy during preparation and freeze one shared ordered list. If the lists differ, explicitly select `--rules-file PATH` or `--basic-rules`. Preparation and trials never modify learning history.
 
 The runner saves a versioned protocol, source hashes, config snapshots, local weight/projector hashes, exact requests, PNGs and their hashes. Resume verifies these, case/checkpoint integrity, and recorded runtime provenance after a separate warm-up. Use a fresh directory if code, assets or protocol change. Warm-up is excluded from trial scores. Calls retain original proposals/responses before validation or tactical assistance. Summary reports coverage, validity with explicit denominators, errors/refusals, raw and assisted quality, and option-order sensitivity. Forced moves have a separate count.
+
+Comparison protocol **`opponent-comparison-v2`** uses the same `SessionPolicy.prepare_decision` and `correct_action` as gameplay. Each frozen case includes local tactical evidence beside the model request. Boku's configured guard now handles checked wins, defensive placements and mandatory captures, ranking eligible corrections by reported probabilities with board-order ties. Legacy requests remain unchanged. Coached mode and disabled guards stay uncorrected. This uses the existing bounded Boku search; it does not deepen it. Records distinguish the original choice, decoded proposal, sampled action, correction reason and accepted action, with separate raw/assisted scores.
+
+Version 1 experiments cannot resume under version 2: their assisted results omitted Boku's guard and their coached prompts omitted learned rules. Use a new output directory; archived results are not rewritten.
+
+For coached profiles, the same mutually exclusive rule-source options as the launcher are available. Preparation can also export its selected snapshot:
+
+```sh
+uv run python -m scripts.compare_models \
+  --config configs/coached-quoted.yaml --game tic_tac_toe \
+  --rules-file saved-ttt-rules.json --save-rules compared-ttt-rules.json \
+  --output logs/coached-comparison --prepare-only
+# Resume without rule-source flags, using the stored snapshot:
+uv run python -m scripts.compare_models \
+  --config configs/coached-quoted.yaml --game tic_tac_toe \
+  --output logs/coached-comparison --resume
+```
+
+Replace `--rules-file` with `--basic-rules` to compare the game's initial strategy. Rule flags require Coached quoted. `--rules-file` and `--basic-rules` are rejected with `--resume`; a different source requires a new experiment. Resume uses the frozen list even if the imported file or live learning ledger changes or disappears. `--save-rules` can export that snapshot during preparation or resume. See the [portable file format and interactive controls](coached-quoted.md#reuse-rules-across-models).
 
 Managed HTTP runtimes report activation and inference durations separately. Total call latency is always recorded; missing timings remain null. Memory readings include device-wide snapshots and a sampled device-wide peak from `nvidia-smi`, not per-model allocations or a reliable Windows-host RAM measurement through WSL. Measure host RAM and peak VRAM externally for hardware claims. Ollama provenance includes installed model digest, runtime version and capabilities; local runtimes record command, model hash and readiness identity. Archived evaluation files are unchanged.
 

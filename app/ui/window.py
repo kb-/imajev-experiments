@@ -223,6 +223,25 @@ class Window(QMainWindow):
         self.strategy_label = QLabel()
         self.strategy_label.setWordWrap(True)
         side.addWidget(self.strategy_label)
+        self.rule_controls = QWidget()
+        rule_layout = QVBoxLayout(self.rule_controls)
+        rule_layout.setContentsMargins(0, 0, 0, 0)
+        self.continue_rules_button = QPushButton('Continue current learning')
+        self.basic_rules_button = QPushButton('Start with basic rules')
+        self.load_rules_button = QPushButton('Load rules…')
+        self.save_rules_button = QPushButton('Save rules…')
+        self.continue_rules_button.setToolTip('Keep this game’s current learning run and cancel any pending rule selection.')
+        self.basic_rules_button.setToolTip('Start an isolated learning run with the game’s initial strategy.')
+        self.load_rules_button.setToolTip('Start an isolated learning run from a portable rule file for this game.')
+        self.save_rules_button.setToolTip('Export the displayed ordered rules, including changes for the next game.')
+        self.continue_rules_button.clicked.connect(lambda: self.choose_rules('continue'))
+        self.basic_rules_button.clicked.connect(lambda: self.choose_rules('basic'))
+        self.load_rules_button.clicked.connect(self.load_rules)
+        self.save_rules_button.clicked.connect(self.save_rules)
+        for button in (self.continue_rules_button, self.basic_rules_button,
+                       self.load_rules_button, self.save_rules_button):
+            rule_layout.addWidget(button)
+        side.addWidget(self.rule_controls)
         self.continue_button = QPushButton('Continue with previous strategy')
         self.continue_button.clicked.connect(controller.continue_coaching)
         side.addWidget(self.continue_button)
@@ -310,6 +329,28 @@ class Window(QMainWindow):
         except (OSError, ValueError) as exc:
             QMessageBox.warning(self, 'Cannot apply game settings', str(exc))
         self.refresh()
+
+    def choose_rules(self, kind, path=None):
+        try:
+            self.controller.select_rules(kind, path, self.selector.currentData())
+        except (OSError, ValueError, TypeError) as exc:
+            QMessageBox.warning(self, 'Cannot select rules', str(exc))
+        self.focus_explanation()
+        self.refresh()
+
+    def load_rules(self):
+        path, _ = QFileDialog.getOpenFileName(self, 'Load rules', '', 'Rule files (*.json)')
+        if path:
+            self.choose_rules('file', Path(path))
+
+    def save_rules(self):
+        game_id = self.selector.currentData()
+        path, _ = QFileDialog.getSaveFileName(self, 'Save rules', f'{game_id}-rules.json', 'Rule files (*.json)')
+        if path:
+            try:
+                self.controller.export_rules(Path(path), game_id)
+            except (OSError, ValueError) as exc:
+                QMessageBox.warning(self, 'Cannot save rules', str(exc))
 
     def configure_selected_game(self):
         self.focus_explanation()
@@ -410,10 +451,28 @@ class Window(QMainWindow):
         self.new_button.setEnabled(not c.coaching_failed and not (c.busy and c.inflight and c.inflight.purpose in ('coach', 'continue', 'shutdown')))
         self.continue_button.setVisible(c.coaching_failed)
         self.continue_button.setEnabled(not c.busy)
-        self.strategy_label.setVisible(c.coached)
-        if c.coached:
-            ledger = c.next_strategy
-            self.strategy_label.setText(f'{"Next game strategy" if ledger["revision"] != c.strategy_revision else "Strategy"} · revision {ledger["revision"]}\n' + '\n'.join(f'{i}. {rule}' for i, rule in enumerate(ledger['strategy'], 1)))
+        selected_game_id = self.selector.currentData()
+        rule_mode = (self.prompt_selector.currentData() if selected_game_id == c.game.id else
+                     c.game_preferences.get(selected_game_id, (GAMES[selected_game_id].session_policy.default_prompt, 0))[0])
+        show_rules = rule_mode == 'coached_quoted'
+        self.rule_controls.setVisible(show_rules)
+        self.strategy_label.setVisible(show_rules)
+        rules_text = ''
+        if show_rules:
+            try:
+                snapshot = c.rule_snapshot(selected_game_id)
+                next_game = (snapshot['pending'] or selected_game_id != c.game.id or not c.coached
+                             or snapshot['revision'] != c.strategy_revision)
+                rules_text = (f'Rules: {snapshot["origin"]}\n'
+                              f'{"PREVIEW — applies on New game" if next_game else "Current learning"}'
+                              f' · revision {snapshot["revision"]}\n'
+                              + '\n'.join(f'{i}. {rule}' for i, rule in enumerate(snapshot['strategy'], 1)))
+            except (OSError, ValueError, KeyError) as exc:
+                rules_text = f'Cannot read rules: {exc}'
+            self.strategy_label.setText(rules_text)
+        rule_change_allowed = self.new_button.isEnabled() and not c.stopping
+        for button in (self.continue_rules_button, self.basic_rules_button, self.load_rules_button):
+            button.setEnabled(rule_change_allowed)
         self.retry_button.setText('Retry coaching' if c.coaching_failed else 'Retry')
         self.retry_button.setVisible(c.phase == 'error' or c.coaching_failed)
         self.retry_button.setEnabled(not c.busy)
@@ -447,9 +506,11 @@ class Window(QMainWindow):
             explained_mode = self.prompt_selector.currentData() or c.config.prompt_variant
             explained_temperature = self.move_temperature.value()
             status = (f'PREVIEW — applies on New game; currently playing {current_prompt}'
-                      if pending or pending_variety else 'ACTIVE')
+                      if pending or pending_variety or c.game.id in c.pending_rules else 'ACTIVE')
         explanation = format_game_explanation(
             explained_game, c.config, explained_mode, explained_temperature, status)
+        if show_rules:
+            explanation += '\n\nORDERED RULES\n' + rules_text
         activity = (summary + '\n\nQUESTIONS ASKED (NEWEST FIRST)\n' + format_question_history(c.events))
         self.update_details_text(self.explanation, explanation, self._focus_explanation)
         self.update_details_text(self.diag, activity)

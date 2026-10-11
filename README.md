@@ -177,7 +177,7 @@ initial failure cause a forfeit and a human win. Timeouts and service errors
 do not count. Coached quoted records the forfeit cause for its coach; see
 [retry limits and resume behavior](docs/retry-forfeit.md).
 
-Shared Qwen coaching is the default. Ollama is optional and requires an explicitly installed model and managed GPU swapping. Rules, revision and coaching Diagnostics appear inline. See [setup, storage and recovery](docs/coached-quoted.md).
+Shared Qwen coaching is the default. Ollama is optional and requires an explicitly installed model and managed GPU swapping. Rules and revision appear alongside Coached quoted controls; coaching diagnostics appear in the Activity log tab. See [setup, storage and recovery](docs/coached-quoted.md). Use **Save rules…** and **Load rules…** to transfer ordered rules between models for the same game. **Start with basic rules** or `--basic-rules` starts an isolated learning run; `--rules-file PATH` imports one. Without source flags, existing learning remains the default. See [rule controls and portable format](docs/coached-quoted.md#reuse-rules-across-models) and [shared rules in comparison protocol v2](docs/model-backends.md#reproducible-comparisons).
 
 Set `opponent.tactical_guard: false` to measure the model's unassisted play. Restart the app after changing the setting. `scripts/evaluate.py opponent` evaluates raw model choices; add `--with-tactical-guard` to measure the assisted gameplay policy. The records distinguish `model_proposed_action` from `accepted_action` and give the correction reason.
 

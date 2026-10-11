@@ -13,6 +13,8 @@ from app.storage.session_store import SessionStore, session_record
 from app.ui.rendering import observation_png
 from app.storage.coached import CoachedStore
 from app.storage.strategy import validate_strategy
+from app.storage.atomic import atomic_json
+from app.storage.rules import rule_selection, save_rules
 from app.inference.coach import diagnose_then_coach, shared_coach, prepared_transport
 from app.config import validate_move_temperature
 from app.core.move_sampling import select_move
@@ -29,7 +31,7 @@ class SessionController(QObject):
     diagnosis_ready = pyqtSignal(object, object)
     request_ready = pyqtSignal(object, object, object)
 
-    def __init__(self, game, client, config, parent=None, opponent=None):
+    def __init__(self, game, client, config, parent=None, opponent=None, rules_source=None):
         super().__init__(parent)
         self.game, self.config = game, config
         config.validate_recognition_policy()
@@ -60,6 +62,8 @@ class SessionController(QObject):
         self.diagnostics = ''
         self.storage_error = ''
         self.starting_players = {}
+        self.learning_contexts = {}
+        self.pending_rules = {game.id: rules_source} if rules_source else {}
         self.learning_store = self._coaching_store()
         self.service_manager = None
         self.coaching_failed = False
@@ -74,7 +78,68 @@ class SessionController(QObject):
 
     def _coaching_store(self):
         policy = self.policy.coaching
-        return CoachedStore(policy.storage_root(self.config.learning_directory), policy) if policy else None
+        root = self.config.learning_directory
+        context = self.learning_contexts.get(self.game.id, {})
+        if context.get('run_id'):
+            root = Path(root) / 'runs' / context['run_id']
+        return CoachedStore(policy.storage_root(root), policy) if policy else None
+
+    def select_rules(self, kind, path=None, game_id=None):
+        """Select validated rules now, or queue them until a new coached game."""
+        from app.core.registry import get_game
+        game_id = game_id or self.game.id
+        game = get_game(game_id)
+        if self.stopping or self.coaching_failed or (self.busy and self.inflight
+                and self.inflight.purpose in ('coach', 'continue', 'shutdown')):
+            raise ValueError('Finish coaching before changing the learning run.')
+        if kind == 'continue':
+            self.pending_rules.pop(game_id, None)
+        else:
+            if kind not in ('basic', 'file') or (kind == 'file' and path is None):
+                raise ValueError('Choose basic rules or a rule file.')
+            selection = rule_selection(game, path if kind == 'file' else None, kind == 'basic')
+            self.pending_rules[game_id] = selection
+            if game_id == self.game.id and self.coached and self.can_configure_game:
+                self._apply_pending_rules()
+                ledger = self.learning_store.ledger()
+                self.strategy, self.strategy_revision = ledger['strategy'].copy(), ledger['revision']
+                self.next_strategy = ledger
+        self._publish()
+
+    def _apply_pending_rules(self):
+        if not self.coached or self.game.id not in self.pending_rules:
+            return
+        selection = self.pending_rules[self.game.id]
+        context = {'run_id': str(uuid.uuid4()), 'rule_origin': selection['origin']}
+        policy = self.policy.coaching
+        root = policy.storage_root(Path(self.config.learning_directory) / 'runs' / context['run_id'])
+        store = CoachedStore(root, policy)
+        ledger = store.ledger()
+        ledger['strategy'] = validate_strategy(selection['strategy'])
+        atomic_json(root / 'strategy.json', ledger)
+        self.learning_contexts[self.game.id] = context
+        self.learning_store = store
+        del self.pending_rules[self.game.id]
+
+    def rule_snapshot(self, game_id=None):
+        """What the rules controls display and export, including next-game rules."""
+        from app.core.registry import get_game
+        game_id = game_id or self.game.id
+        if game_id in self.pending_rules:
+            return {**self.pending_rules[game_id], 'revision': 0, 'pending': True}
+        context = self.learning_contexts.get(game_id, {})
+        policy = get_game(game_id).session_policy.coaching
+        root = Path(self.config.learning_directory)
+        if context.get('run_id'):
+            root = root / 'runs' / context['run_id']
+        ledger = (self.next_strategy if game_id == self.game.id and self.coached
+                  else CoachedStore(policy.storage_root(root), policy).ledger())
+        return {'strategy': ledger['strategy'].copy(), 'revision': ledger['revision'],
+                'origin': context.get('rule_origin', 'Current learning'), 'pending': False}
+
+    def export_rules(self, path, game_id=None):
+        game_id = game_id or self.game.id
+        save_rules(path, game_id, self.rule_snapshot(game_id)['strategy'])
 
     @property
     def editable(self):
@@ -126,7 +191,14 @@ class SessionController(QObject):
         if self.config.opponent_settings.protocol == 'chat' and temperature:
             raise ValueError('Chat opponents supply no move distribution; use zero move variety.')
         if prompt_variant != self.config.prompt_variant:
-            ledger = self.learning_store.ledger() if prompt_variant == 'coached_quoted' and self.policy.coaching is not None else {'revision': 0, 'strategy': []}
+            previous_config = self.config
+            self.config = replace(self.config, prompt_variant=prompt_variant)
+            try:
+                self._apply_pending_rules()
+                ledger = self.learning_store.ledger() if self.coached else {'revision': 0, 'strategy': []}
+            except (OSError, ValueError):
+                self.config = previous_config
+                raise
             self.strategy, self.strategy_revision = ledger['strategy'].copy(), ledger['revision']
             self.next_strategy = ledger
         self.config = replace(self.config, prompt_variant=prompt_variant, move_temperature=temperature)
@@ -156,6 +228,7 @@ class SessionController(QObject):
         if self.coaching_failed or (self.busy and self.inflight and self.inflight.purpose in ('coach', 'continue', 'shutdown')):
             return
         self.config.validate_recognition_policy()
+        self._apply_pending_rules()
         ledger = self.learning_store.ledger() if self.coached else {'revision': 0, 'strategy': []}
         self.strategy, self.strategy_revision = ledger['strategy'].copy(), ledger['revision']
         self.next_strategy = ledger
@@ -199,6 +272,17 @@ class SessionController(QObject):
         self.config = replace(self.config, prompt_variant=prompt_variant, move_temperature=temperature)
         if self.coached:
             metadata = record.get('coaching', {})
+            context = {}
+            if metadata.get('run_id') is not None:
+                context = {'run_id': str(uuid.UUID(metadata['run_id'])),
+                           'rule_origin': metadata.get('rule_origin', 'Imported rules')}
+                if not isinstance(context['rule_origin'], str):
+                    raise ValueError('Invalid saved rule origin.')
+            self.learning_contexts[self.game.id] = context
+            self.pending_rules.pop(self.game.id, None)
+            self.learning_store = self._coaching_store()
+            if context and not (self.learning_store.root / 'strategy.json').is_file():
+                raise ValueError('The saved learning run is missing from the configured learning directory.')
             self.strategy = validate_strategy(metadata.get('strategy'))
             self.strategy_revision = metadata['revision']
             self.session_id = str(uuid.UUID(record['session_id']))
@@ -665,7 +749,9 @@ class SessionController(QObject):
         if self.termination:
             record['termination'] = self.termination.copy()
         if self.coached:
-            record['coaching'] = {'version': 1, 'strategy': self.strategy.copy(), 'revision': self.strategy_revision}
+            record['coaching'] = {'version': 1, 'strategy': self.strategy.copy(), 'revision': self.strategy_revision,
+                                  'run_id': None, 'rule_origin': 'Current learning',
+                                  **self.learning_contexts.get(self.game.id, {})}
             if self.coach_diagnosis:
                 record['coaching']['diagnosis'] = self.coach_diagnosis
             if self.coach_diagnostics:

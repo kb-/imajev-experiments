@@ -18,9 +18,12 @@ from app.inference.opponents import create_opponent, metadata, Unsupported
 from app.inference.service_manager import ServiceManager
 from app.inference.provenance import file_identity
 from app.ui.rendering import observation_png
+from app.storage.coached import CoachedStore
+from app.storage.strategy import validate_strategy
+from app.storage.rules import add_rule_arguments, validate_rule_arguments, rule_selection, save_rules
 from scripts.evaluate import o_turn_states, oracle
 
-VERSION = 'opponent-comparison-v1'
+VERSION = 'opponent-comparison-v2'
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -92,7 +95,7 @@ def score(choice, truth):
     return result
 
 
-def prepare(configs, game, limit, seed, output):
+def prepare(configs, game, limit, seed, output, strategy):
     pool = list(states(game))
     random.Random(seed).shuffle(pool)
     if limit:
@@ -110,13 +113,12 @@ def prepare(configs, game, limit, seed, output):
                 ordered.reverse()
             elif order == 'shuffle':
                 random.Random(f'{seed}:{index}').shuffle(ordered)
-            kwargs = {'prompt_variant': configs[0].prompt_variant}
-            if game.id == 'tic_tac_toe':
-                kwargs['opening_suggestion'] = configs[0].opening_suggestion
-            request = game.decision_request(state, tuple(ordered), **kwargs)
+            request, tactical = game.session_policy.prepare_decision(
+                game, state, tuple(ordered), configs[0], strategy, 0)
             cases.append({'id': f'{index:04}:{order}', 'state': game.encode_state(state),
                           'request': request, 'request_sha256': digest(encoded(request)),
-                          'image_sha256': image_hash, 'order': order, 'evidence': truth})
+                          'image_sha256': image_hash, 'order': order, 'evidence': truth,
+                          'tactical_evidence': tactical})
     return cases
 
 
@@ -145,17 +147,19 @@ def run_case(game, config, opponent, case, png, seed):
     try:
         actions = game.legal_actions(state)
         if len(actions) == 1:
-            row.update(status='forced', raw_proposal=None, selected=actions[0].id)
+            row.update(status='forced', raw_proposal=None, sampled_action=None,
+                       accepted_action=actions[0].id, selected=actions[0].id)
         else:
             reply = opponent.choose_move(case['request'], png)
             row.update(raw_proposal=reply.choice, move_result=metadata(reply), raw_response=dict(reply.raw))
             proposed, selected, distribution = select_move(game, state, reply, config.move_temperature, random.Random(f'{seed}:{case["id"]}'))
             row['raw_score'] = score(proposed, case['evidence'])
-            correction = None
-            if config.tactical_guard and hasattr(game, 'tactical_choice'):
-                selected, correction = game.tactical_choice(state, selected)
+            row['sampled_action'] = selected
+            selected, correction = game.session_policy.correct_action(
+                game, state, selected, config, case.get('tactical_evidence'), reply.probabilities)
             game.apply_action(state, selected)
-            row.update(status='valid', selected=selected, tactical_correction=correction,
+            row.update(status='valid', selected=selected, accepted_action=selected,
+                       proposed_action=proposed, tactical_correction=correction,
                        sampled_distribution=distribution, assisted_score=score(selected, case['evidence']))
             row['activation_seconds'] = reply.raw.get('activation_seconds')
             row['inference_seconds'] = reply.raw.get('inference_seconds')
@@ -197,6 +201,20 @@ def summarize(rows):
     return result
 
 
+def comparison_strategy(configs, game, rules_file=None, basic_rules=False):
+    if configs[0].prompt_variant != 'coached_quoted':
+        return []
+    selection = rule_selection(game, rules_file, basic_rules)
+    if selection:
+        return selection['strategy']
+    policy = game.session_policy.coaching
+    strategies = [validate_strategy(CoachedStore(policy.storage_root(c.learning_directory), policy).ledger()['strategy'])
+                  for c in configs]
+    if any(strategy != strategies[0] for strategy in strategies):
+        raise ValueError('Profiles have different learned rules. Select --rules-file PATH or --basic-rules for shared rules.')
+    return strategies[0]
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--config', type=Path, action='append', required=True)
@@ -206,6 +224,8 @@ def main():
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--resume', action='store_true')
     parser.add_argument('--prepare-only', action='store_true')
+    add_rule_arguments(parser)
+    parser.add_argument('--save-rules', type=Path, help='Export the frozen Coached quoted strategy')
     args = parser.parse_args()
     if args.limit < 0:
         parser.error('--limit must be nonnegative.')
@@ -216,12 +236,35 @@ def main():
     if any(shared(c) != shared(configs[0]) for c in configs):
         parser.error('Comparisons require identical prompts, observation size, opening suggestions and tactical guards.')
     game = get_game(args.game)
+    try:
+        game.session_policy.validate_prompt(configs[0].prompt_variant)
+        validate_rule_arguments(args, configs[0].prompt_variant)
+    except ValueError as exc:
+        parser.error(str(exc))
     output = args.output
     output.mkdir(parents=True, exist_ok=True)
     (output / 'images').mkdir(exist_ok=True)
+    frozen = None
+    protocol_path = output / 'protocol.json'
+    if args.resume:
+        if not protocol_path.exists():
+            parser.error('No experiment exists to resume.')
+        try:
+            frozen = json.loads(protocol_path.read_text())
+        except (OSError, ValueError) as exc:
+            parser.error(f'Cannot read frozen protocol: {exc}')
+        if not isinstance(frozen, dict) or frozen.get('version') != VERSION:
+            parser.error('Older comparison protocol; corrected assisted results require a new output directory.')
+    try:
+        if frozen is not None:
+            strategy = validate_strategy(frozen['strategy']) if configs[0].prompt_variant == 'coached_quoted' else []
+        else:
+            strategy = comparison_strategy(configs, game, args.rules_file, args.basic_rules)
+    except (OSError, ValueError, KeyError, TypeError) as exc:
+        parser.error(str(exc))
     local_assets = [[file_identity(path) for path in (c.opponent_settings.model_path, c.opponent_settings.projector_path) if path and Path(path).is_file()] for c in configs]
     protocol = {'version': VERSION, 'game': args.game, 'prompt_version': game.prompt_version,
-                'seed': args.seed, 'limit': args.limit, 'configs': [asdict(c) for c in configs], 'local_assets': local_assets,
+                'seed': args.seed, 'limit': args.limit, 'strategy': strategy, 'configs': [asdict(c) for c in configs], 'local_assets': local_assets,
                 'code': {str(p.relative_to(ROOT)): digest(p.read_bytes()) for folder in ('app', 'scripts') for p in sorted((ROOT / folder).rglob('*.py'))}}
     # JSON normalizes paths and tuples consistently across resume.
     protocol = json.loads(json.dumps(protocol, default=str))
@@ -235,7 +278,7 @@ def main():
     else:
         if args.resume:
             parser.error('No experiment exists to resume.')
-        cases = prepare(configs, game, args.limit, args.seed, output)
+        cases = prepare(configs, game, args.limit, args.seed, output, strategy)
         save(output / 'protocol.json', protocol)
         save(output / 'cases.json', cases)
         (output / 'cases.sha256').write_text(digest(encoded(cases)) + '\n')
@@ -243,6 +286,8 @@ def main():
         png = (output / 'images' / (case['image_sha256'] + '.png')).read_bytes()
         if digest(png) != case['image_sha256'] or digest(encoded(case['request'])) != case['request_sha256']:
             parser.error('Frozen image or prompt hash differs.')
+    if args.save_rules:
+        save_rules(args.save_rules, game.id, strategy)
     if args.prepare_only:
         print(f'Prepared {len(cases)} cases in {output}')
         return

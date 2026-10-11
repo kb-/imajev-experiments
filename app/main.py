@@ -7,6 +7,7 @@ from pathlib import Path
 from PyQt6.QtWidgets import QApplication, QMessageBox
 from app.config import load_config
 from app.logging_setup import configure_logging
+from app.storage.rules import add_rule_arguments, validate_rule_arguments, rule_selection
 from app.core.registry import get_game
 from app.core.session import SessionController
 from app.inference.recognition import create_recognizer
@@ -24,6 +25,7 @@ def main():
     parser.add_argument('--resume', type=Path, help='Continue from a saved session JSON record')
     parser.add_argument('--debug-input', action='store_true', help='Log mouse press/move/release and stroke decisions locally')
     parser.add_argument('--log-file', type=Path, help='Write rotating diagnostics to this file')
+    add_rule_arguments(parser)
     args = parser.parse_args()
     log_path = configure_logging(args.debug_input, args.log_file)
     logger.info('Application starting pid=%s config=%s external_inference=%s',
@@ -37,8 +39,10 @@ def main():
             raise ValueError('Ollama coaching requires managed inference.')
         if args.debug_input:
             config = replace(config, diagnostics=True, save_sessions=True)
+        validate_rule_arguments(args, config.prompt_variant)
         game = get_game(config.game)
-        controller = SessionController(game, create_recognizer(config), config)
+        source = rule_selection(game, args.rules_file, args.basic_rules)
+        controller = SessionController(game, create_recognizer(config), config, rules_source=source)
     except (OSError, ValueError, TypeError) as exc:
         QMessageBox.critical(None, 'Configuration error', str(exc))
         return 1

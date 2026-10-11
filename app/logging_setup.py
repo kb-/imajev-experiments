@@ -15,12 +15,10 @@ def configure_logging(debug_input=False, log_file=None):
     console = logging.StreamHandler()
     console.setFormatter(formatter)
     logger.addHandler(console)
-    if debug_input or log_file:
-        path = Path(log_file or 'logs/input-debug.log').resolve()
-        path.parent.mkdir(parents=True, exist_ok=True)
-        handler = RotatingFileHandler(path, maxBytes=2_000_000, backupCount=2, encoding='utf-8')
-        handler.setFormatter(formatter)
-        logger.addHandler(handler)
-        logger.info('Local diagnostic log: %s; detailed mouse logging=%s', path, debug_input)
-        return path
-    return None
+    path = Path(log_file or ('logs/input-debug.log' if debug_input else 'logs/app.log')).resolve()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    handler = RotatingFileHandler(path, maxBytes=2_000_000, backupCount=2, encoding='utf-8')
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
+    logger.info('Local diagnostic log: %s; detailed mouse logging=%s', path, debug_input)
+    return path

@@ -1,4 +1,6 @@
 import argparse
+import logging
+import os
 from dataclasses import replace
 import sys
 from pathlib import Path
@@ -11,6 +13,8 @@ from app.inference.recognition import create_recognizer
 from app.ui.window import Window
 from app.inference.service_manager import ServiceManager
 
+logger = logging.getLogger('app.main')
+
 
 def main():
     parser = argparse.ArgumentParser(description='Draw a move and play against your local Imajev model.')
@@ -22,6 +26,8 @@ def main():
     parser.add_argument('--log-file', type=Path, help='Write rotating diagnostics to this file')
     args = parser.parse_args()
     log_path = configure_logging(args.debug_input, args.log_file)
+    logger.info('Application starting pid=%s config=%s external_inference=%s',
+                os.getpid(), args.config, args.external_inference)
     application = QApplication(sys.argv[:1])
     application.setApplicationName('Imajev Drawing Game')
     try:
@@ -48,6 +54,9 @@ def main():
             return 1
     controller.log_path = log_path
     window = Window(controller)
+    # Cleanup hides the window before its final close, so Qt may not emit
+    # lastWindowClosed. Explicitly quit once owned runtimes have stopped.
+    window.closed.connect(application.quit)
     labels = ['Resumed' if args.resume else 'Debug' if args.debug_input else '']
     if controller.policy.tactics_caption(config):
         labels.append('Tactics')
@@ -58,8 +67,12 @@ def main():
     try:
         return application.exec()
     finally:
+        logger.info('Qt event loop exited pid=%s shutdown_done=%s busy=%s inflight=%s',
+                    os.getpid(), controller.shutdown_done, controller.busy, controller.inflight)
         if not controller.shutdown_done:
+            logger.info('Final service cleanup starting')
             manager.shutdown()
+        logger.info('Application exit cleanup complete pid=%s', os.getpid())
 
 
 if __name__ == '__main__':

@@ -53,6 +53,10 @@ uv run --locked imajev-game --config configs/no-opening.yaml --debug-input
 
 The GUI shows **Warming up** while the service loads and its first image request runs. Drawing becomes available when the panel shows **Ready**. Closing the app waits for active work and stops its owned processes in the background.
 
+Normal launches write rotating application logs to `logs/app.log`; `--debug-input` uses `logs/input-debug.log` with detailed mouse traces, and `--log-file` overrides the path. Shutdown logs identify the app PID, pending request, GPU-lock acquisition, owned process termination and final exit. While the window is hidden for cleanup, a warning every 30 seconds reports what is still pending. These logs help diagnose a process that outlives its window; the warning does not cancel an active request.
+
+After cleanup finishes, the window explicitly quits the GUI event loop. This avoids leaving a hidden app process alive when Qt does not emit its automatic last-window-closed notification.
+
 An existing listener on port 8765 is reported without attachment or termination. To keep a separately managed service, run `bash scripts/launch_inference.sh` in one terminal and `uv run --locked imajev-game --external-inference` in another. Closing an external-mode GUI leaves that service running. Native Windows GUIs connecting to a WSL service must use external mode. Ollama coaching requires managed inference.
 
 After first-time setup, you can add `--offline` to the GUI command (`uv run --locked --offline imajev-game`) to prevent uv from using the network. The GUI environment must already be installed for this to work.

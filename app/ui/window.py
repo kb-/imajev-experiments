@@ -1,14 +1,18 @@
 from dataclasses import replace
 import base64
 import json
+import logging
+import time
 from pathlib import Path
-from PyQt6.QtCore import Qt, QTimer
+from PyQt6.QtCore import Qt, QTimer, pyqtSignal
 from PyQt6.QtWidgets import (QComboBox, QDoubleSpinBox, QFileDialog, QFrame, QHBoxLayout, QLabel, QLayout,
                             QMainWindow, QMessageBox, QPushButton, QScrollArea, QTabWidget, QTextEdit, QVBoxLayout, QWidget)
 from app.core.registry import GAMES
 from app.ui.canvas import Canvas
 from app.core.contracts import Stroke
 from app.ui.rendering import observation_png
+
+logger = logging.getLogger(__name__)
 
 STYLE = '''
 QMainWindow, QWidget { background: #f0f2ed; color: #263e38; font-family: "Segoe UI", sans-serif; font-size: 14px; }
@@ -106,6 +110,8 @@ def format_game_explanation(game, config, mode, temperature, status):
 
 
 class Window(QMainWindow):
+    closed = pyqtSignal()
+
     def __init__(self, controller):
         super().__init__()
         self.controller = controller
@@ -422,7 +428,7 @@ class Window(QMainWindow):
             self.input_hint.setText('Drawing is disabled until the recognition service is ready at ' + c.config.recognition_settings.endpoint)
         else:
             self.input_hint.setText('Drawing is paused. ' + c.message)
-        log_info = f'\nMouse diagnostics: {c.log_path}' if getattr(c, 'log_path', None) else ''
+        log_info = f'\nApplication log: {c.log_path}' if getattr(c, 'log_path', None) else ''
         coach_info = c.coach_diagnostics or (json.dumps(c.coach_request, ensure_ascii=False, indent=2) if c.coach_request else '')
         diagnosis = '\n\nCOACH DIAGNOSIS\n' + c.coach_diagnosis if c.coach_diagnosis else ''
         fallback = (f'Fallback: {c.config.recognition_fallback.model} · after '
@@ -471,15 +477,24 @@ class Window(QMainWindow):
     def closeEvent(self, event):
         c = self.controller
         if c.shutdown_done:
+            logger.info('Window close accepted; shutdown complete')
             event.accept()
+            self.closed.emit()
             return
+        if not hasattr(self, 'close_started'):
+            self.close_started = time.monotonic()
+            self.close_last_warning = self.close_started
+            logger.info('Window close requested session=%s phase=%s busy=%s inflight=%s',
+                        c.session_id, c.phase, c.busy, c.inflight)
         c.active = None
         c.stopping = True
         self.hide()
         if not c.busy:
             c.begin_shutdown()
         if c.shutdown_done:
+            logger.info('Window close accepted; shutdown complete')
             event.accept()
+            self.closed.emit()
             return
         if not hasattr(self, 'close_timer'):
             self.close_timer = QTimer(self)
@@ -489,6 +504,11 @@ class Window(QMainWindow):
 
     def finish_close(self):
         c = self.controller
+        now = time.monotonic()
+        if not c.shutdown_done and now - self.close_last_warning >= 30:
+            logger.warning('Window hidden; shutdown still pending seconds=%.1f busy=%s inflight=%s',
+                           now - self.close_started, c.busy, c.inflight)
+            self.close_last_warning = now
         if not c.busy:
             c.begin_shutdown()
         if c.shutdown_done:

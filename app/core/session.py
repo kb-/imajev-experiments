@@ -382,6 +382,8 @@ class SessionController(QObject):
         self.inflight = None
         self.job = None
         if self.stopping:
+            logger.info('Inflight request finished during shutdown purpose=%s seconds=%.2f error=%s',
+                        ticket.purpose, seconds, error)
             return
         expected = {'startup': 'loading', 'recognition': 'recognising', 'decision': 'computer'}[ticket.purpose]
         if self.active != ticket or ticket.session_id != self.session_id or ticket.state_revision != self.game.revision(self.state) or self.phase != expected:
@@ -620,6 +622,8 @@ class SessionController(QObject):
         if self.busy or self.shutdown_done:
             return
         self.stopping = True
+        logger.info('Service cleanup starting session=%s managed=%s', self.session_id,
+                    self.service_manager is not None)
         if not self.service_manager:
             self.shutdown_done = True
             return
@@ -632,6 +636,7 @@ class SessionController(QObject):
     def _shutdown_completed(self, ticket, reply, error, seconds):
         self.busy, self.inflight, self.job = False, None, None
         self.shutdown_done = True
+        logger.info('Service cleanup finished seconds=%.2f error=%s', seconds, error)
         if error:
             logger.error('Service shutdown: %s', error)
 

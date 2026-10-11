@@ -7,16 +7,23 @@ import subprocess
 import sys
 import time
 import threading
+import logging
 from functools import wraps
 from urllib.parse import urlsplit
 import httpx
 from dataclasses import replace
 
+logger = logging.getLogger(__name__)
+
 
 def exclusive(method):
     @wraps(method)
     def call(self, *args, **kwargs):
+        if method.__name__ == 'shutdown':
+            logger.info('Shutdown waiting for GPU ownership lock')
         with self.gpu_lock:
+            if method.__name__ == 'shutdown':
+                logger.info('Shutdown acquired GPU ownership lock')
             return method(self, *args, **kwargs)
     return call
 
@@ -100,6 +107,7 @@ class ServiceManager:
     def stop(self):
         if self.process is not None:
             if self.process.poll() is None:
+                logger.info('Stopping ImaJEV process group pid=%s', self.process.pid)
                 import signal
                 try:
                     os.killpg(self.process.pid, signal.SIGTERM)
@@ -108,8 +116,10 @@ class ServiceManager:
                 try:
                     self.process.wait(timeout=30)
                 except subprocess.TimeoutExpired:
+                    logger.warning('ImaJEV termination timed out; killing process group pid=%s', self.process.pid)
                     os.killpg(self.process.pid, signal.SIGKILL)
                     self.process.wait(timeout=10)
+            logger.info('ImaJEV process exited pid=%s returncode=%s', self.process.pid, self.process.poll())
             self.process = None
         if self.log:
             self.log.close()
@@ -117,21 +127,31 @@ class ServiceManager:
 
     @exclusive
     def shutdown(self):
+        logger.info('Runtime cleanup starting external=%s imajev_pid=%s opponent_pid=%s ollama_pid=%s',
+                    self.config.external_inference, getattr(self.process, 'pid', None),
+                    getattr(self.opponent_process, 'pid', None), getattr(self.ollama_process, 'pid', None))
         try:
             self._release_opponent()
             self.stop()
             if self.swap_pending:
+                logger.info('Unloading pending coach model=%s', self.selected_model)
                 with httpx.Client(timeout=30, trust_env=False) as client:
                     self._unload(client)
+                logger.info('Coach unload confirmed model=%s', self.selected_model)
         finally:
             if self.ollama_process is not None and self.ollama_process.poll() is None:
+                logger.info('Stopping owned Ollama process group pid=%s', self.ollama_process.pid)
                 import signal
                 os.killpg(self.ollama_process.pid, signal.SIGTERM)
                 try:
                     self.ollama_process.wait(timeout=10)
                 except subprocess.TimeoutExpired:
+                    logger.warning('Ollama termination timed out; killing process group pid=%s', self.ollama_process.pid)
                     os.killpg(self.ollama_process.pid, signal.SIGKILL)
                     self.ollama_process.wait(timeout=10)
+                logger.info('Owned Ollama exited pid=%s returncode=%s', self.ollama_process.pid,
+                            self.ollama_process.poll())
+        logger.info('Runtime cleanup complete')
 
     @exclusive
     def recover(self, recognition=None):
@@ -177,6 +197,7 @@ class ServiceManager:
         """Release only our activated runtime; failed unload keeps activation blocked."""
         if self.opponent_ollama is not None:
             url, model = self.opponent_ollama
+            logger.info('Unloading Ollama opponent model=%s endpoint=%s', model, url)
             with httpx.Client(timeout=30, trust_env=False, follow_redirects=False) as client:
                 response = client.post(url + '/api/generate', json={'model': model, 'keep_alive': 0})
                 response.raise_for_status()
@@ -190,9 +211,11 @@ class ServiceManager:
                         raise RuntimeError('Opponent unload is unconfirmed; GPU activation blocked.')
                     time.sleep(.25)
             self.opponent_ollama = None
+            logger.info('Ollama opponent unload confirmed model=%s', model)
         if self.opponent_process is not None:
             import signal
             if self.opponent_process.poll() is None:
+                logger.info('Stopping opponent process group pid=%s', self.opponent_process.pid)
                 try:
                     os.killpg(self.opponent_process.pid, signal.SIGTERM)
                 except ProcessLookupError:
@@ -200,8 +223,11 @@ class ServiceManager:
                 try:
                     self.opponent_process.wait(timeout=30)
                 except subprocess.TimeoutExpired:
+                    logger.warning('Opponent termination timed out; killing process group pid=%s', self.opponent_process.pid)
                     os.killpg(self.opponent_process.pid, signal.SIGKILL)
                     self.opponent_process.wait(timeout=10)
+            logger.info('Opponent process exited pid=%s returncode=%s', self.opponent_process.pid,
+                        self.opponent_process.poll())
             self.opponent_process = None
         if self.opponent_log:
             self.opponent_log.close()

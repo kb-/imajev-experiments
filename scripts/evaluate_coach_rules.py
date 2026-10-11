@@ -39,7 +39,7 @@ def main():
     parser.add_argument('--output',type=Path,required=True)
     args=parser.parse_args(); args.output.mkdir(parents=True,exist_ok=False)
     app=QApplication([])
-    config=replace(load_config(Path('config.coached-quoted.yaml')),coach_backend=args.backend,coach_model=args.model)
+    config=replace(load_config(Path('configs/coached-quoted.yaml')),coach_backend=args.backend,coach_model=args.model)
     manager=ServiceManager(config); client=create_recognizer(config); client.manager=manager; opponent=create_opponent(config,client,manager)
     from app.games.tic_tac_toe.coaching import coaching_context
     original=CoachedStore(args.history, TicTacToeCoaching()).request(args.game_id)

@@ -20,7 +20,7 @@ from test_protocol import INK, answer
 from test_session import wait_for
 
 
-PROFILE = Path('configs/models/liquid-d1-3b-shared.yaml')
+PROFILE = Path('configs/liquid-d1-3b-shared.yaml')
 
 
 def native_reply(request, choices=None, probability=1):
@@ -297,9 +297,43 @@ def test_native_controller_startup_and_complete_turn_share_runtime(qapp, monkeyp
     window.refresh()
     assert 'Recognition: liquid-d1-3b-q8' in window.model.text()
     assert 'Recognition: liquid-d1-3b-q8 · llama_cpp' in window.diag.toPlainText()
-    assert window.prompt_selector.findData('coached_quoted') == -1
+    coached_index = window.prompt_selector.findData('coached_quoted')
+    assert coached_index >= 0
+    assert not window.prompt_selector.model().item(coached_index).isEnabled()
+    assert 'learning.coach_backend: ollama' in window.prompt_selector.model().item(coached_index).toolTip()
+    assert 'Coached quoted unavailable: configure an Ollama coach.' in window.prompt_availability.text()
+    assert not window.prompt_availability.isHidden()
     assert 'Runtime: reused' in c.diagnostics
     c.shutdown_done = True
+    window.close()
+
+
+@pytest.mark.parametrize('native,coach_backend,enabled', [
+    (True, 'shared', False), (True, 'ollama', True), (False, 'shared', True),
+])
+def test_coached_mode_availability_survives_game_changes(qapp, monkeypatch, native, coach_backend, enabled):
+    from app.ui.window import Window
+    from test_session import Fake
+    config = load_config(PROFILE) if native else Config()
+    config = replace(config, coach_backend=coach_backend,
+                     coach_model='qwen3.6:latest' if coach_backend == 'ollama' else '')
+    c = SessionController(TicTacToe(), Fake(), config)
+    monkeypatch.setattr(c, 'start', lambda: None)
+    c.ready = True
+    c.new_game()
+    window = Window(c)
+    for game_id in ('tic_tac_toe', 'boku', 'tic_tac_toe'):
+        window.selector.setCurrentIndex(window.selector.findData(game_id))
+        assert c.game.id == game_id
+        index = window.prompt_selector.findData('coached_quoted')
+        assert index >= 0
+        assert window.prompt_selector.model().item(index).isEnabled() == enabled
+        assert window.prompt_availability.isHidden() == enabled
+        for mode in ('legacy', 'quoted'):
+            index = window.prompt_selector.findData(mode)
+            assert window.prompt_selector.model().item(index).isEnabled()
+            window.prompt_selector.setCurrentIndex(index)
+            assert c.config.prompt_variant == mode
     window.close()
 
 

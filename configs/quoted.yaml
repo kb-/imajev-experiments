@@ -17,4 +17,6 @@ canvas:
 diagnostics:
   enabled: false
   save_sessions: false
-  directory: sessions
+  directory: ../sessions
+learning:
+  directory: ../learning/coached-quoted

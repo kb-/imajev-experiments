@@ -25,7 +25,7 @@ SOURCE = Path('docs/evaluation/fixtures/boku/abstained-loss-session.json')
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--config', type=Path, default=Path('config.boku.yaml'))
+    parser.add_argument('--config', type=Path, default=Path('configs/boku.yaml'))
     parser.add_argument('--output', type=Path, default=Path('logs/boku-refusal-retries.json'))
     args = parser.parse_args()
     app = QApplication([])

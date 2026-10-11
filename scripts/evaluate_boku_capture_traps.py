@@ -73,7 +73,7 @@ def main():
     parser.add_argument('--actions', nargs='*')
     parser.add_argument('--output', type=Path, default=Path('logs/boku-capture-traps.json'))
     parser.add_argument('--probe-model', action='store_true', help='Test the evidence on the already running external service')
-    parser.add_argument('--config', type=Path, default=Path('config.boku.yaml'))
+    parser.add_argument('--config', type=Path, default=Path('configs/boku.yaml'))
     args = parser.parse_args()
     record = json.loads(args.session.read_text())
     game = Boku()

@@ -15,11 +15,13 @@ from test_session import Fake, make, wait_for
 
 
 def test_quoted_config_and_invalid_variant(tmp_path):
-    assert load_config(Path('config.quoted.yaml')).prompt_variant == 'quoted'
-    assert load_config(tmp_path / 'missing.yaml').prompt_variant == 'quoted'
+    assert load_config(Path('configs/quoted.yaml')).prompt_variant == 'quoted'
+    empty = tmp_path / 'empty.yaml'
+    empty.write_text('{}\n')
+    assert load_config(empty).prompt_variant == 'quoted'
     assert Config().prompt_variant == 'quoted'
-    assert load_config(Path('config.yaml')).prompt_variant == 'quoted'
-    assert load_config(Path('config.no-opening.yaml')).prompt_variant == 'legacy'
+    assert load_config(Path('configs/default.yaml')).prompt_variant == 'quoted'
+    assert load_config(Path('configs/no-opening.yaml')).prompt_variant == 'legacy'
     path = tmp_path / 'invalid.yaml'
     path.write_text('opponent:\n  prompt_variant: thinking\n')
     with pytest.raises(ValueError, match='legacy, quoted or coached_quoted'):

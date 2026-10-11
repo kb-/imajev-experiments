@@ -27,7 +27,7 @@ def drawing(cell, symbol):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--config', type=Path, default=Path('config.boku.yaml'))
+    parser.add_argument('--config', type=Path, default=Path('configs/boku.yaml'))
     parser.add_argument('--external-inference', action='store_true')
     parser.add_argument('--output', type=Path, default=Path('/tmp/imajev-boku-validation.json'))
     args = parser.parse_args()

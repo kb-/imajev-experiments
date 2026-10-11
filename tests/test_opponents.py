@@ -26,7 +26,7 @@ def settings(protocol='chat'):
 
 def test_chat_output_budget_is_configured_recorded_and_truncation_is_explicit():
     from app.inference.opponents import role_metadata
-    config = load_config(Path('configs/models/qwen3-vl.yaml'))
+    config = load_config(Path('configs/qwen3-vl.yaml'))
     _, _, request = position()
     assert HTTPOpponent(config)._payload(request, None)['options']['num_predict'] == 512
     assert role_metadata(config)['opponent']['generation_max_tokens'] == 512
@@ -95,12 +95,21 @@ def test_native_images_use_runtime_wire_formats():
 
 def test_profiles_load_and_keep_names():
     from pathlib import Path
-    profiles = list(Path('configs/models').glob('*.yaml'))
-    assert len(profiles) == 17
+    profiles = list(Path('configs').glob('*.yaml'))
+    assert profiles
     for profile in profiles:
         config = load_config(profile)
-        assert config.expected_model == 'imajev-4b-nf4'
+        assert config.expected_model == ('imajev-2b' if profile.stem == 'imajev-2b-shared' else 'imajev-4b-nf4')
         assert config.move_temperature == 0
+        assert config.directory.resolve() == Path('sessions').resolve()
+        assert config.learning_directory.resolve() == Path('learning/coached-quoted').resolve()
+        for settings in (config.recognition_settings, config.opponent_settings):
+            if settings.model_path:
+                assert Path(settings.model_path).is_relative_to(Path('models').resolve())
+            if settings.projector_path:
+                assert Path(settings.projector_path).is_relative_to(Path('models').resolve())
+            if '/' in settings.executable:
+                assert Path(settings.executable).is_relative_to(Path('runtimes').resolve())
 
 
 def test_comparison_counts_unsupported_in_coverage_and_keeps_invalid_proposal():

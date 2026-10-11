@@ -57,7 +57,7 @@ def cases():
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--config', type=Path, default=Path('configs/models/liquid-d1-3b-shared.yaml'))
+    parser.add_argument('--config', type=Path, default=Path('configs/liquid-d1-3b-shared.yaml'))
     parser.add_argument('--output', type=Path, default=Path('logs/liquid-recognition-validation.json'))
     args = parser.parse_args()
     app = QApplication.instance() or QApplication([])

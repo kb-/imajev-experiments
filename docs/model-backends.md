@@ -25,7 +25,7 @@ Run `uv run imajev-game --config your-config.yaml`. The UI shows both model iden
 
 The `OpponentBackend.choose_move(request, image)` boundary returns `MoveResult`: proposed choice, backend/model identity and original response, with optional distribution, confidence, abstention and unknown probability. Chat models need only return the offered choice. Missing uncertainty fields remain `None`; no probability or abstention values are invented. Games validate legal actions directly. Sampling with `move_temperature > 0` requires a real distribution; chat uses its separate `generation_temperature`. These temperatures have different meanings.
 
-Chat profiles can set `generation_max_tokens` (default 128) to budget reasoning and answer tokens. Truncated responses are rejected, including responses with empty answer content. The installed Qwen3-VL model continued reasoning despite `think: false`; its [profile](../configs/models/qwen3-vl.yaml) uses 512 tokens, which completed the tested opening position. Non-default budgets are recorded in session metadata.
+Chat profiles can set `generation_max_tokens` (default 128) to budget reasoning and answer tokens. Truncated responses are rejected, including responses with empty answer content. The installed Qwen3-VL model continued reasoning despite `think: false`; its [profile](../configs/qwen3-vl.yaml) uses 512 tokens, which completed the tested opening position. Non-default budgets are recorded in session metadata.
 
 Only the ImaJEV adapters read the legacy `Reply`. Games and evaluation decision callers consume `MoveResult`; drawing callers consume `RecognitionResult`. Existing saved sessions without role metadata remain readable, and previous ImaJEV role metadata remains compatible. Native recognition sessions record complete role settings and their threshold policy, and reject restoration with a different configuration.
 
@@ -37,7 +37,7 @@ The existing Liquid profile keeps ImaJEV recognition. To run Liquid d1 for **bot
 
 ```sh
 uv run python -m scripts.install_liquid_d1
-uv run imajev-game --config configs/models/liquid-d1-3b-shared.yaml --debug-input
+uv run imajev-game --config configs/liquid-d1-3b-shared.yaml --debug-input
 ```
 
 The installer downloads only the pinned publisher Q8 projector, verifies its SHA-256, and leaves existing `models/liquid-d1-3b/model.gguf` weights intact. The existing CUDA llama.cpp installation serves both roles with GPU offloading; no additional Python inference package or local compilation is required. Gameplay uses local assets and never downloads them.
@@ -54,6 +54,16 @@ Other native vision models, including d1-omni and Clef, can use the same adapter
 
 With non-ImaJEV recognition, `coached_quoted` requires `learning.coach_backend: ollama` and an installed coach model. The legacy shared coach uses ImaJEV's coaching endpoint. After Ollama coaching finishes and unload is confirmed, the configured recognizer is restored.
 
+The shared Liquid profile does not select a coach. Its selector keeps **Coached quoted** visible but disabled, with a configuration hint. To enable it, add the following to that profile (the existing Ollama coaching profile uses `qwen3.6:latest`; install the selected model separately):
+
+```yaml
+learning:
+  coach_backend: ollama
+  model: qwen3.6:latest
+```
+
+The coach generates strategy text after games; it is separate from Liquid's System One decision endpoint. Coaching still requires switching GPU runtimes, while recognition and opponent moves continue to share Liquid.
+
 Run local controls and a shared-turn check with:
 
 ```sh
@@ -64,7 +74,7 @@ The report at `logs/liquid-recognition-validation.json` records exact requests, 
 
 ## Runtimes and profiles
 
-[configs/models](../configs/models) contains editable examples for all requested families:
+[configs](../configs) contains editable examples for all requested families:
 
 | Profiles | Runtime | Notes |
 | --- | --- | --- |
@@ -105,8 +115,8 @@ A forced single legal move bypasses inference. A native runtime's option limit a
 
 ```sh
 uv run python -m scripts.compare_models \
-  --config configs/models/imajev-4b-nf4.yaml \
-  --config configs/models/qwen3-8b.yaml \
+  --config configs/imajev-4b-nf4.yaml \
+  --config configs/qwen3-8b.yaml \
   --game tic_tac_toe --limit 32 --seed 42 \
   --output logs/model-comparison --prepare-only
 # Remove --prepare-only and add --resume to execute the frozen experiment.

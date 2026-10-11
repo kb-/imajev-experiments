@@ -87,7 +87,7 @@ def scene_for(game, sample, variant):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--session',type=Path,action='append',default=[])
-    parser.add_argument('--config',type=Path,default=Path('config.boku.yaml'))
+    parser.add_argument('--config',type=Path,default=Path('configs/boku.yaml'))
     parser.add_argument('--output',type=Path,required=True)
     parser.add_argument('--variants',nargs='+',choices=VARIANTS,default=['thin','labels','both'])
     parser.add_argument('--ids',nargs='*')

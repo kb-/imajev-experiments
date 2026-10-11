@@ -23,7 +23,7 @@ from app.storage.atomic import atomic_json
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--config', type=Path, default=Path('config.boku.yaml'))
+    parser.add_argument('--config', type=Path, default=Path('configs/boku.yaml'))
     parser.add_argument('--output', type=Path, default=Path('logs/boku-coaching-live'))
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=False)

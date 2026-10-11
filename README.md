@@ -2,13 +2,21 @@
 
 A Python/PyQt6 desktop drawing game with tic-tac-toe and Boku. In tic-tac-toe, draw an X and let Imajev choose O; accepted handwriting stays on the board. In Boku, draw a circle to place a black stone, or an X to capture a highlighted white stone; accepted circles become shaded game stones. The deterministic rules engine validates every action, and ambiguous ink stays editable.
 
-Start Boku with `uv run --locked --offline imajev-game --config config.boku.yaml`, or choose it in the game selector before your first move. See [Boku rules and controls](docs/boku-implementation.md). Both games have their own Move prompt and Move variety selectors. Coached quoted learns an ordered strategy after losses, with separate histories and rules for each game; tactical assistance remains specific to tic-tac-toe.
+Start Boku with `uv run --locked --offline imajev-game --config configs/boku.yaml`, or choose it in the game selector before your first move. See [Boku rules and controls](docs/boku-implementation.md). Both games have their own Move prompt and Move variety selectors. Coached quoted learns an ordered strategy after losses, with separate histories and rules for each game; tactical assistance remains specific to tic-tac-toe.
 
 See the [implementation guide](docs/implementation.md) for architecture, turn flow, model prompting, retries, persistence, and explanatory Mermaid diagrams.
 
 ## Run the complete app
 
 `uv run imajev-game` starts the desktop GUI and manages its own local Imajev service. It does not install models. Run commands from this repository's root directory after setup.
+
+All launch profiles live directly in [configs/](configs/README.md). The default is `configs/default.yaml` (ImaJEV 4B NF4). Choose a different profile with `--config`, for example:
+
+```sh
+uv run imajev-game --config configs/liquid-d1-3b-shared.yaml
+```
+
+This uses Liquid d1 for recognition and opponent moves. Profiles contain both model and initial game settings; game and prompt mode can also be selected in the GUI. The former root YAML files and `configs/models/` profiles have moved into `configs/`; use the new paths in saved launch commands. Missing profile paths now report an error instead of silently using default settings.
 
 ### First-time setup (online)
 
@@ -40,7 +48,7 @@ uv run --locked imajev-game --debug-input
 To keep the opening suggestion disabled during debugging:
 
 ```sh
-uv run --locked imajev-game --config config.no-opening.yaml --debug-input
+uv run --locked imajev-game --config configs/no-opening.yaml --debug-input
 ```
 
 The GUI shows **Warming up** while the service loads and its first image request runs. Drawing becomes available when the panel shows **Ready**. Closing the app waits for active work and stops its owned processes in the background.
@@ -62,7 +70,7 @@ The models response must report `loaded: true`, `backend: torch`, and `model: im
 
 If the GUI shows **Needs attention**, read the message, fix the service issue, and click Retry. Missing assets or a missing bitsandbytes installation require rerunning `bash scripts/setup_inference.sh` while online. Use the supplied launcher rather than a bare upstream server command: it configures NF4 loading, the trained readout, calibration, offline mode, and safe retry handling. The inference launcher uses its prepared environment without syncing it; manually syncing that environment can remove the separately installed bitsandbytes dependency.
 
-The GUI and inference environments are separate; no model or Torch is loaded in the GUI environment. The default `config.yaml` and `config.no-opening.yaml` expect NF4. For the legacy 2B profile, use its matching configuration and explicit scripts documented in [local deployment](docs/deployment.md#optional-imajev-2b-profile). Configure another loopback service using `uv run --locked imajev-game --config /path/to/config.yaml`. Missing service, timeout, malformed responses, and model mismatches remain visible and offer Retry.
+The GUI and inference environments are separate; no model or Torch is loaded in the GUI environment. The default `configs/default.yaml` and `configs/no-opening.yaml` expect NF4. For the legacy 2B profile, use its matching configuration and explicit scripts documented in [local deployment](docs/deployment.md#optional-imajev-2b-profile). Configure another loopback service using `uv run --locked imajev-game --config /path/to/config.yaml`. Missing service, timeout, malformed responses, and model mismatches remain visible and offer Retry.
 
 ## Controls and records
 
@@ -114,17 +122,17 @@ gameplay default by user choice; the experiment did not establish a holdout
 improvement for this variant. The [evaluation guide](docs/evaluation/prompting-strategy.md)
 documents the reproducible harness and local artifacts.
 
-`opponent.tactical_guard: true` is enabled in `config.yaml`. Imajev receives the board, legal moves, win condition and any immediate O win or X threat. The app records its proposed move. If it overlooks an immediate O win or the one cell needed to block an X win next turn, the rules engine commits that tactical move and labels the correction on the board and in Diagnostics. This is a one-turn rule, not a minimax opponent; Imajev still chooses moves without such a tactic and can miss longer-term threats or forks.
+`opponent.tactical_guard: true` is enabled in `configs/default.yaml`. Imajev receives the board, legal moves, win condition and any immediate O win or X threat. The app records its proposed move. If it overlooks an immediate O win or the one cell needed to block an X win next turn, the rules engine commits that tactical move and labels the correction on the board and in Diagnostics. This is a one-turn rule, not a minimax opponent; Imajev still chooses moves without such a tactic and can miss longer-term threats or forks.
 
 New games use the experiment's **Quoted** prompt by default. Choose **Original**, **Quoted** or **Coached quoted** under **Move prompt** before your first move; the selection applies immediately, including during warm-up, without changing who starts or clearing your ink. Once play begins, changes apply when you click **New game**. The **Playing:** label shows the active mode. Quoted uses the board grid, coordinate grid, five strategy priorities, and per-cell tactical consequences from the tested request, with bare cell IDs as choices. It does not add a suggested opening; the tactical guard still follows your configuration. Saved/exported sessions record the prompt, and resuming restores it.
 
 You can also start directly in this mode:
 
 ```bash
-uv run --locked --offline imajev-game --config config.quoted.yaml
+uv run --locked --offline imajev-game --config configs/quoted.yaml
 ```
 
-Set `opponent.prompt_variant: legacy` to start with the original prompt. The `config.no-opening.yaml` profile explicitly keeps the original prompt without opening guidance. Older saved sessions without a prompt field resume with the original prompt.
+Set `opponent.prompt_variant: legacy` to start with the original prompt. The `configs/no-opening.yaml` profile explicitly keeps the original prompt without opening guidance. Older saved sessions without a prompt field resume with the original prompt.
 
 To make Imajev less predictable, raise **Move variety** in the side panel before your first move, or click **New game** to apply changes after play begins. `0` (the default) chooses its highest-ranked move; `1` samples from its move probabilities; higher values up to `3` spread choices more evenly. Try `0.5` for gentler variation or `1` for more exploration. This can produce weaker moves. The configured tactical guard still enforces immediate wins and blocks in ordinary modes; Coached quoted keeps its existing unguarded play.
 
@@ -135,7 +143,7 @@ Set `opponent.move_temperature: 1` in YAML to start with sampling enabled. This 
 Select **Coached quoted**, then New game, or launch directly:
 
 ```bash
-uv run --locked --offline imajev-game --config config.coached-quoted.yaml
+uv run --locked --offline imajev-game --config configs/coached-quoted.yaml
 ```
 
 In tic-tac-toe it uses Quoted's board and candidate facts, initially with only `win immediately` and `otherwise stop X winning next turn`. Imajev follows the rules without tactical move corrections. After a loss only, the coach revises the rule list in descending priority order using all completed coached games since the last successful update. Draws and wins contribute history but do not trigger coaching; abstentions remain ordinary Retry decisions. Valid updates apply automatically to the next game and persist across restarts.
@@ -153,11 +161,12 @@ existing model prompt; its guard facts are computed locally in the background.
 Coached quoted remains unguarded, and positions without a checked safe action keep
 the model's choice. These checks do not establish perfect play.
 
-The bottom Diagnostics panel opens with a **How this game works** explanation of the
+The bottom **Details** panel opens on the **How it works** tab with an explanation of the
 rules, active models, model inputs, recognition fallback, prompt mode and move
 handling. It updates when you select another game or mode. Selections made during
-play are marked as previews until **New game**; live diagnostics and the exact
-question history remain below the explanation.
+play are marked as previews until **New game**. The separate **Activity log** tab
+contains live diagnostics and the exact question history. Each tab retains its own
+scroll position, and live updates leave the selected tab unchanged.
 
 In every game and prompt mode, three rejected computer retries after the
 initial failure cause a forfeit and a human win. Timeouts and service errors
@@ -176,8 +185,8 @@ uv run imajev-game --debug-input --resume sessions/<session-id>/session.json
 
 The app validates and loads the saved board and strokes into a new session, preserving the original record. If it was Imajev's turn, the app reconnects and continues that turn. Retry after an abstention now sends a changed question; it never commits an abstained answer. The first O move includes specific opening guidance: center after an X corner or edge, or a corner after an X center. The same move was checked with the tic-tac-toe oracle for all nine X openings. If a later model request still abstains, the board remains intact and Retry remains available.
 
-To test the model without an opening suggestion, run `uv run --locked imajev-game --config config.no-opening.yaml --debug-input`. This removes the suggested opening from the first O request and retries while keeping the tactical guard on. The window title marks this mode, and saved session records include `opening_suggestion: false`.
+To test the model without an opening suggestion, run `uv run --locked imajev-game --config configs/no-opening.yaml --debug-input`. This removes the suggested opening from the first O request and retries while keeping the tactical guard on. The window title marks this mode, and saved session records include `opening_suggestion: false`.
 
 Independent opponent backends and editable model profiles are now available while keeping the existing names and ImaJEV defaults. See [model backend configuration and comparisons](docs/model-backends.md).
 
-To use Liquid d1 for both drawing recognition and opponent moves, run `uv run python -m scripts.install_liquid_d1`, then `uv run imajev-game --config configs/models/liquid-d1-3b-shared.yaml --debug-input`. Both roles share one resident GPU model and projector. See [native recognition and model configuration](docs/model-backends.md#native-vision-recognition) for setup, score thresholds and validation.
+To use Liquid d1 for both drawing recognition and opponent moves, run `uv run python -m scripts.install_liquid_d1`, then `uv run imajev-game --config configs/liquid-d1-3b-shared.yaml --debug-input`. Both roles share one resident GPU model and projector. See [native recognition and model configuration](docs/model-backends.md#native-vision-recognition) for setup, score thresholds and validation.

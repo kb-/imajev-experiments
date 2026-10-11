@@ -145,7 +145,7 @@ def opponent(client, config, limit, tactical_guard=False):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--config', type=Path, default=Path('config.yaml'))
+    parser.add_argument('--config', type=Path, default=Path('configs/default.yaml'))
     parser.add_argument('--output', type=Path, default=Path('evaluation.json'))
     parser.add_argument('--external-inference', action='store_true')
     commands = parser.add_subparsers(dest='mode', required=True)

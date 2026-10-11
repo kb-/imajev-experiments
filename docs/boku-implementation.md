@@ -3,7 +3,7 @@
 Boku is the second game in the desktop app. Draw your moves, then Submit: an accepted circle becomes a realistic black stone; an accepted X removes a highlighted white stone during a required capture. Imajev plays White through the same managed image/decision service as tic-tac-toe.
 
 ```sh
-uv run --locked --offline imajev-game --config config.boku.yaml
+uv run --locked --offline imajev-game --config configs/boku.yaml
 ```
 
 Add `--debug-input` for saved sessions and inline Diagnostics. The Boku profile allows 90 seconds per model request to accommodate the larger board on slower systems; inference remains outside the GUI thread. Select Boku in the game selector before the first move to switch immediately. After play begins, select it and click New game. Every Boku game starts with human Black. Both games expose their own Move prompt and Move variety choices; switching games restores each game’s choices during the app session.

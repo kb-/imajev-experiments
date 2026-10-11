@@ -113,3 +113,32 @@ def test_resumed_empty_game_retains_saved_settings(qapp,tmp_path):
     assert c.config.prompt_variant=='quoted' and c.config.move_temperature==0
     assert 'Click New game' in w.prompt_label.text()
     w.close()
+
+
+@pytest.mark.parametrize('initial,selected', [('coached_quoted','quoted'),('quoted','legacy'),('legacy','coached_quoted')])
+def test_finished_game_mode_selection_precedes_opponent_opening(qapp, tmp_path, initial, selected):
+    c, client, w = create_window(tmp_path, initial)
+    wait_for(qapp, lambda: c.ready and not c.busy)
+    for action in ('place_A1', 'place_B1', 'place_C1', 'place_B2', 'place_A2',
+                   'place_C2', 'place_B3', 'place_A3', 'place_C3'):
+        c.state = c.game.apply_action(c.state, action)
+    c._after_move()
+    assert c.phase == 'over' and c.outcome.kind == 'draw'
+    w.prompt_selector.setCurrentIndex(w.prompt_selector.findData(selected))
+    assert c.config.prompt_variant == initial
+    assert 'Click New game' in w.prompt_label.text()
+    client.gate.clear()
+    try:
+        w.new_game()
+        # The next game alternates to O: its request starts inside New game.
+        assert c.state.starting_player == 'O' and c.busy
+        assert c.config.prompt_variant == selected
+        assert c.events[0]['prompt_variant'] == selected
+        wait_for(qapp, lambda: len(client.calls) == 2)
+        expected = c.policy.decision(c.game, c.state, c.game.legal_actions(c.state),
+                                     c.config, c.strategy, 0)
+        assert client.calls[-1] == expected
+    finally:
+        client.gate.set()
+        wait_for(qapp, lambda: not c.busy)
+        w.close()

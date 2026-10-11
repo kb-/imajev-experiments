@@ -145,7 +145,7 @@ def validate_move_temperature(value) -> float:
 
 def load_config(path: Path) -> Config:
     try:
-        data = yaml.safe_load(path.read_text()) if path.exists() else {}
+        data = yaml.safe_load(path.read_text())
     except yaml.YAMLError as exc:
         raise ValueError(f'Invalid YAML configuration: {exc}') from exc
     if not isinstance(data, dict):

@@ -12,7 +12,7 @@ learning:
   coach_backend: ollama
   model: qwen3.6:latest
   ollama_url: http://127.0.0.1:11434
-  directory: learning/coached-quoted
+  directory: ../learning/coached-quoted
 recognition:
   min_effective_probability: 0.85
 canvas:
@@ -20,4 +20,4 @@ canvas:
 diagnostics:
   enabled: false
   save_sessions: false
-  directory: sessions
+  directory: ../sessions

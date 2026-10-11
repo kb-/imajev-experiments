@@ -6,14 +6,18 @@ recognition:
   model: imajev-4b-nf4
 opponent:
   backend: llama_cpp
-  model: d1-omni-600m-q8
+  model: liquid-d1-3b-q8
   protocol: systemone
   input_mode: text
   prompt_variant: quoted
   move_temperature: 0
   tactical_guard: true
   max_choices: 255
-  executable: ../../runtimes/llama_cpp/install/llama-server
-  model_path: ../../models/d1-omni-600m/model.gguf
+  executable: ../runtimes/llama_cpp/install/llama-server
+  model_path: ../models/liquid-d1-3b/model.gguf
   context_limit: 8192
   runtime_args: ["-ngl", "99"]
+diagnostics:
+  directory: ../sessions
+learning:
+  directory: ../learning/coached-quoted

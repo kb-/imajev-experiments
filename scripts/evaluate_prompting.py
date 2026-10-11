@@ -364,7 +364,7 @@ def adoption_gate(trial, candidate, games):
 
 
 def protected_hashes():
-    paths = [ROOT / 'config.4b-nf4.yaml', *ROOT.glob('imajev-*.json')]
+    paths = [ROOT / 'configs/imajev-4b-nf4-unguarded.yaml', *ROOT.glob('imajev-*.json')]
     paths.extend((ROOT / 'learning').rglob('*.json'))
     return {str(p.relative_to(ROOT)): digest(p.read_bytes()) for p in paths if p.is_file()}
 
@@ -434,7 +434,7 @@ def render_report(summary, dataset, output):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--config', type=Path, default=ROOT / 'config.yaml')
+    parser.add_argument('--config', type=Path, default=ROOT / 'configs/default.yaml')
     parser.add_argument('--output', type=Path, default=ROOT / 'logs/prompting-strategy-experiment')
     parser.add_argument('--previous', type=Path, default=DEFAULT_PREVIOUS)
     parser.add_argument('--seed', type=int, default=SEED)

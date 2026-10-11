@@ -27,7 +27,7 @@ def main():
     # Reproduce the original history window and prior rules, including consumed games.
     revision = next(r for r in ledger['revisions'] if r['trigger_game_id'] == args.game_id)
     request = loss_context(revision['request'], include_threats=args.threat_facts)
-    config = replace(load_config(Path('config.coached-quoted.ollama.yaml')), coach_model=args.model)
+    config = replace(load_config(Path('configs/coached-quoted-ollama.yaml')), coach_model=args.model)
     manager = ServiceManager(config)
     manager.progress = lambda message: print(message, flush=True)
     result = {'request': request, 'stages': [], 'response': None, 'error': None}

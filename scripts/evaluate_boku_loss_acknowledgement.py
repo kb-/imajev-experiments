@@ -78,7 +78,7 @@ def variant(original, arm, lost, previous=None):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--config', type=Path, default=Path('config.boku.yaml'))
+    parser.add_argument('--config', type=Path, default=Path('configs/boku.yaml'))
     parser.add_argument('--output', type=Path, default=Path('logs/boku-loss-acknowledgement.json'))
     parser.add_argument('--controls', action='store_true')
     parser.add_argument('--arms', nargs='+', choices=ARMS, default=list(ARMS))

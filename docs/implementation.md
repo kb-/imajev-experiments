@@ -151,7 +151,7 @@ The guard first considers immediate O wins. Otherwise, it blocks X only when exa
 
 Corrections record `model_proposed_action`, `accepted_action`, and `tactical_correction`. The last accepted move is marked `tactical rule`, and Diagnostics explains the change. An abstained answer is rejected before the guard runs. Decision answers have no 0.85 recognition threshold; their displayed score is the model's conditional preference among the offered actions.
 
-[`config.no-opening.yaml`](../config.no-opening.yaml) disables only opening advice. It retains tactical prompts and the tactical guard. Disabling the guard removes commit-time correction but does not remove tactical or opening advice from the request.
+[`configs/no-opening.yaml`](../configs/no-opening.yaml) disables only opening advice. It retains tactical prompts and the tactical guard. Disabling the guard removes commit-time correction but does not remove tactical or opening advice from the request.
 
 ## Retry and asynchronous state
 
@@ -209,7 +209,7 @@ Mode and **Move variety** changes apply immediately to an unplayed new game, inc
 
 ```sh
 uv run --locked imajev-game --debug-input
-uv run --locked imajev-game --config config.no-opening.yaml --debug-input
+uv run --locked imajev-game --config configs/no-opening.yaml --debug-input
 uv run --locked imajev-game --resume sessions/SESSION_ID/session.json --debug-input
 ```
 

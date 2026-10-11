@@ -292,7 +292,7 @@ def test_gui_game_switch_before_play_fixed_starter_and_coaching_isolation(qapp,t
 
 
 def test_config_profile():
-    config = load_config(Path('config.boku.yaml'))
+    config = load_config(Path('configs/boku.yaml'))
     assert config.game == 'boku' and config.threshold == .65
 
 

@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtWidgets import (QComboBox, QDoubleSpinBox, QFileDialog, QFrame, QHBoxLayout, QLabel, QLayout,
-                            QMainWindow, QMessageBox, QPushButton, QScrollArea, QTextEdit, QVBoxLayout, QWidget)
+                            QMainWindow, QMessageBox, QPushButton, QScrollArea, QTabWidget, QTextEdit, QVBoxLayout, QWidget)
 from app.core.registry import GAMES
 from app.ui.canvas import Canvas
 from app.core.contracts import Stroke
@@ -101,7 +101,7 @@ def format_game_explanation(game, config, mode, temperature, status):
         'decision retries after the initial failure forfeit the game.',
         guard,
         'The session records the model proposal, any sampled choice, any tactical correction, and the accepted action. '
-        'The exact question instructions and choices sent to the model appear under QUESTIONS ASKED below.',
+        'The Activity log tab shows the exact question instructions and choices sent to the model.',
     ))
 
 
@@ -159,16 +159,19 @@ class Window(QMainWindow):
         self.game_label = self.label('', 'eyebrow')
         side.addWidget(self.game_label)
         self.phase_label = self.label('Your turn', 'phase')
+        self.phase_label.setWordWrap(True)
         side.addWidget(self.phase_label)
         self.message = QLabel()
         self.message.setWordWrap(True)
         side.addWidget(self.message)
         self.players_label = self.label('', 'muted')
+        self.players_label.setWordWrap(True)
         side.addWidget(self.players_label)
         self.game_details = self.label('', 'muted')
         self.game_details.setWordWrap(True)
         side.addWidget(self.game_details)
         self.starter_label = self.label('', 'muted')
+        self.starter_label.setWordWrap(True)
         side.addWidget(self.starter_label)
         side.addStretch()
         side.addWidget(self.label('LAST ACCEPTED MOVE', 'eyebrow'))
@@ -179,17 +182,16 @@ class Window(QMainWindow):
         side.addWidget(self.prompt_heading)
         self.prompt_selector = QComboBox()
         self.prompt_game_id = controller.game.id
-        for key, label in controller.policy.prompt_choices:
-            if key == 'coached_quoted' and controller.config.recognition_settings.backend != 'imajev' and controller.config.coach_backend == 'shared':
-                continue
-            self.prompt_selector.addItem(label, key)
-        self.prompt_selector.setCurrentIndex(self.prompt_selector.findData(controller.config.prompt_variant))
+        self.populate_prompt_selector()
         self.prompt_selector.setAccessibleName('Move prompt')
         self.prompt_selector.setToolTip('Choose a prompt before your first move. After play begins, click New game to apply changes.')
         side.addWidget(self.prompt_selector)
         self.prompt_label = self.label('', 'muted')
         self.prompt_label.setWordWrap(True)
         side.addWidget(self.prompt_label)
+        self.prompt_availability = self.label('', 'muted')
+        self.prompt_availability.setWordWrap(True)
+        side.addWidget(self.prompt_availability)
         self.prompt_selector.currentIndexChanged.connect(self.configure_game)
         side.addWidget(self.label('MOVE VARIETY', 'eyebrow'))
         self.move_temperature = QDoubleSpinBox()
@@ -221,7 +223,7 @@ class Window(QMainWindow):
         self.retry_button = QPushButton('Retry')
         self.retry_button.clicked.connect(controller.retry)
         side.addWidget(self.retry_button)
-        self.diag_button = QPushButton('Diagnostics ▾')
+        self.diag_button = QPushButton('Details ▾')
         self.diag_button.setCheckable(True)
         self.diag_button.setChecked(True)
         self.diag_button.toggled.connect(self.toggle_diagnostics)
@@ -244,12 +246,19 @@ class Window(QMainWindow):
         self.input_hint = self.label('', 'muted')
         self.input_hint.setWordWrap(True)
         layout.addWidget(self.input_hint)
+        self.details_tabs = QTabWidget()
+        self.details_tabs.setAccessibleName('Game details')
+        self.details_tabs.setMinimumHeight(160)
+        self.details_tabs.setMaximumHeight(320)
+        self.explanation = QTextEdit()
+        self.explanation.setReadOnly(True)
+        self.explanation.setAccessibleName('How it works')
         self.diag = QTextEdit()
         self.diag.setReadOnly(True)
-        self.diag.setMinimumHeight(160)
-        self.diag.setMaximumHeight(320)
-        self.diag.setVisible(True)
-        layout.addWidget(self.diag)
+        self.diag.setAccessibleName('Activity log')
+        self.details_tabs.addTab(self.explanation, 'How it works')
+        self.details_tabs.addTab(self.diag, 'Activity log')
+        layout.addWidget(self.details_tabs)
         self._focus_explanation = True
         footer = QHBoxLayout()
         footer.addWidget(self.label('A little ink. A little strategy.   ·   Runs on your local model', 'muted'))
@@ -271,6 +280,21 @@ class Window(QMainWindow):
     def submit(self):
         self.canvas.finish_stroke()
         self.controller.submit()
+
+    def populate_prompt_selector(self):
+        c = self.controller
+        self.prompt_selector.clear()
+        self.unavailable_prompts = []
+        for key, label in c.policy.prompt_choices:
+            self.prompt_selector.addItem(label, key)
+            try:
+                c.config.validate_recognition_policy(key)
+            except ValueError as exc:
+                item = self.prompt_selector.model().item(self.prompt_selector.count() - 1)
+                item.setEnabled(False)
+                item.setToolTip(str(exc) + ' Set learning.model to an installed coach model.')
+                self.unavailable_prompts.append(f'{label} unavailable: configure an Ollama coach.')
+        self.prompt_selector.setCurrentIndex(self.prompt_selector.findData(c.config.prompt_variant))
 
     def configure_game(self):
         self.focus_explanation()
@@ -301,24 +325,30 @@ class Window(QMainWindow):
             self.controller.start()
 
     def toggle_diagnostics(self, checked):
-        self.diag.setVisible(checked)
-        self.diag_button.setText('Diagnostics ▾' if checked else 'Diagnostics ▸')
+        self.details_tabs.setVisible(checked)
+        self.diag_button.setText('Details ▾' if checked else 'Details ▸')
 
     def focus_explanation(self):
         self._focus_explanation = True
         self.diag_button.setChecked(True)
+        self.details_tabs.setCurrentWidget(self.explanation)
+
+    @staticmethod
+    def update_details_text(editor, content, reset_scroll=False):
+        scrollbar = editor.verticalScrollBar()
+        position = scrollbar.value()
+        if editor.toPlainText() != content:
+            editor.setPlainText(content)
+            scrollbar.setValue(0 if reset_scroll else min(position, scrollbar.maximum()))
+        elif reset_scroll:
+            scrollbar.setValue(0)
 
     def refresh(self):
         c = self.controller
         if self.prompt_game_id != c.game.id:
             self.prompt_selector.blockSignals(True)
             self.move_temperature.blockSignals(True)
-            self.prompt_selector.clear()
-            for key, label in c.policy.prompt_choices:
-                if key == 'coached_quoted' and c.config.recognition_settings.backend != 'imajev' and c.config.coach_backend == 'shared':
-                    continue
-                self.prompt_selector.addItem(label, key)
-            self.prompt_selector.setCurrentIndex(self.prompt_selector.findData(c.config.prompt_variant))
+            self.populate_prompt_selector()
             self.move_temperature.setValue(c.config.move_temperature)
             self.prompt_selector.blockSignals(False)
             self.move_temperature.blockSignals(False)
@@ -339,6 +369,8 @@ class Window(QMainWindow):
         self.prompt_label.setText(f'Playing: {current_prompt}. ' + (
             'Click New game to apply selection.' if pending else
             'Choose a mode before your first move.' if c.can_configure_game else 'Selection applies to new games.'))
+        self.prompt_availability.setText('\n'.join(self.unavailable_prompts))
+        self.prompt_availability.setVisible(bool(self.unavailable_prompts))
         supports_prompts = bool(c.policy.prompt_choices)
         self.prompt_selector.setEnabled(supports_prompts)
         for widget in (self.prompt_heading, self.prompt_selector, self.prompt_label):
@@ -412,15 +444,9 @@ class Window(QMainWindow):
                       if pending or pending_variety else 'ACTIVE')
         explanation = format_game_explanation(
             explained_game, c.config, explained_mode, explained_temperature, status)
-        content = (explanation + '\n\nLIVE DIAGNOSTICS\n' + summary +
-                   '\n\nQUESTIONS ASKED (NEWEST FIRST)\n' + format_question_history(c.events))
-        if self.diag.toPlainText() != content:
-            scrollbar = self.diag.verticalScrollBar()
-            position = scrollbar.value()
-            self.diag.setPlainText(content)
-            scrollbar.setValue(0 if self._focus_explanation else min(position, scrollbar.maximum()))
-        elif self._focus_explanation:
-            self.diag.verticalScrollBar().setValue(0)
+        activity = (summary + '\n\nQUESTIONS ASKED (NEWEST FIRST)\n' + format_question_history(c.events))
+        self.update_details_text(self.explanation, explanation, self._focus_explanation)
+        self.update_details_text(self.diag, activity)
         self._focus_explanation = False
 
     def export(self):

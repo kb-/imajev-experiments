@@ -15,3 +15,7 @@ opponent:
   generation_max_tokens: 512
   context_limit: 4096
   tactical_guard: true
+diagnostics:
+  directory: ../sessions
+learning:
+  directory: ../learning/coached-quoted

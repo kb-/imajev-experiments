@@ -14,7 +14,7 @@ Boku has the same three prompt choices and a Move variety selector. Its quoted a
 After the normal inference setup:
 
 ```bash
-uv run --locked --offline imajev-game --config config.coached-quoted.yaml
+uv run --locked --offline imajev-game --config configs/coached-quoted.yaml
 ```
 
 Alternatively select **Coached quoted** in the GUI before your first move; the selection applies immediately on an empty new game, even during warm-up. After play begins, click New game to apply a different mode. Resumed games retain their saved settings. Entering coached mode before play snapshots the current rule list and revision; changing variety alone preserves that snapshot. Normal startup launches the pinned Imajev child, checks readiness and warms up. Closing waits for active work and stops owned processes. Port conflicts are visible; an existing listener is never silently attached to or terminated.
@@ -35,7 +35,7 @@ learning:
 
 Ollama requires managed Imajev. The app reuses a daemon or launches its own `ollama serve`, never downloads models, and never unloads unrelated models. Loaded models that prevent exclusive GPU use are reported. Generation uses `stream: false`, `keep_alive: 0`, temperature zero, thinking disabled, 8,192 context tokens and 512 output tokens. Context packing uses a conservative 18,000-byte limit for the complete messages; oversized history is summarized rather than silently truncated.
 
-`config.coached-quoted.ollama.yaml` selects the locally tested `qwen3.6:latest` model. Use it only after that model is installed. The shared-base configuration remains `config.coached-quoted.yaml`.
+`configs/coached-quoted-ollama.yaml` selects the locally tested `qwen3.6:latest` model. Use it only after that model is installed. The shared-base configuration remains `configs/coached-quoted.yaml`.
 
 ## Updates and history
 
@@ -60,7 +60,7 @@ The panel displays the numbered strategy and revision. Inline Diagnostics displa
 Tic-tac-toe’s default local directory is `learning/coached-quoted/`, ignored by Git. Boku uses its isolated `boku/` subdirectory. It contains `strategy.json`, completed summaries under `games/`, resumable records under `sessions/` and coaching attempts under `attempts/`. Coached sessions are saved even when debug logging is off. Existing `learning/` free-text experiments and ordinary sessions are not imported.
 
 ```bash
-uv run --locked --offline imajev-game --config config.coached-quoted.yaml \
+uv run --locked --offline imajev-game --config configs/coached-quoted.yaml \
   --resume learning/coached-quoted/sessions/<game-id>/session.json
 ```
 

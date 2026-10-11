@@ -15,7 +15,8 @@ from app.inference.service_manager import ServiceManager
 def main():
     parser = argparse.ArgumentParser(description='Draw a move and play against your local Imajev model.')
     parser.add_argument('--external-inference', action='store_true', help='Use a separately managed service; Ollama coaching needs managed inference')
-    parser.add_argument('--config', type=Path, default=Path('config.yaml'))
+    parser.add_argument('--config', type=Path, default=Path('configs/default.yaml'),
+                        help='YAML profile (default: configs/default.yaml; see configs/README.md)')
     parser.add_argument('--resume', type=Path, help='Continue from a saved session JSON record')
     parser.add_argument('--debug-input', action='store_true', help='Log mouse press/move/release and stroke decisions locally')
     parser.add_argument('--log-file', type=Path, help='Write rotating diagnostics to this file')

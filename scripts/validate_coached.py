@@ -24,7 +24,7 @@ from scripts.evaluate import oracle
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--config',type=Path,default=Path('config.coached-quoted.yaml'))
+    parser.add_argument('--config',type=Path,default=Path('configs/coached-quoted.yaml'))
     parser.add_argument('--output',type=Path,default=Path('logs')/('coached-quoted-live-'+datetime.now(timezone.utc).strftime('%Y%m%d-%H%M%S')))
     args=parser.parse_args()
     args.output.mkdir(parents=True,exist_ok=False)

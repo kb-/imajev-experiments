@@ -20,7 +20,7 @@ from app.inference.opponents import role_metadata
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('session', type=Path, help='Exported JSON or sessions/<id>/session.json')
-    parser.add_argument('--config', type=Path, default=Path('config.yaml'))
+    parser.add_argument('--config', type=Path, default=Path('configs/default.yaml'))
     parser.add_argument('--request-id', help='Default: last recognition request')
     parser.add_argument('--original-prompt', action='store_true')
     parser.add_argument('--output', type=Path)

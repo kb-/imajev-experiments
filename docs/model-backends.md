@@ -84,6 +84,7 @@ The report at `logs/liquid-recognition-validation.json` records exact requests, 
 | Liquid d1 3B / d1-omni 600M | Current llama.cpp `/v1/systemone` | Text by default; optional installed vision projector |
 | Kev 4B / lev 4B | Current llama.cpp | Conservative 52-option profiles |
 | Laya / Julia-1 | Current llama.cpp | NVIDIA GGUF runtime; no MLX dependency |
+| Decision 3.0 d3-mini Q8 | Official llama.cpp b11606, isolated prebuilt CUDA bundle | Text and optional shared vision; GPU integration verified; [strategic limitations](evaluation/decision3-mini-q8.md) |
 | Decision 2.0 Nox 4B Q8 | Decision 2.0 llama.cpp branch | GPU integration verified; **unsuited for unassisted strategic play in the tested setup** ([evaluation](evaluation/decision2-nox-q8.md)) |
 | Decision 2.0 Nox 4B Q4 / Sol 2B | Decision 2.0 llama.cpp branch | Use its trained decision-head runtime; playing strength unassessed here |
 | Mapika Decider 4B | Local `decider-ai` GGUF bridge | Publisher prompt builder and scoring, not chat generation |
@@ -101,6 +102,12 @@ ollama pull nimble:9b-q4_K_M
 Install the pinned official llama.cpp binary bundle with `scripts/install_llama_cpp.sh`. It downloads the prebuilt Ubuntu x64 CUDA 13.4 bundle by default, so no local compiler or CUDA toolkit is needed; use `--backend cpu` for the CPU bundle. The script records the release and backend in `runtimes/llama_cpp/manifest.json`. The profiles point to its installed `llama-server`. Then place the chosen GGUF under `models/<profile>/model.gguf`, or edit the profile. Managed launch uses local paths and `--offline`; it never uses automatic `-hf` downloads. Vision models need their matching local projector. Decision 2.0 profiles expect `runtimes/decision2/llama-server`, built from the [publisher's runtime branch](https://github.com/Xunzhuo/llama.cpp/tree/decision2-gguf), with embeddings and pooling flags specified in the profile.
 
 For Mapika, create the separate environment in `runtimes/decider` using its pyproject (`decider-ai[gguf]==1.9.0`). Install a CUDA-enabled `llama-cpp-python` build there following the publisher's GGUF instructions. Keep the GGUF, `tokenizer.json`, `tokenizer_config.json` and `decider_config.json` together locally. The service runs through that environment's Python with `-m app.inference.decider_service` from the repository root. It hashes those assets, reports runtime versions, rejects oversized complete prompts and serializes GPU requests. The pinned publisher prompt-builder boundary is covered by a bridge contract test; install-time integration with actual weights remains necessary.
+
+### Decision 3.0 replacement for Nox
+
+Use `configs/decision3-mini-4b-q8.yaml` for Liquid recognition with a Decision3 opponent, or `configs/decision3-mini-4b-shared.yaml` for experimental recognition and text decisions on one resident Decision3 model. `uv run python scripts/install_decision3.py` installs pinned Q8 weights, projector and official prebuilt CUDA runtime into separate model/runtime directories; it needs no CUDA compiler or system package changes. Follow [Decision3 installation, GPU checks, recognition controls and benchmark replay](decision3.md).
+
+GPU integration passed, including a Boku request with all 79 legal choices and shared vision/text reuse. Recognition passed 14/15 synthetic controls at threshold 0.8, with a valid Boku A1 circle rejected and no false acceptance in the invalid controls. The full-context strategy benchmark improved over Nox but still produced 11 losses in 12 games against minimax: Decision3 Q8 remains [unsuited for unassisted strategy in the tested setup](evaluation/decision3-mini-q8.md). Existing Decision2 files and evaluation evidence remain historical baselines.
 
 ### Decision 2.0 Nox Q8 on NVIDIA / WSL2
 

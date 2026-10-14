@@ -55,6 +55,8 @@ The GUI shows **Warming up** while the service loads and its first image request
 
 Normal launches write rotating application logs to `logs/app.log`; `--debug-input` uses `logs/input-debug.log` with detailed mouse traces, and `--log-file` overrides the path. Shutdown logs identify the app PID, pending request, GPU-lock acquisition, owned process termination and final exit. While the window is hidden for cleanup, a warning every 30 seconds reports what is still pending. These logs help diagnose a process that outlives its window; the warning does not cancel an active request.
 
+All launches also write a separate `app-lifecycle.log` beside the application log, retaining INFO/error events and exception tracebacks without mouse-move noise. Per-process `app-run-<PID>.json`, `app-crash-<PID>.log`, and Linux `app-watchdog-<PID>.log` preserve the last session/request, fatal crash stacks, termination signals, and independent evidence of a frozen or vanished GUI. See [crash and hang diagnostics](docs/diagnostics.md). These hooks apply on the next launch.
+
 After cleanup finishes, the window explicitly quits the GUI event loop. This avoids leaving a hidden app process alive when Qt does not emit its automatic last-window-closed notification.
 
 An existing listener on port 8765 is reported without attachment or termination. To keep a separately managed service, run `bash scripts/launch_inference.sh` in one terminal and `uv run --locked imajev-game --external-inference` in another. Closing an external-mode GUI leaves that service running. Native Windows GUIs connecting to a WSL service must use external mode. Ollama coaching requires managed inference.
@@ -192,6 +194,8 @@ The app validates and loads the saved board and strokes into a new session, pres
 To test the model without an opening suggestion, run `uv run --locked imajev-game --config configs/no-opening.yaml --debug-input`. This removes the suggested opening from the first O request and retries while keeping the tactical guard on. The window title marks this mode, and saved session records include `opening_suggestion: false`.
 
 Independent opponent backends and editable model profiles are now available while keeping the existing names and ImaJEV defaults. See [model backend configuration and comparisons](docs/model-backends.md).
+
+Decision3 d3-mini Q8 is available as a replacement for the Decision2 opponent. Install with `uv run python scripts/install_decision3.py`, verify with `uv run python scripts/install_decision3.py --verify`, and launch with `uv run imajev-game --config configs/decision3-mini-4b-q8.yaml --debug-input`. It uses an isolated prebuilt CUDA runtime and preserves Liquid recognition. A shared Decision3 vision/text profile is also available. See [setup and validation](docs/decision3.md). On the same complete-context benchmark, Decision3 improved to 76/102 optimal canonical choices but still lost 11/12 games against minimax; it remains [unsuited for unassisted strategy in this setup](docs/evaluation/decision3-mini-q8.md).
 
 To use Liquid d1 for both drawing recognition and opponent moves, run `uv run python -m scripts.install_liquid_d1`, then `uv run imajev-game --config configs/liquid-d1-3b-shared.yaml --debug-input`. Both roles share one resident GPU model and projector. See [native recognition and model configuration](docs/model-backends.md#native-vision-recognition) for setup, score thresholds and validation.
 

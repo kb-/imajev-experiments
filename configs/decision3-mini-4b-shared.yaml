@@ -1,0 +1,36 @@
+# Experimental: one Decision3 GPU runtime serves recognition and opponent.
+# Recognition threshold is provisional; run installer --verify before use.
+# UNSUITED for unassisted strategy in the tested setup; see ../docs/evaluation/decision3-mini-q8.md.
+game:
+  default: tic_tac_toe
+recognition: &decision3
+  backend: llama_cpp
+  model: decision3-mini-4b-q8
+  protocol: systemone
+  input_mode: text_image
+  endpoint: http://127.0.0.1:8080/v1/systemone
+  executable: ../runtimes/decision3/install/llama-server
+  model_path: ../models/decision3-mini-4b/vllm-d3-mini-Q8_0.gguf
+  projector_path: ../models/decision3-mini-4b/mmproj-vllm-d3-mini-Q8_0.gguf
+  context_limit: 8192
+  max_choices: 255
+  min_choice_probability: 0.8
+  runtime_args: ["-ngl", "99", "-b", "8192", "-ub", "8192"]
+recognition_fallback:
+  backend: imajev
+  model: imajev-4b-nf4
+  min_effective_probability: 0.65
+  after_rejections: 3
+opponent:
+  <<: *decision3
+  input_mode: text
+  prompt_variant: quoted
+  move_temperature: 0
+  tactical_guard: false
+diagnostics:
+  directory: ../sessions
+learning:
+  coach_backend: ollama
+  model: qwen3.6:latest
+  ollama_url: http://127.0.0.1:11434
+  directory: ../learning/coached-quoted

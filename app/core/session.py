@@ -720,6 +720,7 @@ class SessionController(QObject):
     def _shutdown_completed(self, ticket, reply, error, seconds):
         self.busy, self.inflight, self.job = False, None, None
         self.shutdown_done = True
+        self.shutdown_error = error
         logger.info('Service cleanup finished seconds=%.2f error=%s', seconds, error)
         if error:
             logger.error('Service shutdown: %s', error)

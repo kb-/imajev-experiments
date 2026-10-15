@@ -1,5 +1,8 @@
 import time
+import logging
 from PyQt6.QtCore import QObject, QRunnable, pyqtSignal
+
+logger = logging.getLogger(__name__)
 
 
 class JobSignals(QObject):
@@ -20,6 +23,7 @@ class Job(QRunnable):
         try:
             reply = self.operation()
         except Exception as exc:
+            logger.exception('Background operation failed ticket=%s', self.ticket)
             error = str(exc) or type(exc).__name__
             self.error_raw = getattr(exc, 'raw', None)
         self.signals.completed.emit(self.ticket, reply, error, time.monotonic() - start)

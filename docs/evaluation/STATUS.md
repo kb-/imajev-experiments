@@ -1,5 +1,9 @@
 # Acceptance status
 
+## Decision3 d3-mini Q8: GPU verified, strategy still unsuitable
+
+The [14 October 2026 comparison](decision3-mini-q8.md) reused the complete-context Decision2 positions and game protocol. Decision3 improved from 63/102 to 76/102 optimal canonical choices, but again lost 11/12 games against minimax. It remains **unsuited for unassisted strategic play in the tested setup**. The separate [GPU/recognition validation](../decision3.md) passed integration and runtime reuse, with 14/15 synthetic recognition controls correct and no false acceptance among the invalid controls. Other Decision3 sizes and Boku playing strength are unassessed here.
+
 ## Decision2 Nox Q8: unsuited for unassisted strategic play
 
 The [12 October 2026 full-context evaluation](decision2-nox-q8.md) found only 63/102 optimal canonical-order choices and 11 losses in 12 Tic-tac-toe games against minimax. The model received complete symbol definitions, game rules, general tactics, board, history, and legal actions, without position-specific hints or corrections. Flag Nox Q8 as **unsuited for unassisted strategic play in the tested setup**. GPU integration passed; strategic suitability failed. This finding does not assess other Decision2 variants or establish Boku performance.

@@ -236,4 +236,5 @@ def test_slow_existing_ollama_does_not_launch_duplicate_daemon(monkeypatch):
     transport=SimpleNamespace(get=lambda *_,**__: (_ for _ in ()).throw(httpx.ReadTimeout('slow Windows relay')))
     manager=ServiceManager(replace(Config(),coach_backend='ollama',coach_model='coach'))
     monkeypatch.setattr('app.inference.service_manager.subprocess.Popen',lambda *_,**__:pytest.fail('Duplicate daemon launched after a read timeout'))
-    with pytest.raises(httpx.ReadTimeout):manager._ensure_ollama(transport)
+    with pytest.raises(RuntimeError, match='Ollama connection check failed.*ReadTimeout'):
+        manager._ensure_ollama(transport)

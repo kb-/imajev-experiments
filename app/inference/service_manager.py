@@ -18,6 +18,17 @@ from app.inference.cuda_environment import inference_environment
 logger = logging.getLogger(__name__)
 
 
+def ollama_connection_detail(exc):
+    detail = f'{type(exc).__name__}: {exc}'
+    if isinstance(exc, httpx.HTTPStatusError):
+        try:
+            body = exc.response.json().get('error')
+        except (ValueError, AttributeError):
+            body = None
+        detail += ' · ' + str(body or exc.response.text).strip()[:4096]
+    return detail
+
+
 def managed_environment(**overrides):
     environment = inference_environment(dict(os.environ, **overrides))
     environment.setdefault('PYTHONFAULTHANDLER', '1')
@@ -52,6 +63,8 @@ class ServiceManager:
         self.config = config
         self.gpu_lock = threading.RLock()
         self.process = self.ollama_process = None
+        self.ollama_log = None
+        self.ollama_is_relay = False
         self.log = None
         self.swap_pending = False
         self.selected_model = config.coach_model
@@ -88,11 +101,16 @@ class ServiceManager:
                     parts = urlsplit(original.opponent_settings.endpoint)
                     self.config = replace(original, ollama_url=urlunsplit((parts.scheme, parts.netloc, '', '', '')))
                 try:
-                    self._ensure_ollama(transport)
-                    response = transport.get(self.config.ollama_url.rstrip('/') + '/api/ps')
+                    try:
+                        self._ensure_ollama(transport)
+                        response = transport.get(self.config.ollama_url.rstrip('/') + '/api/ps')
+                        response.raise_for_status()
+                    except (httpx.HTTPError, RuntimeError) as exc:
+                        raise RuntimeError('ImaJEV recognition startup blocked by the Ollama GPU-memory '
+                                           f'check at {self.config.ollama_url}: {exc}. '
+                                           'ImaJEV has not received the drawing; GPU release must be confirmed.') from exc
                 finally:
                     self.config = original
-                response.raise_for_status()
                 loaded = [m['name'] for m in response.json()['models']]
                 if loaded:
                     raise RuntimeError('Unload Ollama models before starting Imajev: ' + ', '.join(loaded))
@@ -138,6 +156,9 @@ class ServiceManager:
             if self.ollama_process is not None:
                 terminate_process_group(self.ollama_process, 'owned Ollama', timeout=10)
                 self.ollama_process = None
+            if self.ollama_log:
+                self.ollama_log.close()
+                self.ollama_log = None
         logger.info('Runtime cleanup complete')
 
     @exclusive
@@ -414,27 +435,66 @@ class ServiceManager:
         try:
             client.get(url + '/api/ps', timeout=10).raise_for_status()
             return
-        except httpx.ConnectError:
-            pass
-        if self.ollama_process is not None and self.ollama_process.poll() is None:
-            raise RuntimeError('The owned Ollama daemon or Windows relay is unavailable.')
+        except httpx.HTTPError as exc:
+            restartable = isinstance(exc, (httpx.ConnectError, httpx.RemoteProtocolError))
+            if self.ollama_process is not None and self.ollama_is_relay and restartable:
+                logger.warning('Restarting unresponsive owned Windows Ollama relay pid=%s endpoint=%s cause=%s',
+                               self.ollama_process.pid, url, exc)
+                terminate_process_group(self.ollama_process, 'owned Ollama relay', timeout=10)
+                self.ollama_process = None
+                if self.ollama_log:
+                    self.ollama_log.close()
+                    self.ollama_log = None
+            elif not isinstance(exc, httpx.ConnectError):
+                raise RuntimeError(f'Ollama connection check failed at {url}/api/ps: '
+                                   f'{ollama_connection_detail(exc)}. '
+                                   'An existing endpoint was not replaced; check logs/managed-ollama.log '
+                                   'and logs/windows-ollama-bridge.log.') from exc
+            if self.ollama_process is not None and self.ollama_process.poll() is None:
+                raise RuntimeError(f'The owned Ollama daemon at {url} is unavailable; '
+                                   'see logs/managed-ollama.log.') from exc
+            if self.ollama_process is not None:
+                terminate_process_group(self.ollama_process, 'owned Ollama', timeout=10)
+                self.ollama_process = None
+                if self.ollama_log:
+                    self.ollama_log.close()
+                    self.ollama_log = None
         executable = shutil.which('ollama')
         if executable:
             command = [executable, 'serve']
+            self.ollama_is_relay = False
         elif Path('/mnt/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe').exists():
             command = [sys.executable, '-m', 'app.inference.windows_ollama_bridge', '--url', url]
+            self.ollama_is_relay = True
         else:
             raise RuntimeError('Install Ollama and the configured model explicitly before coaching.')
-        self.ollama_process = subprocess.Popen(command, cwd=Path(__file__).resolve().parents[2],
-            env=managed_environment(OLLAMA_HOST=urlsplit(url).netloc), start_new_session=True)
+        root = Path(__file__).resolve().parents[2]
+        (root / 'logs').mkdir(exist_ok=True)
+        self.ollama_log = open(root / 'logs' / 'managed-ollama.log', 'a')
+        try:
+            self.ollama_process = subprocess.Popen(command, cwd=root, stdin=subprocess.DEVNULL,
+                stdout=self.ollama_log, stderr=subprocess.STDOUT,
+                env=managed_environment(OLLAMA_HOST=urlsplit(url).netloc), start_new_session=True)
+        except BaseException:
+            self.ollama_log.close()
+            self.ollama_log = None
+            raise
+        logger.info('Started owned Ollama %s pid=%s endpoint=%s',
+                    'relay' if self.ollama_is_relay else 'daemon', self.ollama_process.pid, url)
         deadline = time.monotonic() + 20
         while True:
             try:
                 client.get(url + '/api/ps', timeout=10).raise_for_status()
                 return
-            except httpx.RequestError:
+            except httpx.HTTPError as exc:
                 if self.ollama_process.poll() is not None or time.monotonic() >= deadline:
-                    raise RuntimeError('Ollama daemon or Windows relay did not become ready.')
+                    terminate_process_group(self.ollama_process, 'failed Ollama startup', timeout=10)
+                    self.ollama_process = None
+                    self.ollama_log.close()
+                    self.ollama_log = None
+                    raise RuntimeError(f'Ollama daemon or Windows relay did not become ready at {url}: '
+                                       f'{ollama_connection_detail(exc)}. See logs/managed-ollama.log '
+                                       'and logs/windows-ollama-bridge.log.') from exc
                 time.sleep(.25)
 
     def _unload(self, client):

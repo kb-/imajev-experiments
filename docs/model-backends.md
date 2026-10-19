@@ -40,7 +40,7 @@ uv run python -m scripts.install_liquid_d1
 uv run imajev-game --config configs/liquid-d1-3b-shared.yaml --debug-input
 ```
 
-The installer downloads only the pinned publisher Q8 projector, verifies its SHA-256, and leaves existing `models/liquid-d1-3b/model.gguf` weights intact. The existing CUDA llama.cpp installation serves both roles with GPU offloading; no additional Python inference package or local compilation is required. Gameplay uses local assets and never downloads them.
+By default, the installer downloads only the pinned publisher Q8 projector, verifies its SHA-256, and leaves existing `models/liquid-d1-3b/model.gguf` weights intact. Add `--with-model` to also download and verify the pinned Q8 weights as `model.gguf`. Use `python3 scripts/models.py install` to prepare ImaJEV, Liquid (including its llama.cpp runtime) and Decision3 together; see [cleanup and reinstall commands](../README.md#reclaim-model-space-and-reinstall). The existing CUDA llama.cpp installation serves both roles with GPU offloading; no additional Python inference package or local compilation is required. Gameplay uses local assets and never downloads them.
 
 `recognition` accepts the native runtime fields supported by `opponent`, with `input_mode: text_image`. Set `recognition.min_choice_probability` for native recognition (default 0.85). ImaJEV continues to use `recognition.min_effective_probability` (default 0.85), including its unknown-probability adjustment. The threshold keys are not interchangeable. Native confidence is reported separately and never substitutes for a missing probability distribution. Missing abstention/unknown fields remain null. Model probabilities are not a measured drawing-accuracy guarantee.
 

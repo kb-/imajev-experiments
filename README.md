@@ -31,6 +31,20 @@ bash scripts/setup_inference.sh
 
 The second command installs the separate inference environment, including bitsandbytes, downloads the pinned 4B model and Imajev adapter, and records the asset manifest. Allow several GB of disk space and let setup finish before launching. Downloads happen during this setup, not during gameplay. If you use a native Windows GUI, run `uv sync --locked` in that Windows checkout and run the inference setup in the WSL checkout.
 
+### Reclaim model space and reinstall
+
+Close the app and any separately launched inference services. From the repository root:
+
+```sh
+python3 scripts/models.py clean        # Preview local model storage
+python3 scripts/models.py clean --yes  # Delete all local model weights
+python3 scripts/models.py install      # Restore ImaJEV, Liquid d1 and Decision3 (online)
+```
+
+Cleanup removes `models/`, the checkout's Hugging Face cache, ImaJEV adapters and their bundle/hash manifests, including older experimental weights. It keeps saved games, learned rules, source code, runtime binaries and Python environments. External Hugging Face caches and Ollama models are separate and are not removed; reported storage covers only the listed local paths. Close model processes first so they can release open files. On WSL2 this frees Linux filesystem space; the Windows virtual disk may need separate compaction to shrink.
+
+Install prepares the pinned ImaJEV 4B NF4 model/adapter, Liquid d1 3B Q8 weights/projector with llama.cpp, and Decision3 Mini 4B Q8 weights/projector with its separate runtime. It uses the existing setup scripts and checksum checks, requires Linux/WSL2 x86_64 and the CUDA prerequisites described above, and can be rerun after an interrupted download. The older Decision2 Nox model is not restored. Use `python3 scripts/models.py install --default-only` to install only the default ImaJEV profile. Installation does not run GPU validation or establish model playing strength.
+
 ### Every time you play
 
 **Start the app:**
